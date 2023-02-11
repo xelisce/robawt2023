@@ -17,17 +17,20 @@ class Motor
             readEncA(),
             readEncB();
         int getEncAPin(),
-            getEncBPin();
+            getEncBPin(),
+            getEncVal();
+        double getSpeed();
 
     private:
-        int pwmPin1,
-            pwmPin2,
-            encPinA,
-            encPinB;
-        double timeInterval,
-            rotInterval = 0.090909, //1/11 of a rotation for 
-            end,
-            realrpm;
+        int _pwmPin1,
+            _pwmPin2,
+            _encPinA,
+            _encPinB,
+            _encVal;
+        double _timeInterval,
+            _rotInterval = 0.090909, //1/11 of a rotation for 
+            _end,
+            _realrpm;
 };
 
 class Vroom
@@ -37,7 +40,7 @@ class Vroom
         void setSteer(double speed, double rotation); //when speed is negative, robot heading switches
 
     private:
-        Motor *left, *right;
+        Motor *_left, *_right;
 };
 
 #endif
