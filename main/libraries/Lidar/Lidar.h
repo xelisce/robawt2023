@@ -13,7 +13,7 @@
 #define LIDAR_H
 
 //? kinda useless class
-class MUX //this assumes that the address is 0x70
+class MUX
 {
     public:
         MUX(int sdaPin, int sclPin);
@@ -22,11 +22,23 @@ class MUX //this assumes that the address is 0x70
 class L1X 
 {
     public:
-        L1X(int pin, int timePeriod=50);
+        L1X(int pin, int timePeriod=50, int timeOut=500);
         int readVal();
     
     private:
-        VL53L1X _sensor;
+        VL53L1X sensor;
+        int _pin,
+            _value;
+};
+
+class L0X
+{
+    public:
+        L0X(int pin, int timePeriod = 50, int timeOut=500);
+        int readVal();
+
+    private:
+        VL53L0X sensor;
         int _pin,
             _value;
 };

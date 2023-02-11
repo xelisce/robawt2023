@@ -20,6 +20,7 @@ void ISRRB() {MotorR.readEncB();}
 MUX LidarMux(20, 21);
 L1X LidarFR(4);
 L1X LidarFL(5);
+L0X LidarClaw(6);
 
 #define TX1 8
 #define RX1 9

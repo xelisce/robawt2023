@@ -10,6 +10,7 @@
 #include <Wire.h>
 #include "Lidar.h"
 
+#define TCAADDR 0x70
 
 MUX::MUX(int sdaPin, int sclPin)
 {
@@ -22,27 +23,49 @@ MUX::MUX(int sdaPin, int sclPin)
 void tcaselect(uint8_t i)
 {
     if (i > 7 || i < 0) return;
-    Wire.beginTransmission(0x70);
+    Wire.beginTransmission(TCAADDR);
     Wire.write(1 << i);
     Wire.endTransmission();
 }
 
-L1X::L1X(int pin, int timePeriod)
+
+L1X::L1X(int pin, int timePeriod, int timeOut)
 {
     _pin = pin;
-    _sensor.setTimeout(500);
-    _sensor.init(); //! did not handle the tripping of error in initialization
-    _sensor.setDistanceMode(VL53L1X::Medium);
-    _sensor.setMeasurementTimingBudget(50000);
-    _sensor.startContinuous(timePeriod);
+    tcaselect(pin);
+    sensor.setTimeout(timeOut);
+    sensor.init(); //! did not handle the tripping of error in initialization
+    sensor.setDistanceMode(VL53L1X::Medium);
+    sensor.setMeasurementTimingBudget(50000);
+    sensor.startContinuous(timePeriod);
 }
 
 int L1X::readVal()
 {
     tcaselect(_pin);
-    _value = _sensor.read();
-    if (_sensor.timeoutOccurred())
-        return _value;
-    else
+    _value = sensor.read();
+    if (sensor.timeoutOccurred())
         return -1;
+    else
+        return _value;
+}
+
+
+L0X::L0X(int pin, int timePeriod, int timeOut)
+{
+    _pin = pin;
+    tcaselect(pin);
+    sensor.setTimeout(timeOut);
+    sensor.init(); //! also didn't handle here
+    sensor.startContinuous(timePeriod);
+}
+
+int L0X::readVal()
+{
+    tcaselect(_pin);
+    _value = sensor.readRangeContinuousMillimeters();
+    if (sensor.timeoutOccurred())
+        return -1;
+    else
+        return _value;
 }
