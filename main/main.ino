@@ -82,14 +82,6 @@ void loop() {
 
   // serialEvent();
 
-  // if (counter != temp)
-  // {
-  //   Serial.println(counter);
-  //   temp = counter;
-  // }
-
-
-
   if (digitalRead(SWTPIN)) 
   {
     // switch (caseSwitch)
