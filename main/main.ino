@@ -4,11 +4,9 @@
 // Main script on robot
 // --------------------------------------
 
-#include <Wire.h>
-#include <VL53L1X.h>
-#include <Vroom.h>
-
-VL53L1X sensor;
+#include <Arduino.h>
+#include "Vroom.h"
+#include "Lidar.h"
 
 Motor MotorL(13, 12, 19, 18); //M2 swapped
 Motor MotorR(10, 11, 16, 17); //M1
@@ -19,18 +17,16 @@ void ISRLB() {MotorL.readEncB();}
 void ISRRA() {MotorR.readEncA();}
 void ISRRB() {MotorR.readEncB();}
 
-#define WIRE Wire
-#define TCAADDR 0x70
+MUX LidarMux(20, 21);
+L1X LidarFR(4);
+L1X LidarFL(5);
 
 #define TX1 8
 #define RX1 9
 #define SWTPIN 14
-#define SDA0PIN 20
-#define SCL0PIN 21
 
 int rotation = 0;
 int caseSwitch = 0;
-volatile long temp, counter = 0;
 long prevSwitchMil;
 
 void serialEvent() 
@@ -40,17 +36,7 @@ void serialEvent()
   }
 }
 
-
-
-// 10=0, 11=+, Right motor backwards
-// 12=0, 13=+, left forwards
 void setup() {
-  /* MULTIPLEXER I2C */
-  // Wire.setSCL(SCL0PIN);
-  // Wire.setSDA(SDA0PIN);
-  // Wire.begin();
-  // Wire.setClock(400000);
-
   /* USB SERIAL COMMS */
   // Serial.begin(9600);
   // while (!Serial)
@@ -78,9 +64,8 @@ void setup() {
 
 void loop() {
 
-  // read_sensor(4);
-
   // serialEvent();
+  Serial.println(LidarFL.readVal());
 
   if (digitalRead(SWTPIN)) 
   {
@@ -150,36 +135,3 @@ void loop() {
 
 
 }
-
-
-
-
-
-void tcaselect(uint8_t i) {
-  if (i > 7) return;
-  Wire.beginTransmission(TCAADDR);
-  Wire.write(1 << i);
-  Wire.endTransmission();  
-}
-
-void init_sensor(int i) {
-  tcaselect(i);
-  sensor.setTimeout(500);
-  if (!sensor.init())
-  {
-    Serial.println("Failed to detect and initialize sensor!");
-    while (1);
-  }
-  sensor.setDistanceMode(VL53L1X::Medium);
-  sensor.setMeasurementTimingBudget(50000);
-  sensor.startContinuous(50);
-}
-
-void read_sensor(int i) {
-  tcaselect(i);
-  Serial.print(sensor.read());
-  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-}
-
-
-
