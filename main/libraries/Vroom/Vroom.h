@@ -1,7 +1,8 @@
 /* 
-vroom.cpp
-contains drivebase for robot
-created 09/02/2023
+* vroom.h
+* contains drivebase for robot
+* created 09/02/2023
+* includes classes Motor and Vroom (for driving both motors)
 */
 #include <Arduino.h>
 #include "PID.h"
@@ -13,24 +14,22 @@ class Motor
 {
     public:
         Motor(int pin1, int pin2, int encPinA, int encPinB);
-        void setSpeed(double speed), //change to calculate rpm after encoders set up
-            readEncA(),
-            readEncB();
-        int getEncAPin(),
-            getEncBPin(),
+        double setSpeed(double speed), getSpeed(),
+            readEncA(), readEncB();
+        int getEncAPin(), getEncBPin(),
             getEncVal();
-        double getSpeed();
 
     private:
-        int _pwmPin1,
-            _pwmPin2,
-            _encPinA,
-            _encPinB,
+        int _pwmPin1, _pwmPin2,
+            _encPinA, _encPinB,
             _encVal;
-        double _timeInterval,
-            _rotInterval = 0.090909, //1/11 of a rotation for 
-            _end,
-            _realrpm;
+        double _timeInterval, _rotInterval = 0.090909, //! check if rotInterval is 1/11 & if on change or rising
+            _begin, _end,
+            _realRpm, _neededRpm, _wantedRpm,
+            _kp = 0, //! values to be tuned
+            _ki = 22,
+            _kd = 0;
+        PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };
 
 class Vroom

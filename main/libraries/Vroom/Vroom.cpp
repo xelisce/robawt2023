@@ -1,7 +1,7 @@
 /* 
-vroom.cpp
-contains drivebase for robot
-created 09/02/2023
+* vroom.cpp
+* contains drivebase for robot
+* created 09/02/2023
 */
 #include <Arduino.h>
 #include "Vroom.h"
@@ -17,40 +17,46 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     _pwmPin2 = pin2;
     this->_encPinA = encPinA;
     this->_encPinB = encPinB;
-    _end = millis();
+    _motorPID.SetMode(AUTOMATIC);
 }
 
-void Motor::setSpeed(double speed) 
+double Motor::setSpeed(double speed) //speed entered should be 0-1
 {
+    noInterrupts();
+    _realRpm = this->getSpeed();
+    interrupts();
+    _wantedRpm = fabs(speed)*255;
+    _motorPID.Compute();
     if (speed > 0) {
         analogWrite(_pwmPin1, 0);
-        analogWrite(_pwmPin2, fabs(speed)*255);
+        analogWrite(_pwmPin2, (int)(_neededRpm));
     } else {
-        analogWrite(_pwmPin1, fabs(speed)*255);
+        analogWrite(_pwmPin1, (int)(_neededRpm));
         analogWrite(_pwmPin2, 0);
     }
+    return _realRpm;
 }
 
 double Motor::getSpeed() 
 {
-    _timeInterval = millis() - _end;
-    if (_rotInterval < 500000) {
-        _realrpm =  _rotInterval / _timeInterval;
-    } else {
-        _realrpm = 0;
-    }
-    _end = millis();
-    return _realrpm;
+    _timeInterval = micros() - _end;
+    if (_timeInterval < 500000)
+        _realRpm =  (_timeInterval==0) ? _rotInterval/_timeInterval : 1; //1 has no significance, calibrate later
+    else
+        _realRpm = 0;
+    return _realRpm;
 }
 
 void Motor::readEncA() 
 {
+    _begin = _end;
     if(digitalRead(_encPinB)) _encVal --;
     else _encVal ++;
 }
 
 void Motor::readEncB() 
 {
+    _begin = _end;
     if (digitalRead(_encPinA)) _encVal ++;
     else _encVal --;
 }
