@@ -5,7 +5,7 @@
 */
 #include <Arduino.h>
 #include "Vroom.h"
-#include "PID.h"
+#include <PIDController.h>
 
 Motor::Motor(int pin1, int pin2, int encPinA, int encPinB) 
 {
@@ -17,46 +17,33 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     _pwmPin2 = pin2;
     this->_encPinA = encPinA;
     this->_encPinB = encPinB;
-    _motorPID.SetMode(AUTOMATIC);
+    _motorPID.begin();
+    _motorPID.tune(_kp, _ki, _kd);
+    _motorPID.limit(-255, 255);
 }
 
 double Motor::setSpeed(double speed) //speed entered should be 0-1
 {
-    noInterrupts();
-    _realRpm = this->getSpeed();
-    interrupts();
     _wantedRpm = fabs(speed)*255;
-    _motorPID.Compute();
-    if (speed > 0) {
+    _neededRpm = _motorPID.compute(_encVal);
+    if (_neededRpm > 0) {
         analogWrite(_pwmPin1, 0);
         analogWrite(_pwmPin2, (int)(_neededRpm));
     } else {
         analogWrite(_pwmPin1, (int)(_neededRpm));
         analogWrite(_pwmPin2, 0);
     }
-    return _realRpm;
-}
-
-double Motor::getSpeed() 
-{
-    _timeInterval = micros() - _end;
-    if (_timeInterval < 500000)
-        _realRpm =  (_timeInterval==0) ? _rotInterval/_timeInterval : 1; //1 has no significance, calibrate later
-    else
-        _realRpm = 0;
-    return _realRpm;
+    return _neededRpm;
 }
 
 void Motor::readEncA() 
 {
-    _begin = _end;
     if(digitalRead(_encPinB)) _encVal --;
     else _encVal ++;
 }
 
 void Motor::readEncB() 
 {
-    _begin = _end;
     if (digitalRead(_encPinA)) _encVal ++;
     else _encVal --;
 }
