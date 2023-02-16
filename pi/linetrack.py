@@ -28,11 +28,11 @@ u_black = 90
 
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width for i in np.linspace(1., 1/height, height)]) #1/height is just to save pixels
-x_scaling_factor = ((1-y_com) ** 0.1)
+x_scaling_factor = ((1-y_com) ** 0.5)
 
 #* BOT CONFIGURATIONS
 speed = 0.5
-
+kp = 1.5
 
 while True:
     if lt_stream.stopped:
@@ -60,14 +60,19 @@ while True:
     
 
     angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
-    print(angle)
+    pidangle = angle * kp
+    print(angle, pidangle)
     # print(y_resultant, x_resultant)
+    if pidangle > 90:
+        pidangle = 90
+    elif pidangle < -90:
+        pidangle = -90
     
-    rotation = int(angle) + 90
+    rotation = int(pidangle) + 90
     # print(rotation)
 
     #* SEND DATA
-    to_pico = [255, rotation] #!choose speed = float or 0-100
+    to_pico = [rotation] #!choose speed = float or 0-100
     ser.write(to_pico) #TODO
 
     key = cv2.waitKey(1)
