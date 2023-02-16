@@ -26,7 +26,9 @@ void ISRRB() {MotorR.readEncB();}
 #define RX1 9
 #define SWTPIN 14
 
-int rotation = 0;
+double rotation;
+int serialData;
+double rpm = 40;
 // int caseSwitch = 0;
 // long prevSwitchMil;
 // long oldPosition  = -999;
@@ -37,24 +39,26 @@ int rotation = 0;
 void serialEvent() 
 {
   while (Serial2.available()) {
-    rotation = (Serial2.read() - 90)/90;
+    serialData = Serial2.read();
+    rotation = (double)(serialData-90)/90;
+    // Serial.println(rotation);
   }
 }
 
 void setup() {
   /* USB SERIAL COMMS */
-  Serial.begin(9600);
-  while (!Serial)
-     delay(10);
-  Serial.println("USB serial initialised");
+  // Serial.begin(9600);
+  // while (!Serial)
+  //    delay(10);
+  // Serial.println("USB serial initialised");
 
   /* PI SERIAL COMMS */
-  // Serial2.setRX(RX1);
-  // Serial2.setTX(TX1);
-  // Serial2.begin(9600); //consider increasing baud
-  // while (!Serial2)
-  //   delay(10);
-  // Serial.println("Pi serial initialised");
+  Serial2.setRX(RX1);
+  Serial2.setTX(TX1);
+  Serial2.begin(9600); //consider increasing baud
+  while (!Serial2)
+    delay(10);
+  Serial.println("Pi serial initialised");
 
   pinMode(SWTPIN, INPUT);
 
@@ -66,12 +70,10 @@ void setup() {
 
 
 void loop() {
-  if (digitalRead(SWTPIN))
-  {
-    double value = MotorL.setRpm(210);
-    Serial.println(value);
-    //untested
+  serialEvent();
+  if (digitalRead(SWTPIN)) {
+    Robawt.setSteer(rpm, rotation);
   } else {
-    MotorL.setRpm(0);
+    Robawt.setSteer(0, 0);
   }
 }

@@ -3,6 +3,7 @@
 * contains drivebase for robot
 * created 09/02/2023
 */
+
 #include <Arduino.h>
 #include "Vroom.h"
 #include "PID_v1.h"
@@ -23,31 +24,17 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     //^ last change before test
 }
 
-double Motor::setSpeed(double speed) //* m s^-1
-{
-    _wantedSpeed = speed; 
-    noInterrupts();
-    _realSpeed = this->getSpeed();
-    interrupts();
-    _motorPID.Compute();
-    if (_neededSpeed > 0) {
-        analogWrite(_pwmPin1, 0);
-        analogWrite(_pwmPin2, (int)(_neededSpeed));
-    } else {
-        analogWrite(_pwmPin1, (int)(_neededSpeed));
-        analogWrite(_pwmPin2, 0);
-    }
-    return _realSpeed;
-}
+double Motor::setSpeed(double speed) //* mm s^-1
+{return this->setRpm(speed/3.14159)*3.14159;}
 
 double Motor::setRpm(double rpm) //* rev min^-1
 {
-    _wantedRpm = rpm;
+    _wantedRpm = fabs(rpm);
     noInterrupts();
     _realRpm = this->getRpm();
     interrupts();
     _motorPID.Compute();
-    if (_neededRpm > 0) {
+    if (rpm > 0) {
         analogWrite(_pwmPin1, 0);
         analogWrite(_pwmPin2, (int)(_neededRpm));
     } else {
@@ -57,19 +44,7 @@ double Motor::setRpm(double rpm) //* rev min^-1
     return _realRpm;
 }
 
-double Motor::getSpeed()
-{
-    if (_begin && _end) {
-        double lastInterval = _end - _begin;
-        double nowInterval = micros()-_end;
-        if (lastInterval < nowInterval)
-            return 509.447/nowInterval;
-        else
-            return 509.447/lastInterval;
-    } else {
-        return 0;
-    }
-}
+
 
 double Motor::getRpm() 
 {
@@ -85,19 +60,12 @@ double Motor::getRpm()
     }
 }
 
+double Motor::getSpeed() //? unneeded function also
+{return this->getRpm()*3.14159265;}
+
 double Motor::getRps() //? unneeded function but wtv
-{
-    if (_begin && _end) {
-        double lastInterval = _end - _begin;
-        double nowInterval = micros()-_end; //1/370*60 
-        if (lastInterval < nowInterval)
-            return 2702.7/nowInterval;
-        else
-            return 2702.7/lastInterval;
-    } else {
-        return 0;
-    }
-}
+{return this->getRpm()/60;}
+    
 
 double Motor::getAngle() {return _encVal/370;}
 
@@ -106,7 +74,9 @@ void Motor::readEncA()
     if(!digitalRead(_encPinB)) {
         _begin = _end;
         _end = micros();
-        _encVal ++; //? technically don't need this line
+        // _encVal ++; //? technically don't need this line
+        // _encDir = 1;
+        //! didnt account for negative and positive in pid
     }
 }
 
@@ -115,7 +85,9 @@ void Motor::readEncB()
     if (!digitalRead(_encPinA)) {
         _begin = _end;
         _end = micros();
-        _encVal --;
+        // _encVal --; //? don't need this line either technically
+        // _encDir = -1;
+        //! didnt account for negative and positive in pid
     }
 }
 
@@ -131,18 +103,27 @@ Vroom::Vroom(Motor *l, Motor *r)
     this->_right = r;
 }
 
-void Vroom::setSteer(double speed, double rotation) 
+void Vroom::setSteer(double rpm, double rotation) 
 {
-    if (speed > 1) speed = 1;
-    if (speed < -1) speed = -1;
+    // if (speed > 1) speed = 1;
+    // if (speed < -1) speed = -1;
+    if (rpm > 210) rpm = 210;
+    if (rpm < -210) rpm = -210;
     if (rotation > 1) rotation = 1;
     if (rotation < -1) rotation = -1;
-    double slower = speed*(1-2*fabs(rotation));
+    double slower = rpm*(1-2*fabs(rotation));
+    // if (rotation > 0) {
+    //     this->_left->setSpeed(speed);
+    //     this->_right->setSpeed(slower);
+    // } else {
+    //     this->_left->setSpeed(slower);
+    //     this->_right->setSpeed(speed);
+    // }
     if (rotation > 0) {
-        this->_left->setSpeed(speed);
-        this->_right->setSpeed(slower);
+        this->_left->setRpm(rpm);
+        this->_right->setRpm(slower);
     } else {
-        this->_left->setSpeed(slower);
-        this->_right->setSpeed(speed);
+        this->_left->setRpm(slower);
+        this->_right->setRpm(rpm);
     }
 }
