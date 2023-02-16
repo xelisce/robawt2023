@@ -26,7 +26,7 @@ void ISRRB() {MotorR.readEncB();}
 #define RX1 9
 #define SWTPIN 14
 
-// int rotation = 0;
+int rotation = 0;
 // int caseSwitch = 0;
 // long prevSwitchMil;
 // long oldPosition  = -999;

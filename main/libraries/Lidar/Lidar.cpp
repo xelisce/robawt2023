@@ -35,7 +35,7 @@ L1X::L1X(int pin, int timePeriod, int timeOut)
     _pin = pin;
     tcaselect(pin);
     sensor.setTimeout(timeOut);
-    sensor.init(); //! did not handle the tripping of error in initialization
+    while (sensor.init()) {delay(10);} //! did not handle the tripping of error in initialization
     sensor.setDistanceMode(VL53L1X::Medium);
     sensor.setMeasurementTimingBudget(50000);
     sensor.startContinuous(timePeriod);
@@ -57,7 +57,7 @@ L0X::L0X(int pin, int timePeriod, int timeOut)
     _pin = pin;
     tcaselect(pin);
     sensor.setTimeout(timeOut);
-    sensor.init(); //! also didn't handle here
+    while (sensor.init()) {delay(10);} //! also didn't handle here
     sensor.startContinuous(timePeriod);
 }
 
