@@ -5,7 +5,7 @@
 * includes classes Motor and Vroom (for driving both motors)
 */
 #include <Arduino.h>
-#include <PIDController.h>
+#include "PID_v1.h"
 
 #ifndef VROOM_H
 #define VROOM_H
@@ -14,8 +14,14 @@ class Motor
 {
     public:
         Motor(int pin1, int pin2, int encPinA, int encPinB);
-        double setSpeed(double speed);
+        double setSpeed(double speed), 
+            setRpm(double rpm),
+            getSpeed(),
+            getRpm(),
+            getRps(),
+            getAngle();
         void readEncA(), readEncB();
+            // updatePulseTimings();
         int getEncAPin(), getEncBPin(),
             getEncVal();
 
@@ -23,11 +29,13 @@ class Motor
         int _pwmPin1, _pwmPin2,
             _encPinA, _encPinB,
             _encVal;
-        double _neededRpm, _wantedRpm,
-            _kp = 0, //! values to be tuned
+        double _neededRpm, _wantedRpm, _realRpm,
+            _neededSpeed, _wantedSpeed, _realSpeed,
+            _begin, _end,
+            _kp = 1, //! values to be tuned
             _ki = 22,
             _kd = 0;
-        PIDController _motorPID;
+        PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };
 
 class Vroom

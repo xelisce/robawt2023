@@ -5,7 +5,7 @@
 */
 #include <Arduino.h>
 #include "Vroom.h"
-#include <PIDController.h>
+#include "PID_v1.h"
 
 Motor::Motor(int pin1, int pin2, int encPinA, int encPinB) 
 {
@@ -17,15 +17,36 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     _pwmPin2 = pin2;
     this->_encPinA = encPinA;
     this->_encPinB = encPinB;
-    _motorPID.begin();
-    _motorPID.tune(_kp, _ki, _kd);
-    _motorPID.limit(-255, 255);
+    _motorPID.SetMode(AUTOMATIC);
+    // _begin = micros();
+    // _end = micros();
+    //^ last change before test
 }
 
-double Motor::setSpeed(double speed) //speed entered should be 0-1
+double Motor::setSpeed(double speed) //* m s^-1
 {
-    _wantedRpm = fabs(speed)*255;
-    _neededRpm = _motorPID.compute(_encVal);
+    _wantedSpeed = speed; 
+    noInterrupts();
+    _realSpeed = this->getSpeed();
+    interrupts();
+    _motorPID.Compute();
+    if (_neededSpeed > 0) {
+        analogWrite(_pwmPin1, 0);
+        analogWrite(_pwmPin2, (int)(_neededSpeed));
+    } else {
+        analogWrite(_pwmPin1, (int)(_neededSpeed));
+        analogWrite(_pwmPin2, 0);
+    }
+    return _realSpeed;
+}
+
+double Motor::setRpm(double rpm) //* rev min^-1
+{
+    _wantedRpm = rpm;
+    noInterrupts();
+    _realRpm = this->getRpm();
+    interrupts();
+    _motorPID.Compute();
     if (_neededRpm > 0) {
         analogWrite(_pwmPin1, 0);
         analogWrite(_pwmPin2, (int)(_neededRpm));
@@ -33,19 +54,69 @@ double Motor::setSpeed(double speed) //speed entered should be 0-1
         analogWrite(_pwmPin1, (int)(_neededRpm));
         analogWrite(_pwmPin2, 0);
     }
-    return _neededRpm;
+    return _realRpm;
 }
+
+double Motor::getSpeed()
+{
+    if (_begin && _end) {
+        double lastInterval = _end - _begin;
+        double nowInterval = micros()-_end;
+        if (lastInterval < nowInterval)
+            return 509.447/nowInterval;
+        else
+            return 509.447/lastInterval;
+    } else {
+        return 0;
+    }
+}
+
+double Motor::getRpm() 
+{
+    if (_begin && _end) {
+        double lastInterval = _end - _begin;
+        double nowInterval = micros()-_end; //1/370*60 
+        if (lastInterval < nowInterval)
+            return 162162/nowInterval;
+        else
+            return 162162/lastInterval;
+    } else {
+        return 0;
+    }
+}
+
+double Motor::getRps() //? unneeded function but wtv
+{
+    if (_begin && _end) {
+        double lastInterval = _end - _begin;
+        double nowInterval = micros()-_end; //1/370*60 
+        if (lastInterval < nowInterval)
+            return 2702.7/nowInterval;
+        else
+            return 2702.7/lastInterval;
+    } else {
+        return 0;
+    }
+}
+
+double Motor::getAngle() {return _encVal/370;}
 
 void Motor::readEncA() 
 {
-    if(digitalRead(_encPinB)) _encVal --;
-    else _encVal ++;
+    if(!digitalRead(_encPinB)) {
+        _begin = _end;
+        _end = micros();
+        _encVal ++; //? technically don't need this line
+    }
 }
 
 void Motor::readEncB() 
 {
-    if (digitalRead(_encPinA)) _encVal ++;
-    else _encVal --;
+    if (!digitalRead(_encPinA)) {
+        _begin = _end;
+        _end = micros();
+        _encVal --;
+    }
 }
 
 int Motor::getEncAPin() {return _encPinA;}
