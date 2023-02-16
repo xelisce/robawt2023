@@ -11,6 +11,7 @@
 #include "Lidar.h"
 
 #define TCAADDR 0x70
+#define WIRE Wire
 
 MUX::MUX(int sdaPin, int sclPin)
 {
