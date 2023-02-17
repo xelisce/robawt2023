@@ -29,19 +29,19 @@ double Motor::setSpeed(double speed) //* mm s^-1
 
 double Motor::setRpm(double rpm) //* rev min^-1
 {
-    _wantedRpm = fabs(rpm);
+    _wantedRpm = fabs(rpm); //setpoint
     noInterrupts();
-    _realRpm = this->getRpm();
+    _realRpm = this->getRpm(); //input
     interrupts();
     _motorPID.Compute();
-    if (rpm > 0) {
+    if (rpm >= 0) {
         analogWrite(_pwmPin1, 0);
-        analogWrite(_pwmPin2, (int)(_neededRpm));
+        analogWrite(_pwmPin2, (int)(_neededRpm)); //output
     } else {
         analogWrite(_pwmPin1, (int)(_neededRpm));
         analogWrite(_pwmPin2, 0);
     }
-    return _realRpm;
+    return _neededRpm;
 }
 
 
@@ -95,6 +95,11 @@ int Motor::getEncAPin() {return _encPinA;}
 int Motor::getEncBPin() {return _encPinB;}
 int Motor::getEncVal() {return _encVal;}
 
+void Motor::resetPID() 
+{
+    _motorPID.Reset();
+}
+
 
 
 Vroom::Vroom(Motor *l, Motor *r) 
@@ -126,4 +131,10 @@ void Vroom::setSteer(double rpm, double rotation)
         this->_left->setRpm(slower);
         this->_right->setRpm(rpm);
     }
+}
+
+void Vroom::reset() 
+{
+    _left->resetPID();
+    _right->resetPID();
 }

@@ -25,6 +25,7 @@ class Motor
             // updatePulseTimings();
         int getEncAPin(), getEncBPin(),
             getEncVal();
+        void resetPID();
 
     private:
         int _pwmPin1, _pwmPin2,
@@ -33,8 +34,8 @@ class Motor
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
-            _kp = 1, //! values to be tuned
-            _ki = 20,
+            _kp = 0, //! values to be tuned
+            _ki = 0.1,
             _kd = 0;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };
@@ -43,7 +44,8 @@ class Vroom
 {
     public:
         Vroom(Motor *left, Motor *right);
-        void setSteer(double rpm, double rotation); //when speed is negative, robot heading switches
+        void setSteer(double rpm, double rotation), //when speed is negative, robot heading switches
+            reset();
 
     private:
         Motor *_left, *_right;
