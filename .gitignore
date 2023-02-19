@@ -3,3 +3,7 @@
 /previous_files
 /notes.txt
 /unused_libraries
+/__pycache__
+/.venv
+/.vscode
+/pico-a
