@@ -3,6 +3,7 @@ from time import sleep
 import struct
 
 speed = 3.14159
+rotation = 9.991
 
 ser = serial.Serial ("/dev/ttyS0", 9600)    #Open port with baud rate
 while True:
@@ -16,5 +17,5 @@ while True:
     # ser.write([1])
     sleep(1)
 
-    to_pico = [255, speed] #!choose speed = float or 0-100
+    to_pico = [255, speed, 254, rotation] #!choose speed = float or 0-100
     ser.write(to_pico) #TODO
