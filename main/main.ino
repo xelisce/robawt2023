@@ -35,7 +35,8 @@ const int SWTPIN = 14;
 
 double rotation;
 int serialData;
-double rpm = 40;
+int serialState;
+double rpm;
 int caseSwitch = 0;
 long prevSwitchMil = millis();
 // long oldPosition  = -999;
@@ -47,8 +48,9 @@ void serialEvent()
 {
   while (Serial2.available()) {
     serialData = Serial2.read();
-    rotation = (double)(serialData-90)/90;
-    // Serial.println(rotation);
+    if (serialData == 255 || serialData == 254) {serialState = serialData;}
+    else if (serialState == 255) {rotation = (double)(serialData-90)/90;}
+    else if (serialState == 254) {rpm = (double)serialData;}
   }
 }
 
@@ -62,18 +64,17 @@ void tcaselect(uint8_t i)
 
 void setup() {
   /* USB SERIAL COMMS */
-  Serial.begin(9600);
-  while (!Serial)
-     delay(10);
-  Serial.println("USB serial initialised");
+  // Serial.begin(9600);
+  // while (!Serial)
+  //    delay(10);
+  // Serial.println("USB serial initialised");
 
   /* PI SERIAL COMMS */
-  // Serial2.setRX(RX1PIN);
-  // Serial2.setTX(TX1PIN);
-  // Serial2.begin(9600); //consider increasing baud
-  // while (!Serial2)
-  //   delay(10);
-  // Serial.println("Pi serial initialised");
+  Serial2.setRX(RX1PIN);
+  Serial2.setTX(TX1PIN);
+  Serial2.begin(9600); //consider increasing baud
+  while (!Serial2) delay(10);
+  Serial.println("Pi serial initialised");
 
   /* MULTIPLEXER */
   // Wire.setSDA(SDAPIN);
@@ -101,12 +102,18 @@ void setup() {
 
 
 void loop() {
-  // serialEvent();
+  serialEvent();
+
+  /* TEST SERIAL COMMS */
+  // Serial.print(rotation);
+  // Serial.print(" ");
+  // Serial.println(rpm);
+  
 
   if (digitalRead(SWTPIN)) {
 
     /* TO MAKE ROBOT LINETRACK */
-    // Robawt.setSteer(rpm, rotation);
+    Robawt.setSteer(rpm, rotation);
 
     /* TO MAKE ROBOT READ LIDARS (for each lidar, duplicate this chunk of code)*/
     // tcaselect(4); //lidar pin
@@ -133,7 +140,7 @@ void loop() {
     // }
 
     /* TO MAKE ROBOT MUV */
-    // Robawt.setSteer(rpm, 0);
+    Robawt.setSteer(50, 0);
 
     /* DEPRECATED CODE */
     // double val = MotorL.setRpm(20);
@@ -147,7 +154,7 @@ void loop() {
   } else {
 
     /* TO MAKE ROBOT STOP */
-    // Robawt.setSteer(0, 0);
+    Robawt.setSteer(0, 0);
 
     /* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);
