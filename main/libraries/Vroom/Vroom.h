@@ -3,6 +3,7 @@
 * contains drivebase for robot
 * created 09/02/2023
 * includes classes Motor and Vroom (for driving both motors)
+* created by xel
 */
 
 #include <Arduino.h>
@@ -34,8 +35,8 @@ class Motor
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
-            _kp = 0, //! values to be tuned
-            _ki = 0.1,
+            _kp = 1, //! values to be tuned
+            _ki = 0.5,
             _kd = 0;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };
