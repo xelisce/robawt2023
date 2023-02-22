@@ -8,7 +8,7 @@ import math
 import enum
 
 #* CAMERA
-lt_stream = WebcamStream(stream_id=0)
+lt_stream = WebcamStream(stream_id = 0)
 lt_stream.start()
 lt_frame = lt_stream.read()
 width, height_org = lt_frame.shape[1], lt_frame.shape[0]
@@ -19,8 +19,6 @@ height = height_org - crop_h_bw
 # cam_x = width/2 #-1 to bias robot to the right
 # cam_y = height - 1
 # print(f"Line track image centred on ({cam_x}, {cam_y})")
-
-crop_h_hsv = 0
 
 #* SERIAL
 ser = serial.Serial("/dev/ttyS0", 9600)
@@ -126,6 +124,7 @@ while True:
     #* LINETRACK
 
     else:
+        mask_black = mask_black[crop_h_bw:, :]
         #? Maybe needed, not critical
         # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
         # black_mask = cv2.dilate(black_mask, kernel)
