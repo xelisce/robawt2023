@@ -13,3 +13,5 @@ Checklist of things yet to be done on software side:
 - Stop at red line (should be fairly simple)
 - 135 turn
 - Entire evac portion
+
+I RECOMMEND WHOEVER IS LOOKING AT THIS TO DOWNLOAD COLORFUL COMMENTS EXTENSION FOR EASE OF BROWSING THIS REPO (at least on the pi side)
