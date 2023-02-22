@@ -13,23 +13,25 @@ g_roi_b_lh = 340 # black above green upper boundary
 gs_b_sampleoffset = 10 #offset ample to above by this amount of pixels
 gs_b_sampleh = 50 #this is the height of the black sample taken above green square
 gs_minblackpct = 0.35
+green_minarea = 1000000
 
-u_black = 90
+u_black = 70
 
 l_green = np.array([30, 90, 60], np.uint8)
 u_green = np.array([85, 255, 255], np.uint8)
 
 
 class Task(enum.Enum):
+    EMPTY = 0
     LEFT_GREEN = 1
     RIGHT_GREEN = 2
     DOUBLE_GREEN = 3
 
-task = 0
+curr = Task.EMPTY
 
 #* The following should be inside the loop
 
-frame_org = cv2.imread("gs1.jpg")
+frame_org = cv2.imread("gs5.jpg")
 # frame_org = frame_org[crop_h:height, :]
 frame_bw = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
 frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -40,9 +42,9 @@ frame_black = cv2.inRange(frame_bw, 0, u_black)
 #~ Presence of green square?
 green_mask = cv2.inRange(frame_hsv[g_roi_lh:, :], l_green, u_green)
 green_sum = np.sum(green_mask)
-# cv2.imshow("green mask", green_mask)
+cv2.imshow("green mask", green_mask)
 
-if green_sum > 1000000:
+if green_sum > green_minarea:
 
     #~ Find x position of green
     green_col = np.amax(green_mask, axis=0)
@@ -62,22 +64,29 @@ if green_sum > 1000000:
     print("percatnage of black:", gs_blackpct)
     cv2.imshow("black area above green square", blackarea_abovegs)
 
+    #~ GREEN SQUARE FOUND
     if gs_blackpct > gs_minblackpct:
 
         #~ Find x position of black
         black_besidegs = frame_black[g_roi_lh:, :]
+        cv2.imshow("black beside gs", black_besidegs)
         blackM = cv2.moments(black_besidegs)
-        if np.sum(black_besidegs): #to prevent divide by 0
-            cx_black = int(blackM["m10"]/blackM["m00"])
-            print(cx_black, gs_centre)
+        cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(black_besidegs) else 0 #theoretically divide by zero error should never happen
+        print(cx_black, gs_centre)
 
         #~ Identify type of green square
-        if cx_black > gs_centre:
-            task = Task.LEFT_GREEN
+        if cx_black > gs_left and cx_black < gs_right and green_sum > 2*green_minarea:
+            curr = Task.DOUBLE_GREEN
+        elif cx_black > gs_centre:
+            curr = Task.LEFT_GREEN
         elif cx_black < gs_centre:
-            task = Task.RIGHT_GREEN
+            curr = Task.RIGHT_GREEN
+        else:
+            print("hms")
         
         cv2.imshow("green", frame_org[:, gs_left:gs_right])
         # cv2.imshow("green", frame_hsv[g_top:g_bot, g_left:g_right])
 
 cv2.waitKey()
+
+print("task", curr)
