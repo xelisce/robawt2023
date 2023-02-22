@@ -23,7 +23,7 @@ height = height_org - crop_h_bw
 crop_h_hsv = 0
 
 #* SERIAL
-ser = serial.Serial("/dev/ttyS0", 9600) #TODO
+ser = serial.Serial("/dev/ttyS0", 9600)
 
 #* COLOR CALIBRATION
 # l_black = 0
@@ -125,35 +125,38 @@ while True:
 
     #* LINETRACK
 
-    #? Maybe needed, not critical
-    # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
-    # black_mask = cv2.dilate(black_mask, kernel)
-    y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
-    x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
-    # cv2.imshow("yframe", y_black)
-    # cv2.imshow("xframe", x_black)
+    else:
+        #? Maybe needed, not critical
+        # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
+        # black_mask = cv2.dilate(black_mask, kernel)
 
-    #? Consider accounting for line gap later on
-    y_resultant = np.mean(y_black)
-    x_resultant = np.mean(x_black)
-    # print(y_resultant, x_resultant) #& debug resultant angle
+        #~ Vectorizing the black components
+        y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+        x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
+        # cv2.imshow("yframe", y_black)
+        # cv2.imshow("xframe", x_black)
 
-    angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
-    pidangle = angle * kp
+        #? Consider accounting for line gap later on
+        y_resultant = np.mean(y_black)
+        x_resultant = np.mean(x_black)
+        # print(y_resultant, x_resultant) #& debug resultant angle
 
-    if pidangle > 90:
-        pidangle = 90
-    elif pidangle < -90:
-        pidangle = -90
+        #~ Formatting data for transfer
+        angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
+        pidangle = angle * kp
 
-    rotation = int(pidangle) + 90
-    # print(rotation)
+        if pidangle > 90:
+            pidangle = 90
+        elif pidangle < -90:
+            pidangle = -90
+        rotation = int(pidangle) + 90
+        # print(rotation)
 
     #* SEND DATA
-    to_pico = [255, rotation, 
-               254, rpm, 
-               253, curr] #!choose speed = float or 0-100
-    ser.write(to_pico) #TODO
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+               254, rpm, # 0 to 200
+               253, curr] # 0 to 3 currently
+    ser.write(to_pico)
 
     key = cv2.waitKey(1)
     if key == ord('q'):
