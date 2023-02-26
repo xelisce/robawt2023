@@ -25,6 +25,7 @@ class Motor
         void readEncA(), readEncB();
             // updatePulseTimings();
         int getEncAPin(), getEncBPin(),
+            getPin1(), getPin2(),
             getEncVal();
         void resetPID();
 
@@ -35,8 +36,8 @@ class Motor
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
-            _kp = 1, //! values to be tuned
-            _ki = 0.5,
+            _kp = 0.5, //! values to be tuned
+            _ki = 0.6,
             _kd = 0;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };

@@ -94,6 +94,8 @@ void Motor::readEncB()
 
 int Motor::getEncAPin() {return _encPinA;}
 int Motor::getEncBPin() {return _encPinB;}
+int Motor::getPin1() {return _pwmPin1;}
+int Motor::getPin2() {return _pwmPin2;}
 int Motor::getEncVal() {return _encVal;}
 
 void Motor::resetPID() 
