@@ -39,6 +39,9 @@ int serialState;
 double rpm;
 int caseSwitch = 0;
 long prevSwitchMil = millis();
+long startChangeMillis;
+int task;
+int curr = 0;
 // long oldPosition  = -999;
 // int prevEnc = 0;
 // int currEnc = 0;
@@ -48,9 +51,10 @@ void serialEvent()
 {
   while (Serial2.available()) {
     serialData = Serial2.read();
-    if (serialData == 255 || serialData == 254) {serialState = serialData;}
+    if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = serialData;}
     else if (serialState == 255) {rotation = (double)(serialData-90)/90;}
     else if (serialState == 254) {rpm = (double)serialData;}
+    else if (serialState == 253) {task = (double)serialData;}
   }
 }
 
@@ -112,8 +116,64 @@ void loop() {
 
   if (digitalRead(SWTPIN)) {
 
+    switch (task) {
+
+      case 0: //normal lt
+        // if (task == 0) {
+        Robawt.setSteer(rpm, rotation);
+        // } else {
+          // curr = task;
+        //   startChangeMillis = millis();
+        // }
+        break;
+
+      case 1: //left gs
+        // if (millis() - startChangeMillis < 2000) {
+        // Robawt.setSteer(rpm, -0.5);
+        analogWrite(MotorR.getPin1(), 70);
+        analogWrite(MotorR.getPin2(), 0);
+        analogWrite(MotorL.getPin1(), 0);
+        analogWrite(MotorL.getPin2(), 0);
+        // } else if (millis() - startChangeMillis < 4000) {
+        //   Robawt.setSteer(60, -0.3);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
+      
+      case 2: //right gs
+        // if (millis() - startChangeMillis < 2000) {
+        // Robawt.setSteer(rpm, 0.5);
+        analogWrite(MotorL.getPin1(), 70);
+        analogWrite(MotorL.getPin2(), 0);
+        analogWrite(MotorR.getPin1(), 0);
+        analogWrite(MotorR.getPin2(), 0);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
+
+      case 3: //double gs
+        // if (millis() - startChangeMillis < 1500) {
+        Robawt.setSteer(60, 1);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
+
+      case 4: //red line
+        Robawt.setSteer(0, 0);
+        Robawt.reset();
+
+    }
+
     /* TO MAKE ROBOT LINETRACK */
-    Robawt.setSteer(rpm, rotation);
+    // if (task != 0)
+    // {
+    //   Robawt.setSteer(0, 0);
+    // } else {
+    //   Robawt.setSteer(60, rotation);
+    // }
 
     /* TO MAKE ROBOT READ LIDARS (for each lidar, duplicate this chunk of code)*/
     // tcaselect(4); //lidar pin
@@ -123,24 +183,21 @@ void loop() {
     // else
     //   Serial.println(lidar_reading);
 
-    /* TO MAKE LEFT MOTOR GO SLOW THEN FAST */
-    // switch(caseSwitch) {
-    //   case 0:
-    //     MotorL.setRpm(40);
-    //     if (millis()-prevSwitchMil > 2000) {
-    //       caseSwitch = 1;
-    //       prevSwitchMil = millis();
-    //     }
-    //   case 1:
-    //     MotorL.setRpm(180);
-    //     if (millis()-prevSwitchMil > 2000) {
-    //       caseSwitch = 0;
-    //       prevSwitchMil = millis();
-    //     }
-    // }
-
     /* TO MAKE ROBOT MUV */
-    Robawt.setSteer(50, 0);
+    // Robawt.setSteer(50, 0);
+
+    /* TO MAKE ROBOT TURN FOR GS */
+    // switch (curr) {
+    //   case 0:
+    //     Robawt.setSteer(60, 0.4);
+    //     if (millis()-startChangeMillis > 2000) {
+    //       curr = 1;
+    //     }
+
+    //   case 1:
+    //     Robawt.setSteer(0, 0);
+
+    // }
 
     /* DEPRECATED CODE */
     // double val = MotorL.setRpm(20);
@@ -153,8 +210,12 @@ void loop() {
 
   } else {
 
+    // startChangeMillis = millis();
+    // curr = 0;
+
     /* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
+    Robawt.reset();
 
     /* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);

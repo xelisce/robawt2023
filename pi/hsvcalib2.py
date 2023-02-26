@@ -29,10 +29,10 @@ def callback(x):
 cv2.namedWindow('controls', 2)
 cv2.resizeWindow('controls', 550, 10)
 
-cv2.createTrackbar('L HUE', 'controls', 0, 179, callback)
+cv2.createTrackbar('L HUE', 'controls', 0, 180, callback)
 cv2.createTrackbar('L SAT', 'controls', 0, 255, callback)
 cv2.createTrackbar('L VAL', 'controls', 0, 255, callback)
-cv2.createTrackbar('U HUE', 'controls', 179, 179, callback)
+cv2.createTrackbar('U HUE', 'controls', 179, 180, callback)
 cv2.createTrackbar('U SAT', 'controls', 255, 255, callback)
 cv2.createTrackbar('U VAL', 'controls', 255, 255, callback)
 
