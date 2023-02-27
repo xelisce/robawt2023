@@ -30,9 +30,9 @@ u_black = 70
 l_green = np.array([30, 50, 60], np.uint8)
 u_green = np.array([85, 255, 255], np.uint8)
 
-l_red1 = np.array([0, 100, 100], np.uint8) #! untuned red values
+l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
-l_red2 = np.array([170, 100, 100], np.uint8) 
+l_red2 = np.array([170, 100, 80], np.uint8) 
 u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
 #* CONSTANTS CALIBRATION
@@ -42,7 +42,8 @@ gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned
 gs_minarea = 4000000 #? consider making this scaled by pixels (/255)
 
-rpm = 100
+set_rpm = 40
+rpm = 40
 kp = 1.5
 
 #* IMAGE PROCESSING
@@ -59,8 +60,11 @@ class Task(enum.Enum):
     LEFT_GREEN = 1
     RIGHT_GREEN = 2
     DOUBLE_GREEN = 3
+    RED = 4
 
 curr = Task.EMPTY
+red_now = False
+gs_now = False
 
 #* BEGIN OF LINETRACK LOOP CODE
 
@@ -76,78 +80,108 @@ while True:
 
     mask_green = cv2.inRange(frame_hsv, l_green, u_green)
     mask_gs = mask_green[gs_roi_h:, :]
-    cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
-    cv2.imshow("green square mask", mask_gs) #& debug green square mask
+    # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
+    # cv2.imshow("green square mask", mask_gs) #& debug green square mask
     gs_sum = np.sum(mask_gs)
-    print(gs_sum) #& debug green min area
+    # print(gs_sum) #& debug green min area
 
     mask_black = cv2.inRange(frame_gray, 0, u_black) - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
+    # print(np.sum(mask_black), curr.name)
 
-    # mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
-    # mask_red2 = cv2.inRange(frame_hsv)
-    # mask_red = mask_red1 + mask_red2
+    mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
+    mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
+    mask_red = mask_red1 + mask_red2
+    print(np.sum(mask_red)) #& debug red min area
 
     #* RED LINE 
-    #TODO
+
+    if np.sum(mask_red) > 17000000:
+        red_now = True
+        curr = Task.RED
+        rpm = 0
+        to_pico = [255, 90, #90 = 0 rotation
+                254, 0, #rpm
+                253, curr.value] #task
+    elif red_now == True:
+        red_now = False
+        rpm = set_rpm
+
+    #* JUST FOUND GREEN SQUARE PREVIOUSLY
+
+    #~ Turn while still seeing green
+    elif gs_now and gs_sum < 1000:
+        if curr.name == "DOUBLE_GREEN":
+            if np.sum(mask_black) > 18000000:
+                gs_now = False
+            else:
+                to_pico = [253, curr.value]
+        else:
+            gs_now = False
 
     #* GREEN SQUARES
 
-    if gs_sum > gs_minarea:
+    #~ Test for sufficient green in frame
+    elif not gs_now and gs_sum > gs_minarea:
         mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
         mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
-        cv2.imshow("after erosion and dilation", mask_gs) #& debug green square mask
-
-        #~ Find x positions of green
-        green_col = np.amax(mask_gs, axis=0)
-        g_indices_h = np.where(green_col==255) #h for horiontal
-        gs_left = g_indices_h[0][0]
-        gs_right = g_indices_h[0][-1]
-        # print("left:", gs_left, "right:", gs_right)
-        # gs_indices_h
+        # cv2.imshow("after erosion and dilation", mask_gs) #& debug green square mask
 
         #~ Find y position of green (Can cut processing time here by putting fixed constant instead)
         green_row = np.amax(mask_gs, axis=1)
         g_indices_v = np.where(green_row==255) #v for vertical
         gs_top = g_indices_v[0][0] + gs_roi_h
+        gs_bot = g_indices_v[0][-1] + gs_roi_h
         # cv2.imshow("Green bounding box", frame_org[gs_top:, gs_left:gs_right]) #& debug green bounds
 
-        #~ Test if below or above line
-        gs_bkabove = mask_black[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right]
-        gs_bkpct = np.sum(gs_bkabove) / 255 / gs_bksampleh / (gs_right - gs_left)
-        # print("Percentage of black above green:", gs_bkpct) #& debug green's black
-        # cv2.imshow("black area above green square", gs_bkabove) 
-        # cv2.imshow("black area above green in orig frame", frame_org[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right])
-        
-        #~ GREEM SQUARE FOUND
-        if gs_bkpct > gs_minbkpct:
+        if gs_bot > 470:
+            #~ Find x positions of green
+            green_col = np.amax(mask_gs, axis=0)
+            g_indices_h = np.where(green_col==255) #h for horiontal
+            gs_left = g_indices_h[0][0]
+            gs_right = g_indices_h[0][-1]
+            # print("left:", gs_left, "right:", gs_right)
 
-            #~ Find x position of green
-            gs_centre = (gs_left + gs_right) / 2
+            #~ Test if below or above line
+            gs_bkabove = mask_black[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right]
+            gs_bkpct = np.sum(gs_bkabove) / 255 / gs_bksampleh / (gs_right - gs_left)
+            # print("Percentage of black above green:", gs_bkpct) #& debug green's black
+            # cv2.imshow("black area above green square", gs_bkabove) 
+            # cv2.imshow("black area above green in orig frame", frame_org[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right])
+            
+            #~ GREEM SQUARE FOUND
+            if gs_bkpct > gs_minbkpct:
 
-            #~ Find x position of black
-            gs_bkbeside = mask_black[gs_roi_h:, :]
-            blackM = cv2.moments(gs_bkbeside)
-            cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(gs_bkbeside) else 0 #theoretically divide by zero error should never happen
-            # cv2.imshow("Black beside green squares", gs_bkbeside) #& debug green type triggered
-            print("Black x-centre:", cx_black)
-            print("Green x-centre:", gs_centre)
+                #~ Find x position of green
+                gs_centre = (gs_left + gs_right) / 2
 
-            #~ Identify type of green square
-            if cx_black > gs_left and cx_black < gs_right and gs_sum > 2 * gs_minarea:
-                curr = Task.DOUBLE_GREEN
-            elif cx_black > gs_centre:
-                curr = Task.LEFT_GREEN
-            elif cx_black < gs_centre:
-                curr = Task.RIGHT_GREEN
+                #~ Find x position of black
+                gs_bkbeside = mask_black[gs_roi_h:, :]
+                blackM = cv2.moments(gs_bkbeside)
+                cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(gs_bkbeside) else 0 #theoretically divide by zero error should never happen
+                # cv2.imshow("Black beside green squares", gs_bkbeside) #& debug green type triggered
+                # print("Black x-centre:", cx_black)
+                # print("Green x-centre:", gs_centre)
 
-            to_pico = [253, curr.value]
-            # else:
-                # print("ERROR: Green found but type indetermined")
+                #~ Identify type of green square
+                if cx_black > gs_left and cx_black < gs_right and gs_sum > 2 * gs_minarea:
+                    curr = Task.DOUBLE_GREEN
+                    gs_now = True
+                elif cx_black > gs_centre:
+                    curr = Task.LEFT_GREEN
+                    gs_now = True
+                elif cx_black < gs_centre:
+                    curr = Task.RIGHT_GREEN
+                    gs_now = True
+
+                to_pico = [253, curr.value]
+                # else:
+                    # print("ERROR: Green found but type indetermined")
 
     #* LINETRACK
 
-    else:
+    if not gs_now and not red_now:
+
         curr = Task.EMPTY
         mask_black = mask_black[crop_h_bw:, :]
         #? Maybe needed, not critical
@@ -185,7 +219,7 @@ while True:
         
     #* SEND DATA
     
-    # ser.write(to_pico)
+    ser.write(to_pico)
 
     key = cv2.waitKey(1)
     if key == ord('q'):
