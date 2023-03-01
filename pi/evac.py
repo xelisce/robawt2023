@@ -2,9 +2,13 @@ import cv2
 from MultiThread import WebcamStream
 import numpy as np
 
-# evac_stream = WebcamStream(stream_id=0)
-# evac_stream.start()
-# evac_org = evac_stream.read()
+def InitCam():
+    evac_stream = WebcamStream(stream_id=0)
+    evac_stream.start()
+    evac_org = evac_stream.read()
+
+#InitCam()
+
 evac_org = cv2.imread("WIN_20230301_16_17_24_Pro.jpg")
 width, height_org = evac_org.shape[1], evac_org.shape[0]
 
@@ -15,24 +19,24 @@ u_black = 55
 
 #* IN LOOP
 
-evac_org = cv2.imread("WIN_20230301_16_17_24_Pro.jpg")
-print("og shape:", evac_org.shape[1], evac_org.shape[0])
+#print("og shape:", evac_org.shape[1], evac_org.shape[0])
 evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
-
 evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
 evac_max = np.amax(evac_org, axis=2)
 
-print(evac_hsv)
-evac_hsv = evac_hsv[:, :, 1:2]
+GREEN_SATURATION_THRESHOLD = 100
 
-cv2.imshow("sat", evac_hsv)
+#evac_hsv = evac_hsv[:, :, 1:2] #actually whats the diff between this and evac_hsv[:,:,1]
+#pos1 = np.where(evac_hsv[:, :, 1]>100)
 
+g_satmask = (evac_hsv[:, :, 1] > GREEN_SATURATION_THRESHOLD)
+evac_gray[g_satmask] = 255
 
+pos1 = np.where(evac_hsv[:,:,1]>100)
+print(pos1)
 
+#cv2.imshow("gray", evac_gray[height:, :])
 
-
-# print("shape:", evac_gray.shape[1], evac_gray.shape[0])
-# # print(evac_gray)
 
 # evac_gray = evac_gray[crop_h:, :]
 # circles = cv2.HoughCircles(evac_gray, cv2.HOUGH_GRADIENT, 1.2, 70, param1 = 200 , param2 =27, minRadius= 40, maxRadius=100)
@@ -84,5 +88,5 @@ cv2.imshow("sat", evac_hsv)
 # combinedDown = cv2.pyrDown(combined)
 # cv2.imshow("both", combinedDown)
 
-cv2.waitKey()
+cv2.waitKey(0)
 cv2.destroyAllWindows()
