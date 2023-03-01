@@ -45,18 +45,18 @@ cv2.namedWindow('controls', 2)
 cv2.resizeWindow('controls', 550, 10) #why's the height 10 pixels lol
 
 cv2.createTrackbar('L1 HUE', 'controls', 0, 180, callback)
-cv2.createTrackbar('L1 SAT', 'controls', 80, 255, callback)
-cv2.createTrackbar('L1 VAL', 'controls', 60, 255, callback)
-cv2.createTrackbar('U1 HUE', 'controls', 15, 180, callback)
+cv2.createTrackbar('L1 SAT', 'controls', 0, 255, callback)
+cv2.createTrackbar('L1 VAL', 'controls', 0, 255, callback)
+cv2.createTrackbar('U1 HUE', 'controls', 180, 180, callback)
 cv2.createTrackbar('U1 SAT', 'controls', 255, 255, callback)
-cv2.createTrackbar('U1 VAL', 'controls', 200, 255, callback)
+cv2.createTrackbar('U1 VAL', 'controls', 255, 255, callback)
 
-cv2.createTrackbar('L2 HUE', 'controls', 176, 180, callback)
+cv2.createTrackbar('L2 HUE', 'controls', 0, 180, callback)
 cv2.createTrackbar('L2 SAT', 'controls', 0, 255, callback)
-cv2.createTrackbar('L2 VAL', 'controls', 61, 255, callback)
-cv2.createTrackbar('U2 HUE', 'controls', 180, 180, callback)
-cv2.createTrackbar('U2 SAT', 'controls', 255, 255, callback)
-cv2.createTrackbar('U2 VAL', 'controls', 255, 255, callback)
+cv2.createTrackbar('L2 VAL', 'controls', 0, 255, callback)
+cv2.createTrackbar('U2 HUE', 'controls', 0, 180, callback)
+cv2.createTrackbar('U2 SAT', 'controls', 0, 255, callback)
+cv2.createTrackbar('U2 VAL', 'controls', 0, 255, callback)
 
 
 key = cv2.waitKey(0)
