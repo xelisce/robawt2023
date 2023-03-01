@@ -32,8 +32,8 @@ GREEN_SATURATION_THRESHOLD = 100
 g_satmask = (evac_hsv[:, :, 1] > GREEN_SATURATION_THRESHOLD)
 evac_gray[g_satmask] = 255
 
-pos1 = np.where(evac_hsv[:,:,1]>100)
-print(pos1)
+# pos1 = np.where(evac_hsv[:,:,1]>100)
+# print(pos1)
 
 #cv2.imshow("gray", evac_gray[height:, :])
 
