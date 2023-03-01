@@ -15,6 +15,7 @@ width, height_org = lt_frame.shape[1], lt_frame.shape[0]
 print("Line track camera width:", width, "Camera height:", height_org)
 
 crop_h_bw = 93
+crop_h_bw_gap = 110
 height = height_org - crop_h_bw
 # cam_x = width/2 #-1 to bias robot to the right
 # cam_y = height - 1
@@ -92,7 +93,7 @@ while True:
     mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = mask_red1 + mask_red2
-    print(np.sum(mask_red)) #& debug red min area
+    # print(np.sum(mask_red)) #& debug red min area
 
     #* RED LINE 
 
@@ -183,7 +184,9 @@ while True:
     if not gs_now and not red_now:
 
         curr = Task.EMPTY
+        mask_gap = mask_black[crop_h_bw_gap:, :]
         mask_black = mask_black[crop_h_bw:, :]
+        cv2.imshow("black lt mask", mask_gap)
         #? Maybe needed, not critical
         # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
         # black_mask = cv2.dilate(black_mask, kernel)
@@ -194,13 +197,17 @@ while True:
         # cv2.imshow("yframe", y_black)
         # cv2.imshow("xframe", x_black)
 
-        #? Consider accounting for line gap later on
+        #~ Line gap
+        print("max black:", np.max(y_black))
+
+        #~ Plain line track
         y_resultant = np.mean(y_black)
         x_resultant = np.mean(x_black)
         # print(y_resultant, x_resultant) #& debug resultant angle
 
         #~ Formatting data for transfer
         angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
+        print(angle) #& debug angle
         pidangle = angle * kp
 
         if pidangle > 90:
