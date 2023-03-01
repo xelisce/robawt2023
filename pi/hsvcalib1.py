@@ -5,6 +5,19 @@ import cv2
 
 cam_stream = WebcamStream(stream_id=0)
 cam_stream.start()
-frame = cam_stream.read()
-cv2.imwrite("hsvcalibimage.jpg", frame)
+
+key = cv2.waitKey(1)
+while True:
+    if cam_stream.stopped == True:
+        break
+    else:
+        frame = cam_stream.read()
+    
+    cv2.imshow('frame', frame)
+    if key == ord('k'): #press 'k' to take a photo 
+        cv2.imwrite("hsvcalibimage.jpg", frame)
+    elif key == ord('q'): #press q to quit
+        break
+
 cam_stream.stop()
+cv2.destroyAllWindows()
