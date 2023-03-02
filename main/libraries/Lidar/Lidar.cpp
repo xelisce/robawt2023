@@ -11,62 +11,69 @@
 #include "Lidar.h"
 
 #define TCAADDR 0x70
-#define WIRE Wire
 
-MUX::MUX(int sdaPin, int sclPin)
+MUX::MUX(TwoWire *bus, int sdaPin, int sclPin)
 {
-    Wire.setSDA(sdaPin);
-    Wire.setSCL(sclPin);
-    Wire.begin();
-    Wire.setClock(400000);
+    _bus = bus;
+    _bus->setSDA(sdaPin);
+    _bus->setSCL(sclPin);
+    _bus->begin();
+    _bus->setClock(400000);
 }
 
-void tcaselect(uint8_t i)
+void MUX::tcaselect(uint8_t i)
 {
     if (i > 7 || i < 0) return;
-    Wire.beginTransmission(TCAADDR);
-    Wire.write(1 << i);
-    Wire.endTransmission();
+    _bus->beginTransmission(TCAADDR);
+    _bus->write(1 << i);
+    _bus->endTransmission();
 }
 
 
-L1X::L1X(int pin, int timePeriod, int timeOut)
+L1X::L1X(MUX *mux, int pin, int timePeriod, int timeOut)
 {
     _pin = pin;
-    tcaselect(pin);
-    sensor.setTimeout(timeOut);
-    while (sensor.init()) {delay(10);} //! did not handle the tripping of error in initialization
-    sensor.setDistanceMode(VL53L1X::Medium);
-    sensor.setMeasurementTimingBudget(50000);
-    sensor.startContinuous(timePeriod);
+    _mux = mux;
+    _mux->tcaselect(pin);
+
+    _sensor.init();
+    _sensor.setDistanceMode(VL53L1X::Medium);
+    _sensor.setMeasurementTimingBudget(50000);
+    _sensor.startContinuous(timePeriod);
+    // _sensor.setBus(_mux);
+//     sensor.setTimeout(timeOut);
+    // while (!sensor.init()) {Serial.println("L1X failed to initialise");} 
+//     sensor.setDistanceMode(VL53L1X::Medium);
+//     sensor.setMeasurementTimingBudget(50000);
+//     sensor.startContinuous(timePeriod);
 }
 
 int L1X::readVal()
 {
-    tcaselect(_pin);
-    _value = sensor.read();
-    if (sensor.timeoutOccurred())
+    _mux->tcaselect(_pin);
+    _value = _sensor.read();
+    if (_sensor.timeoutOccurred())
         return -1;
     else
         return _value;
 }
 
 
-L0X::L0X(int pin, int timePeriod, int timeOut)
-{
-    _pin = pin;
-    tcaselect(pin);
-    sensor.setTimeout(timeOut);
-    while (sensor.init()) {delay(10);} //! also didn't handle here
-    sensor.startContinuous(timePeriod);
-}
+// L0X::L0X(int pin, int timePeriod, int timeOut)
+// {
+//     _pin = pin;
+//     tcaselect(pin);
+//     sensor.setTimeout(timeOut);
+//     while (!sensor.init()) {Serial.println("L1X failed to initialise");}
+//     sensor.startContinuous(timePeriod);
+// }
 
-int L0X::readVal()
-{
-    tcaselect(_pin);
-    _value = sensor.readRangeContinuousMillimeters();
-    if (sensor.timeoutOccurred())
-        return -1;
-    else
-        return _value;
-}
+// int L0X::readVal()
+// {
+//     tcaselect(_pin);
+//     _value = sensor.readRangeContinuousMillimeters();
+//     if (sensor.timeoutOccurred())
+//         return -1;
+//     else
+//         return _value;
+// }
