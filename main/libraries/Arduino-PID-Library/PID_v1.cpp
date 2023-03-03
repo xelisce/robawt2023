@@ -12,6 +12,7 @@
 #endif
 
 #include <PID_v1.h>
+// #include <Arduino.h>
 
 /*Constructor (...)*********************************************************
  *    The parameters specified here are those for for which we can't set up
@@ -65,6 +66,7 @@ bool PID::Compute()
       /*Compute all the working error variables*/
       double input = *myInput;
       double error = *mySetpoint - input;
+      // Serial.println(error);
       double dInput = (input - lastInput);
       outputSum+= (ki * error);
 
