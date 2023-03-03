@@ -186,7 +186,7 @@ while True:
         curr = Task.EMPTY
         mask_gap = mask_black[crop_h_bw_gap:, :]
         mask_black = mask_black[crop_h_bw:, :]
-        cv2.imshow("black lt mask", mask_gap)
+        # cv2.imshow("black lt mask", mask_gap)
         #? Maybe needed, not critical
         # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
         # black_mask = cv2.dilate(black_mask, kernel)
@@ -198,7 +198,7 @@ while True:
         # cv2.imshow("xframe", x_black)
 
         #~ Line gap
-        print("max black:", np.max(y_black))
+        # print("max black:", np.max(y_black))
 
         #~ Plain line track
         y_resultant = np.mean(y_black)
@@ -207,7 +207,7 @@ while True:
 
         #~ Formatting data for transfer
         angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
-        print(angle) #& debug angle
+        # print(angle) #& debug angle
         pidangle = angle * kp
 
         if pidangle > 90:
@@ -217,14 +217,20 @@ while True:
         rotation = int(pidangle) + 90
         # print(rotation)
 
-        to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+        print("rpm:", rpm)
+        print("rotation:", rotation)
+        print("value:", curr.value)
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
                 253, curr.value] # 0 to 200
                 # 253, curr] # 0 to 3 currently
 
-    print(curr)
+    # print(curr)
         
     #* SEND DATA
+
+    print(to_pico)
     
     ser.write(to_pico)
 
