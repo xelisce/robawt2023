@@ -3,7 +3,7 @@ from MultiThread import WebcamStream
 import serial
 import numpy as np
 # import struct
-# from time import sleep
+import time
 import math
 import enum
 
@@ -31,21 +31,27 @@ u_black = 70
 l_green = np.array([30, 50, 60], np.uint8)
 u_green = np.array([85, 255, 255], np.uint8)
 
+l_blue = np.array([114, 4, 159], np.uint8)  #! to tune the blue values
+u_blue = np.array([133, 110, 255], np.uint8)
+
 l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
 l_red2 = np.array([170, 100, 80], np.uint8) 
 u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
+
 #* CONSTANTS CALIBRATION
-gs_roi_h = 300 #the crop height for gs #! increase after tuning 
+gs_roi_h = 300 #the crop height for gs #! increase after tuning  #?DOM: what the hell is roi
 gs_bksampleoffset = 10 #offset sample above green squares
 gs_bksampleh = 40
-gs_minbkpct = 0.35 #! to be tuned
+gs_minbkpct = 0.35 #! to be tuned  #DOM: this is gs_minimum_black_percentage
 gs_minarea = 4000000 #? consider making this scaled by pixels (/255)
+
+b_minarea = 10000 #? ~DOM: to tune the values 
 
 set_rpm = 40
 rpm = 40
-kp = 1.5
+kp = 1.5   #constant used for PID?
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -62,10 +68,18 @@ class Task(enum.Enum):
     RIGHT_GREEN = 2
     DOUBLE_GREEN = 3
     RED = 4
+    BLUE = 5  #rescue kit LOL
 
 curr = Task.EMPTY
 red_now = False
 gs_now = False
+blue_now = False #^ not sure if this is necessary; might be quite superfluous
+
+#& stuff below are for rescue kit
+reversing_now = False #for rescue kit
+moving_towards_blue = False #^ IM SORRY I KNOW THIS IS DISGUSTING :sob:
+journey = [] #to record the rotations of the robot
+
 
 #* BEGIN OF LINETRACK LOOP CODE
 
@@ -93,21 +107,27 @@ while True:
     mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = mask_red1 + mask_red2
+    red_sum = np.sum(mask_red)
     # print(np.sum(mask_red)) #& debug red min area
+
+    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) #? DOM: Are there any specific restrictions for the bluemask eg. cropped height/width
+    blue_sum = np.sum(mask_blue)
+    #print(blue_sum) #& debug red min & max area
 
     #* RED LINE 
 
-    if np.sum(mask_red) > 17000000:
+    if red_sum > 17000000:
         red_now = True
         curr = Task.RED
         rpm = 0
-        to_pico = [255, 90, #90 = 0 rotation
-                254, 0, #rpm
-                253, curr.value] #task
+        # to_pico = [255, 90, #90 = 0 rotation #^ DOM: is this really necessary? to_pico will be overwritten at the bottom anyways; rpm is alr set to 0
+        #            254, 0, #rpm
+        #            253, curr.value] #task
     elif red_now == True:
         red_now = False
         rpm = set_rpm
 
+    
     #* JUST FOUND GREEN SQUARE PREVIOUSLY
 
     #~ Turn while still seeing green
@@ -115,8 +135,8 @@ while True:
         if curr.name == "DOUBLE_GREEN":
             if np.sum(mask_black) > 18000000:
                 gs_now = False
-            else:
-                to_pico = [253, curr.value]
+            # else:
+            #     to_pico = [253, curr.value] #^ DOM: same here im p sure this doesn't do anything LOL 
         else:
             gs_now = False
 
@@ -133,7 +153,7 @@ while True:
         g_indices_v = np.where(green_row==255) #v for vertical
         gs_top = g_indices_v[0][0] + gs_roi_h
         gs_bot = g_indices_v[0][-1] + gs_roi_h
-        # cv2.imshow("Green bounding box", frame_org[gs_top:, gs_left:gs_right]) #& debug green bounds
+        #cv2.imshow("Green bounding box", frame_org[gs_top:, gs_left:gs_right]) #& debug green bounds
 
         if gs_bot > 470:
             #~ Find x positions of green
@@ -150,7 +170,7 @@ while True:
             # cv2.imshow("black area above green square", gs_bkabove) 
             # cv2.imshow("black area above green in orig frame", frame_org[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right])
             
-            #~ GREEM SQUARE FOUND
+            #~ GREEN SQUARE FOUND
             if gs_bkpct > gs_minbkpct:
 
                 #~ Find x position of green
@@ -175,16 +195,76 @@ while True:
                     curr = Task.RIGHT_GREEN
                     gs_now = True
 
-                to_pico = [253, curr.value]
+                # to_pico = [253, curr.value] #^ again over here
                 # else:
                     # print("ERROR: Green found but type indetermined")
 
+    #! TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT? 
+
+    #* REVERSING MOVEMENTS (RESCUE KIT)
+    #^ DOM: thought process: reverse translation, then reverse rotation; handle movement on pico side
+    #^ Instead of time.time(), use TOF sensors to record time taken for bot to move
+    if reversing_now:
+        #~ If not enough time has elapsed since bot started moving backwards
+        if time.time() - stop_blue < (stop_blue - start_blue): 
+            curr = Task.BLUE #^ rpm will be negative on pico side
+            rpm = 40 
+        #~ If bot still has to rotate to its original rotation
+        elif len(journey) > 0:
+            curr = Task.EMPTY #^ A stopgap for now; more sophisticated way of doing this?
+            #print(len(journey)) #& debug rotations of bot
+            rotation = -(journey.pop()) + 90  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 
+            print(rotation)
+        else:
+            blue_now = False
+            reversing_now = False; 
+
+
+    #* DETECTION OF RESCUE KIT
+    #~ If close enough to rescue kit:
+    if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
+        #time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
+
+        stop_blue = time.time()
+        reversing_now = True
+        moving_towards_blue = False #^ sorry 
+        # time_elapsed = stop_blue - start_blue
+        # dist_travelled = rpm * time_elapsed
+
+    #~ Rescue kit spotted:
+    elif not reversing_now and blue_sum >= b_minarea:
+        blue_now = True
+        #mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
+        #mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
+        #~ Find x and y positions of rescue kit
+        blueM = cv2.moments(mask_blue)
+        cx_blue = int(blueM["m10"] / blueM["m00"])
+        cy_blue = int(blueM["m01"] / blueM["m00"])
+        finalx = cx_blue - frame_org.shape[1]/2
+        finaly = frame_org.shape[0]/2 - cy_blue
+
+        #~ if the block isn't centred
+        if finalx != 0: 
+            deviation = math.atan(finalx/finaly) * 180/math.pi #conversion of angle from bot to rescue kit into degrees 
+            pid_deviation = deviation * kp
+
+            if pid_deviation > 90:
+                pid_deviation = 90
+            elif pid_deviation < -90:
+                pid_deviation = -90
+            rotation = int(pid_deviation) + 90
+            journey.append(rotation)
+        elif not moving_towards_blue: #^ if block is centred: start timer and start moving towards block (maybe track the distance travelled too?)
+            start_blue = time.time() #time when bot starts moving towards blue
+            moving_towards_blue = True #^ this is dumbbb but its to ensure that this code runs only once
+
+
     #* LINETRACK
 
-    if not gs_now and not red_now:
+    if not gs_now and not red_now and not blue_now:
 
         curr = Task.EMPTY
-        mask_gap = mask_black[crop_h_bw_gap:, :]
+        mask_gap = mask_black[crop_h_bw_gap:, :] 
         mask_black = mask_black[crop_h_bw:, :]
         # cv2.imshow("black lt mask", mask_gap)
         #? Maybe needed, not critical
@@ -206,20 +286,22 @@ while True:
         # print(y_resultant, x_resultant) #& debug resultant angle
 
         #~ Formatting data for transfer
-        angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
+        #angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
+        angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0 #& x is horizontal; y is vertical
         # print(angle) #& debug angle
-        pidangle = angle * kp
+        pid_angle = angle * kp
+        if pid_angle > 90:
+            pid_angle = 90
+        elif pid_angle < -90:
+            pid_angle = -90
 
-        if pidangle > 90:
-            pidangle = 90
-        elif pidangle < -90:
-            pidangle = -90
-        rotation = int(pidangle) + 90
-        # print(rotation)
+        rotation = int(pid_angle) + 90
 
-        print("rpm:", rpm)
-        print("rotation:", rotation)
-        print("value:", curr.value)
+        # print("rpm:", rpm)
+        # print("rotation:", rotation)
+        # print("value:", curr.value)
+    
+    #print(rotation)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
