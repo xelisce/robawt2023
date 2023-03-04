@@ -1,3 +1,9 @@
+/* 
+* claw.h
+* contains all servo movements on particular robot
+* created 03/03/23
+*/
+
 #include <Arduino.h>
 #include <Servo.h>
 
