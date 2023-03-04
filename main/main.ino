@@ -18,7 +18,7 @@
 Motor MotorL(13, 12, 19, 18); //M2 swapped
 Motor MotorR(10, 11, 16, 17); //M1
 Vroom Robawt(&MotorL, &MotorR);
-VL53L0X sensor;
+VL53L0X l_tof;
 
 //* MOTOR ENCODERS */
 void ISRLA() {MotorL.readEncA();}
@@ -62,18 +62,18 @@ void setup() {
   // Serial.println("Pi serial initialised");
 
   //* MULTIPLEXER */
-  Wire.setSDA(SDAPIN);
-  Wire.setSCL(SCLPIN);
-  Wire.begin();
-  Wire.setClock(400000);
+//  Wire.setSDA(SDAPIN);
+//  Wire.setSCL(SCLPIN);
+//  Wire.begin();
+//  Wire.setClock(400000);
 
-  // tcaselect(3);
-  // sensor.setTimeout(500);
-  // while (!sensor.init()) {Serial.println("L0X failed to initialise");}
-  // sensor.startContinuous(50);
+//  tcaselect(3);
+//  sensor.setTimeout(500);
+//  while (!sensor.init()) {Serial.println("L0X failed to initialise");}
+//  sensor.startContinuous(50);
 
-  // businit(SDAPIN, SCLPIN);
-  // l0xinit(&l_tof, 3);
+   businit(&Wire, SDAPIN, SCLPIN);
+   l0xinit(&l_tof, 3);
   // l0xinit(r_tof, 5);
 
   //* MOTOR ENCODERS */
@@ -88,7 +88,7 @@ void setup() {
 
 void loop() {
 
-  serialEvent();
+//  serialEvent();
 
   if (digitalRead(SWTPIN)) {
 
@@ -124,12 +124,13 @@ void loop() {
     // }
 
     //* DEBUG LIDARS (DEBUG CODE NOT WORKING LOL) */
-    // int value = l0xread(&, 3);
+     int value = l0xread(&l_tof, 3);
+     Serial.println(value);
 
-    // tcaselect(3);
-    // int value = sensor.readRangeContinuousMillimeters();
-    // if (sensor.timeoutOccurred()) Serial.println("TIMEOUT");
-    // else Serial.println(value);
+//    tcaselect(3);
+//    int value = sensor.readRangeContinuousMillimeters();
+//    if (sensor.timeoutOccurred()) Serial.println("TIMEOUT");
+//    else Serial.println(value);
 
     //* DEBUG PASSED VARIABLES */
     // Serial.print("task: ");
@@ -200,21 +201,21 @@ void tcaselect1(uint8_t i)
 
 
 
-// void l0xinit(VL53L0X *sensor, uint8_t pin)
-// {
-//   tcaselect(pin);
-//   sensor->setTimeout(500);
-//   while (!sensor->init()) {Serial.println("L0X failed to initialise");}
-//   sensor->startContinuous(50);
-// }
+ void l0xinit(VL53L0X *sensor, uint8_t pin)
+ {
+   tcaselect(pin);
+   sensor->setTimeout(500);
+   while (!sensor->init()) {Serial.println("L0X failed to initialise");}
+   sensor->startContinuous(50);
+ }
 
-// int l0xread(VL53L0X *sensor, uint8_t pin)
-// {
-//   tcaselect(pin);
-//   int value = sensor->readRangeContinuousMillimeters();
-//   if (sensor->timeoutOccurred()) return -1;
-//   else return value;
-// }
+ int l0xread(VL53L0X *sensor, uint8_t pin)
+ {
+   tcaselect(pin);
+   int value = sensor->readRangeContinuousMillimeters();
+   if (sensor->timeoutOccurred()) return -1;
+   else return value;
+ }
 
 // void l1xinit(VL53L1X *sensor, uint8_t pin)
 // {
@@ -233,10 +234,10 @@ void tcaselect1(uint8_t i)
 //   else return value;
 // }
 
-// void businit(int sdaPin, int sclPin)
-// {
-//   Wire1.setSDA(sdaPin);
-//   Wire1.setSCL(sclPin);
-//   Wire1.begin();
-//   Wire1.setClock(400000); 
-// }
+ void businit(TwoWire *bus, int sdaPin, int sclPin)
+ {
+   bus->setSDA(sdaPin);
+   bus->setSCL(sclPin);
+   bus->begin();
+   bus->setClock(400000); 
+ }
