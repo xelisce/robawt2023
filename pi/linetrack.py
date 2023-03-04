@@ -39,9 +39,9 @@ u_red1 = np.array([15, 255, 255], np.uint8)
 l_red2 = np.array([170, 100, 80], np.uint8) 
 u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
-
 #* CONSTANTS CALIBRATION
-gs_roi_h = 300 #the crop height for gs #! increase after tuning  #?DOM: what the hell is roi
+gs_roi_h = 300 #the crop height for gs #! increase after tuning  
+#?DOM: what the hell is roi #xel: region of interest pfff
 gs_bksampleoffset = 10 #offset sample above green squares
 gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned  #DOM: this is gs_minimum_black_percentage
@@ -219,8 +219,8 @@ while True:
             blue_now = False
             reversing_now = False; 
 
-
     #* DETECTION OF RESCUE KIT
+
     #~ If close enough to rescue kit:
     if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
         #time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
@@ -289,34 +289,29 @@ while True:
         #angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0 #& x is horizontal; y is vertical
         # print(angle) #& debug angle
-        pid_angle = angle * kp
-        if pid_angle > 90:
-            pid_angle = 90
-        elif pid_angle < -90:
-            pid_angle = -90
-
-        rotation = int(pid_angle) + 90
-
-        # print("rpm:", rpm)
-        # print("rotation:", rotation)
-        # print("value:", curr.value)
+        rotation = angle * kp
     
-    #print(rotation)
+
+    #* SEND DATA TO PICO
+
+    # print("rpm:", rpm) #& debug sent variables
+    # print("rotation:", rotation)
+    # print("task:", curr.value)
+
+    rotation = int(rotation)
+    if rotation > 90:
+        rotation = 90
+    elif rotation < -90:
+        rotation = -90
+    rotation += 90
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
                 253, curr.value] # 0 to 200
-                # 253, curr] # 0 to 3 currently
 
-    # print(curr)
-        
-    #* SEND DATA
-
-    print(to_pico)
-    
     ser.write(to_pico)
 
-    key = cv2.waitKey(1)
+    key = cv2.waitKey(1) #! remove for optimisation before robocup
     if key == ord('q'):
         break
 
