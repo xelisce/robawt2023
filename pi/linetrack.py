@@ -290,18 +290,18 @@ while True:
         #angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0 #& x is horizontal; y is vertical
         # print(angle) #& debug angle
-        
+        pidangle = angle * kp
+        if pidangle > 90:
+            pidangle = 90
+        elif pidangle < -90:
+            pidangle = -90
+
+        rotation = int(pidangle) + 90
 
         # print("rpm:", rpm)
         # print("rotation:", rotation)
         # print("value:", curr.value)
-    pidangle = angle * kp
-    if pidangle > 90:
-        pidangle = 90
-    elif pidangle < -90:
-        pidangle = -90
-
-    rotation = int(pidangle) + 90
+    
     #print(rotation)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
