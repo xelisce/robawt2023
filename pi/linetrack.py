@@ -41,17 +41,18 @@ u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
 #* CONSTANTS CALIBRATION
 gs_roi_h = 300 #the crop height for gs #! increase after tuning  
-#?DOM: what the hell is roi #xel: region of interest pfff
-gs_bksampleoffset = 10 #offset sample above green squares
+#? DOM: what the hell is roi 
+#? XEL: region of interest pfff
+gs_bksampleoffset = 10 #to offset sample above green squares
 gs_bksampleh = 40
-gs_minbkpct = 0.35 #! to be tuned  #DOM: this is gs_minimum_black_percentage
-gs_minarea = 4000000 #? consider making this scaled by pixels (/255)
+gs_minbkpct = 0.35 #! to be tuned properly #DOM: this is gs_minimum_black_percentage
+gs_minarea = 4000000 #^ consider making this scaled by pixels (/255)
 
-b_minarea = 10000 #? ~DOM: to tune the values 
+b_minarea = 10000 #! ~DOM: to tune the values 
 
-set_rpm = 40
+rpm_setpt = 40
 rpm = 40
-kp = 1.5   #constant used for PID?
+kp = 1.5 #constant used for PID?
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -75,9 +76,9 @@ red_now = False
 gs_now = False
 blue_now = False #^ not sure if this is necessary; might be quite superfluous
 
-#& stuff below are for rescue kit
+#~ Rescue kit
 reversing_now = False #for rescue kit
-moving_towards_blue = False #^ IM SORRY I KNOW THIS IS DISGUSTING :sob:
+moving_towards_blue = False #^ IM SORRY I KNOW THIS IS DISGUSTING :sob: lmao :eyes:
 journey = [] #to record the rotations of the robot
 
 
@@ -110,7 +111,9 @@ while True:
     red_sum = np.sum(mask_red)
     # print(np.sum(mask_red)) #& debug red min area
 
-    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) #? DOM: Are there any specific restrictions for the bluemask eg. cropped height/width
+    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
+    #? DOM: Are there any specific restrictions for the bluemask eg. cropped height/width 
+    #? XEL: yeah depending on like how near u want the cube to be sensed, but this should only be done inside your np.sum if else to optimise performance
     blue_sum = np.sum(mask_blue)
     #print(blue_sum) #& debug red min & max area
 
@@ -120,23 +123,18 @@ while True:
         red_now = True
         curr = Task.RED
         rpm = 0
-        # to_pico = [255, 90, #90 = 0 rotation #^ DOM: is this really necessary? to_pico will be overwritten at the bottom anyways; rpm is alr set to 0
-        #            254, 0, #rpm
-        #            253, curr.value] #task
     elif red_now == True:
         red_now = False
-        rpm = set_rpm
+        rpm = rpm_setpt
 
-    
     #* JUST FOUND GREEN SQUARE PREVIOUSLY
+    #TODO XEL make single green squares for longer
 
     #~ Turn while still seeing green
     elif gs_now and gs_sum < 1000:
         if curr.name == "DOUBLE_GREEN":
             if np.sum(mask_black) > 18000000:
                 gs_now = False
-            # else:
-            #     to_pico = [253, curr.value] #^ DOM: same here im p sure this doesn't do anything LOL 
         else:
             gs_now = False
 
@@ -179,7 +177,9 @@ while True:
                 #~ Find x position of black
                 gs_bkbeside = mask_black[gs_roi_h:, :]
                 blackM = cv2.moments(gs_bkbeside)
-                cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(gs_bkbeside) else 0 #theoretically divide by zero error should never happen
+                cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(gs_bkbeside) else 0 
+                #? theoretically divide by zero error should never happen 
+                #? XEL: oh idk why but it actually happens sometimes even tho it shouldnt this is to make sure it doesnt
                 # cv2.imshow("Black beside green squares", gs_bkbeside) #& debug green type triggered
                 # print("Black x-centre:", cx_black)
                 # print("Green x-centre:", gs_centre)
@@ -194,17 +194,17 @@ while True:
                 elif cx_black < gs_centre:
                     curr = Task.RIGHT_GREEN
                     gs_now = True
-
-                # to_pico = [253, curr.value] #^ again over here
                 # else:
                     # print("ERROR: Green found but type indetermined")
 
-    #! TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT? 
+    #TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT?
 
     #* REVERSING MOVEMENTS (RESCUE KIT)
     #^ DOM: thought process: reverse translation, then reverse rotation; handle movement on pico side
     #^ Instead of time.time(), use TOF sensors to record time taken for bot to move
-    if reversing_now:
+    #^ XEL: the tof sensors dont read time btw you'll have to use millis() or elapsedMillis() on the pico
+    if reversing_now: 
+    #? XEL: ^ shouldnt this be elif because red takes precedence (line 122)
         #~ If not enough time has elapsed since bot started moving backwards
         if time.time() - stop_blue < (stop_blue - start_blue): 
             curr = Task.BLUE #^ rpm will be negative on pico side
@@ -213,7 +213,7 @@ while True:
         elif len(journey) > 0:
             curr = Task.EMPTY #^ A stopgap for now; more sophisticated way of doing this?
             #print(len(journey)) #& debug rotations of bot
-            rotation = -(journey.pop()) + 90  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 
+            rotation = -(journey.pop())  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 #XEL: removed the 90
             print(rotation)
         else:
             blue_now = False
@@ -222,6 +222,7 @@ while True:
     #* DETECTION OF RESCUE KIT
 
     #~ If close enough to rescue kit:
+    #? XEL: Shouldnt this one also be elif
     if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
         #time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
 
@@ -236,6 +237,8 @@ while True:
         blue_now = True
         #mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
         #mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
+        #? XEL: can we remove these two lines ^^
+
         #~ Find x and y positions of rescue kit
         blueM = cv2.moments(mask_blue)
         cx_blue = int(blueM["m10"] / blueM["m00"])
@@ -267,8 +270,8 @@ while True:
         mask_gap = mask_black[crop_h_bw_gap:, :] 
         mask_black = mask_black[crop_h_bw:, :]
         # cv2.imshow("black lt mask", mask_gap)
-        #? Maybe needed, not critical
-        # black_mask = cv2.erode(black_mask, kernel) #? maybe try kernel
+        #^ maybe try, not needed (og kernel=5,5)
+        # black_mask = cv2.erode(black_mask, kernel) 
         # black_mask = cv2.dilate(black_mask, kernel)
 
         #~ Vectorizing the black components
@@ -278,20 +281,19 @@ while True:
         # cv2.imshow("xframe", x_black)
 
         #~ Line gap
+
         # print("max black:", np.max(y_black))
 
         #~ Plain line track
         y_resultant = np.mean(y_black)
         x_resultant = np.mean(x_black)
-        # print(y_resultant, x_resultant) #& debug resultant angle
 
         #~ Formatting data for transfer
-        #angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
-        angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0 #& x is horizontal; y is vertical
-        # print(angle) #& debug angle
+        angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
+        # print(y_resultant, x_resultant) #& debug resultant angle
+        # print(angle)
         rotation = angle * kp
     
-
     #* SEND DATA TO PICO
 
     # print("rpm:", rpm) #& debug sent variables
@@ -306,8 +308,8 @@ while True:
     rotation += 90
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
-                254, rpm,
-                253, curr.value] # 0 to 200
+                254, rpm, # 0 to 200 MAX, but 100 really damn fast alr
+                253, curr.value] #currently 0 to 5
 
     ser.write(to_pico)
 

@@ -119,7 +119,7 @@ void Vroom::setSteer(double rpm, double rotation)
     if (rpm < -210) rpm = -210;
     if (rotation > 1) rotation = 1;
     if (rotation < -1) rotation = -1;
-    double slower = rpm*(1-2*fabs(rotation));
+    double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
     // if (rotation > 0) {
     //     this->_left->setSpeed(speed);
     //     this->_right->setSpeed(slower);
