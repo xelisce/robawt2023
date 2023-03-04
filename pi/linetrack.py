@@ -202,21 +202,19 @@ while True:
     #! TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT? 
 
     #* REVERSING MOVEMENTS (RESCUE KIT)
-    #^ DOM: thought process: reverse translation, then reverse rotation;; handle movement on pico side
-    #^ Either add an extra parameter for reversing rpm OR write a function that handles signed 
-    #^ integers on pico end (I would rather the latter ngl but longer processing time?)
+    #^ DOM: thought process: reverse translation, then reverse rotation; handle movement on pico side
+    #^ Instead of time.time(), use TOF sensors to record time taken for bot to move
     if reversing_now:
         #~ If not enough time has elapsed since bot started moving backwards
         if time.time() - stop_blue < (stop_blue - start_blue): 
-            curr = Task.BLUE
-            rpm = 40  
-            pass 
+            curr = Task.BLUE #^ rpm will be negative on pico side
+            rpm = 40 
         #~ If bot still has to rotate to its original rotation
         elif len(journey) > 0:
             curr = Task.EMPTY #^ A stopgap for now; more sophisticated way of doing this?
-            print(len(journey)) #& debug rotations of bot
-            rotation = -(journey[len(journey) - 1]) + 90  #negative of the angle? adding 90 since original rotation ranges from 0 to 180
-            journey.pop()
+            #print(len(journey)) #& debug rotations of bot
+            rotation = -(journey.pop()) + 90  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 
+            print(rotation)
         else:
             blue_now = False
             reversing_now = False; 
@@ -224,8 +222,9 @@ while True:
 
     #* DETECTION OF RESCUE KIT
     #~ If close enough to rescue kit:
-    if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? idk. add additional condition of not reversing_now?
-        time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
+    if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
+        #time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
+
         stop_blue = time.time()
         reversing_now = True
         moving_towards_blue = False #^ sorry 
@@ -247,15 +246,15 @@ while True:
         #~ if the block isn't centred
         if finalx != 0: 
             deviation = math.atan(finalx/finaly) * 180/math.pi #conversion of angle from bot to rescue kit into degrees 
-            piddeviation = deviation * kp
+            pid_deviation = deviation * kp
 
-            if piddeviation > 90:
-                piddeviation = 90
-            elif piddeviation < -90:
-                piddeviation = -90
-            rotation = int(piddeviation) + 90
+            if pid_deviation > 90:
+                pid_deviation = 90
+            elif pid_deviation < -90:
+                pid_deviation = -90
+            rotation = int(pid_deviation) + 90
             journey.append(rotation)
-        elif not moving_towards_blue: #& if block is centred: start timer and start moving towards block (maybe track the distance travelled too?)
+        elif not moving_towards_blue: #^ if block is centred: start timer and start moving towards block (maybe track the distance travelled too?)
             start_blue = time.time() #time when bot starts moving towards blue
             moving_towards_blue = True #^ this is dumbbb but its to ensure that this code runs only once
 
@@ -290,13 +289,13 @@ while True:
         #angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0 #& x is horizontal; y is vertical
         # print(angle) #& debug angle
-        pidangle = angle * kp
-        if pidangle > 90:
-            pidangle = 90
-        elif pidangle < -90:
-            pidangle = -90
+        pid_angle = angle * kp
+        if pid_angle > 90:
+            pid_angle = 90
+        elif pid_angle < -90:
+            pid_angle = -90
 
-        rotation = int(pidangle) + 90
+        rotation = int(pid_angle) + 90
 
         # print("rpm:", rpm)
         # print("rotation:", rotation)
