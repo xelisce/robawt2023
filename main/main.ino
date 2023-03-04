@@ -65,7 +65,7 @@ void setup() {
   Wire.setSDA(SDAPIN);
   Wire.setSCL(SCLPIN);
   Wire.begin();
-  Wire.setClock(400000); 
+  Wire.setClock(400000);
 
   // tcaselect(3);
   // sensor.setTimeout(500);
@@ -92,33 +92,36 @@ void loop() {
 
   if (digitalRead(SWTPIN)) {
 
-    switch (task) {
+    //* ACTUAL CODE
+    // switch (task) {
 
-      case 0: //normal lt
-        Robawt.setSteer(rpm, rotation);
-        break;
+    //   case 0: //normal lt
+    //     Robawt.setSteer(rpm, rotation);
+    //     break;
 
-      case 1: //left gs
-        Robawt.setSteer(rpm, -0.5);
-        break;
+    //   case 1: //left gs
+    //     Robawt.setSteer(rpm, -0.5);
+    //     break;
       
-      case 2: //right gs
-        Robawt.setSteer(rpm, 0.5);
-        break;
+    //   case 2: //right gs
+    //     Robawt.setSteer(rpm, 0.5);
+    //     break;
 
-      case 3: //double gs
-        Robawt.setSteer(50, 1);
-        break;
+    //   case 3: //double gs
+    //     Robawt.setSteer(50, 1);
+    //     break;
 
-      case 4: //red line
-        Robawt.setSteer(0, 0);
-        Robawt.reset();
+    //   case 4: //red line
+    //     Robawt.setSteer(0, 0);
+    //     Robawt.reset();
+    //     break;
 
-      case 5: //moving backwards (blue)
-        Robawt.setSteer(-rpm, 0);
-        break;
 
-    }
+    //   case 5: //moving backwards (blue)
+    //     Robawt.setSteer(-rpm, 0);
+    //     break;
+
+    // }
 
     //* DEBUG LIDARS (DEBUG CODE NOT WORKING LOL) */
     // int value = l0xread(&, 3);
