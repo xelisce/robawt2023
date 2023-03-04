@@ -10,7 +10,6 @@ To Note:
 Checklist of things yet to be done on software side:
 - Ball tracking
 - Green squares
-- Stop at red line (should be fairly simple)
 - 135 turn
 - Entire evac portion
 

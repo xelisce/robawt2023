@@ -95,56 +95,60 @@ void loop() {
     Serial.print("rpm: ");
     Serial.println(rpm);
 
-    // switch (task) {
+    switch (task) {
 
-    //   case 0: //normal lt
-    //     // if (task == 0) {
-    //     Robawt.setSteer(rpm, rotation);
-    //     // } else {
-    //       // curr = task;
-    //     //   startChangeMillis = millis();
-    //     // }
-    //     break;
+      case 0: //normal lt
+        // if (task == 0) {
+        Robawt.setSteer(rpm, rotation);
+        // } else {
+          // curr = task;
+        //   startChangeMillis = millis();
+        // }
+        break;
 
-    //   case 1: //left gs
-    //     // if (millis() - startChangeMillis < 2000) {
-    //     Robawt.setSteer(rpm, -0.5);
-    //     // analogWrite(MotorR.getPin1(), 70);
-    //     // analogWrite(MotorR.getPin2(), 0);
-    //     // analogWrite(MotorL.getPin1(), 0);
-    //     // analogWrite(MotorL.getPin2(), 0);
-    //     // } else if (millis() - startChangeMillis < 4000) {
-    //       // Robawt.setSteer(60, -0.3);
-    //     // } else {
-    //     //   curr = 0;
-    //     // }
-    //     break;
+      case 1: //left gs
+        // if (millis() - startChangeMillis < 2000) {
+        Robawt.setSteer(rpm, -0.5);
+        // analogWrite(MotorR.getPin1(), 70);
+        // analogWrite(MotorR.getPin2(), 0);
+        // analogWrite(MotorL.getPin1(), 0);
+        // analogWrite(MotorL.getPin2(), 0);
+        // } else if (millis() - startChangeMillis < 4000) {
+          // Robawt.setSteer(60, -0.3);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
       
-    //   case 2: //right gs
-    //     // if (millis() - startChangeMillis < 2000) {
-    //     Robawt.setSteer(rpm, 0.5);
-    //     // analogWrite(MotorL.getPin1(), 70);
-    //     // analogWrite(MotorL.getPin2(), 0);
-    //     // analogWrite(MotorR.getPin1(), 0);
-    //     // analogWrite(MotorR.getPin2(), 0);
-    //     // } else {
-    //     //   curr = 0;
-    //     // }
-    //     break;
+      case 2: //right gs
+        // if (millis() - startChangeMillis < 2000) {
+        Robawt.setSteer(rpm, 0.5);
+        // analogWrite(MotorL.getPin1(), 70);
+        // analogWrite(MotorL.getPin2(), 0);
+        // analogWrite(MotorR.getPin1(), 0);
+        // analogWrite(MotorR.getPin2(), 0);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
 
-    //   case 3: //double gs
-    //     // if (millis() - startChangeMillis < 1500) {
-    //     Robawt.setSteer(60, 1);
-    //     // } else {
-    //     //   curr = 0;
-    //     // }
-    //     break;
+      case 3: //double gs
+        // if (millis() - startChangeMillis < 1500) {
+        Robawt.setSteer(60, 1);
+        // } else {
+        //   curr = 0;
+        // }
+        break;
 
-    //   case 4: //red line
-    //     Robawt.setSteer(0, 0);
-    //     Robawt.reset();
+      case 4: //red line
+        Robawt.setSteer(0, 0);
+        Robawt.reset();
 
-    // }
+      case 5: //moving backwards (blue)
+        Robawt.setSteer(-rpm, 0);
+        break;
+
+    }
 
 
 
