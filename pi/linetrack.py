@@ -59,6 +59,7 @@ x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, ins
 y_com = np.array([[i] * width for i in np.linspace(1., 1/height, height)]) #1/height is just to save pixels
 x_com_scale = ((1-y_com) ** 0.6)
 x_com *= x_com_scale
+#^ not scaled according to available picture!!
 
 gs_erode_kernel = np.ones((3, 3), np.uint8)
 

@@ -36,7 +36,7 @@ class Motor
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
-            _kp = 0.5, //! values to be tuned
+            _kp = 0.5,
             _ki = 6,
             _kd = 0;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
