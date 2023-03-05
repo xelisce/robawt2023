@@ -123,7 +123,7 @@ void loop() {
 
     }
 
-    //* DEBUG LIDARS (DEBUG CODE NOT WORKING LOL) */
+    //* READ LIDAR */
     l_dist = l_tof.readRangeContinuousMillimeters();
     Serial.println(l_dist);
 
