@@ -124,6 +124,7 @@ void loop() {
     }
 
     //* READ LIDAR */
+    tcaselect(3);
     l_dist = l_tof.readRangeContinuousMillimeters();
     Serial.println(l_dist);
 
