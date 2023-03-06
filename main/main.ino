@@ -10,7 +10,6 @@
 #include "VL53L0X.h" //? Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
 #include <Servo.h>
-#include "Claw.h"
 
 #define TCAADDR 0x70
 #define L0XADDR 0x29
@@ -20,7 +19,17 @@ Motor MotorL(13, 12, 19, 18); //M2 swapped
 Motor MotorR(10, 11, 16, 17); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X l_tof, r_tof;
-DFServo claw_arm(7, 500, 2000, 300);
+Servo servos[2];
+
+//* SERVOS CONSTANTS SETUP */
+double servos_angle[2] = {0, 0}; //basic states initialised
+const double servos_max_angle[2] = {300, 300};
+const int servos_pin[2] = {7, 6};
+bool servos_change = false;
+namespace Servos {
+  enum Servos { LEFT, RIGHT };
+}
+// unsigned long servo_time_start;
 
 //* MOTOR ENCODERS */
 void ISRLA() {MotorL.readEncA();}
@@ -33,7 +42,7 @@ const int TX1PIN = 8,
   RX1PIN = 9,
   SDAPIN = 20,
   SCLPIN = 21,
-  SWTPIN = 14,
+  SWTPIN = 14;
 
 
 int serialState = 0;
@@ -53,12 +62,15 @@ void setup() {
   pinMode(SWTPIN, INPUT);
 
   //* SERVOS */
-  // claw_arm.setAngle(0);
+  for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+    servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+    servos[i].attach(servos_pin[i], 500, 2500);
+  }
 
   //* USB SERIAL COMMS */
-  // Serial.begin(9600);
-  // while (!Serial) delay(10);
-  // Serial.println("USB serial initialised");
+  Serial.begin(9600);
+  while (!Serial) delay(10);
+  Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
   // Serial2.setRX(RX1PIN);
@@ -83,33 +95,39 @@ void setup() {
 
 void loop() {
 
-  serialEvent();
+  if (servos_change) {
+    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+    }
+  }
 
-  if (digitalRead(SWTPIN)) {
+  // serialEvent();
 
-    claw_arm.setAngle(180);
+  if (!digitalRead(SWTPIN)) {
+
+    claw_open();
 
     //* HANDLING THE INFO RECEIVED */
-    // switch (task)
-    // {
+    switch (task)
+    {
 
-    //   //~ Handling the continue turning after green squares
-    //   case 0:
-    //     if (curr == 1) {
-    //       curr = 10;
-    //       lostGSMillis = millis();
-    //     } else if (curr == 2) {
-    //       curr = 11;
-    //       lostGSMillis = millis();
-    //     } else if (curr != 10 || curr != 11) {
-    //       curr = 0;
-    //     }
-    //     break;
+      //~ Handling the continue turning after green squares
+      case 0:
+        if (curr == 1) {
+          curr = 10;
+          lostGSMillis = millis();
+        } else if (curr == 2) {
+          curr = 11;
+          lostGSMillis = millis();
+        } else if (curr != 10 || curr != 11) {
+          curr = 0;
+        } 
+        break;
 
-    //   default:
-    //     curr = task;
+      default:
+        curr = task;
 
-    // }
+    }
 
     //* ACTUAL CODE
     // switch (curr) 
@@ -174,7 +192,10 @@ void loop() {
 
     // startChangeMillis = millis();
 
-    claw_arm.setAngle(0);
+    claw_close();
+
+    
+    Serial.println("0");
 
     //* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
@@ -264,3 +285,17 @@ void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i)
 //   if (sensor.timeoutOccurred()) return -1;
 //   else return value;
 // }
+
+int pwmangle(double angle, int max_angle) {return (int)(angle/max_angle * 2000 + 500);}
+
+void claw_open() {
+  servos_angle[Servos::RIGHT] = 0;
+  servos_angle[Servos::LEFT] = 110;
+  servos_change = true;
+}
+
+void claw_close() {
+  servos_angle[Servos::RIGHT] = 110;
+  servos_angle[Servos::LEFT] = 0;
+  servos_change = true;
+}
