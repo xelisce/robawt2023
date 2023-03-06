@@ -20,6 +20,7 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     this->_encPinA = encPinA;
     this->_encPinB = encPinB;
     _motorPID.SetMode(AUTOMATIC);
+    _pastEncVal = 0;
     // _begin = micros();
     // _end = micros();
     //^ last change before test
@@ -66,18 +67,16 @@ double Motor::getSpeed() //? unneeded function also
 
 double Motor::getRps() //? unneeded function but wtv
 {return this->getRpm()/60;}
-    
 
-double Motor::getAngle() {return _encVal/370;}
+double Motor::getAngle() {return (double)(_pastEncVal + _encVal % 374) / 374 * 360;}
 
 void Motor::readEncA() 
 {
     if(!digitalRead(_encPinB)) {
         _begin = _end;
         _end = micros();
-        // _encVal ++; //? technically don't need this line
+        _encVal ++;
         // _encDir = 1;
-        //! didnt account for negative and positive in pid
     }
 }
 
@@ -86,9 +85,8 @@ void Motor::readEncB()
     if (!digitalRead(_encPinA)) {
         _begin = _end;
         _end = micros();
-        // _encVal --; //? don't need this line either technically
+        _encVal --;
         // _encDir = -1;
-        //! didnt account for negative and positive in pid
     }
 }
 
@@ -98,11 +96,14 @@ int Motor::getPin1() {return _pwmPin1;}
 int Motor::getPin2() {return _pwmPin2;}
 int Motor::getEncVal() {return _encVal;}
 
-void Motor::resetPID() 
-{
-    _motorPID.Reset();
-}
+double Motor::getDist() {return ((double)(_encVal) / 374 * 9 * 3.14159265);} //in cm
 
+void Motor::resetPID() {_motorPID.Reset();}
+void Motor::resetEnc() 
+{
+    _pastEncVal = _encVal % 370;
+    _encVal = 0;
+}
 
 
 Vroom::Vroom(Motor *l, Motor *r) 
@@ -113,20 +114,11 @@ Vroom::Vroom(Motor *l, Motor *r)
 
 void Vroom::setSteer(double rpm, double rotation) 
 {
-    // if (speed > 1) speed = 1;
-    // if (speed < -1) speed = -1;
     if (rpm > 210) rpm = 210;
     if (rpm < -210) rpm = -210;
     if (rotation > 1) rotation = 1;
     if (rotation < -1) rotation = -1;
     double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
-    // if (rotation > 0) {
-    //     this->_left->setSpeed(speed);
-    //     this->_right->setSpeed(slower);
-    // } else {
-    //     this->_left->setSpeed(slower);
-    //     this->_right->setSpeed(speed);
-    // }
     if (rotation > 0) {
         this->_left->setRpm(rpm);
         this->_right->setRpm(slower);
@@ -140,4 +132,6 @@ void Vroom::reset()
 {
     _left->resetPID();
     _right->resetPID();
+    _left->resetEnc();
+    _right->resetEnc();
 }

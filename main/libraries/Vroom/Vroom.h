@@ -21,24 +21,30 @@ class Motor
             getRpm(),
             getSpeed(),
             getRps(),
-            getAngle();
+            getAngle(),
+            getDist();
         void readEncA(), readEncB();
             // updatePulseTimings();
         int getEncAPin(), getEncBPin(),
             getPin1(), getPin2(),
             getEncVal();
-        void resetPID();
+        void resetPID(),
+            resetEnc();
+            // resetDist(); 
+        //TODO distance and reset enc vals
 
     private:
         int _pwmPin1, _pwmPin2,
             _encPinA, _encPinB,
-            _encVal, _encDir;
+            _encVal, _encDir,
+            _pastEncVal;
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
             _kp = 0.5,
             _ki = 6,
             _kd = 0;
+        // bool _dontReset;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };
 

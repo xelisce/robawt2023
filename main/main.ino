@@ -68,9 +68,9 @@ void setup() {
   }
 
   //* USB SERIAL COMMS */
-  Serial.begin(9600);
-  while (!Serial) delay(10);
-  Serial.println("USB serial initialised");
+  // Serial.begin(9600);
+  // while (!Serial) delay(10);
+  // Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
   // Serial2.setRX(RX1PIN);
@@ -101,33 +101,40 @@ void loop() {
     }
   }
 
+  Serial.print("Distance (cm): ");
+  Serial.println(MotorL.getDist());
+  Serial.print("Angle (deg): ");
+  Serial.println(MotorL.getAngle());
+  Serial.print("Enc Val: ");
+  Serial.println(MotorL.getEncVal());
+
   // serialEvent();
 
   if (!digitalRead(SWTPIN)) {
 
-    claw_open();
+    // claw_open();
 
     //* HANDLING THE INFO RECEIVED */
-    switch (task)
-    {
+    // switch (task)
+    // {
 
-      //~ Handling the continue turning after green squares
-      case 0:
-        if (curr == 1) {
-          curr = 10;
-          lostGSMillis = millis();
-        } else if (curr == 2) {
-          curr = 11;
-          lostGSMillis = millis();
-        } else if (curr != 10 || curr != 11) {
-          curr = 0;
-        } 
-        break;
+    //   //~ Handling the continue turning after green squares
+    //   case 0:
+    //     if (curr == 1) {
+    //       curr = 10;
+    //       lostGSMillis = millis();
+    //     } else if (curr == 2) {
+    //       curr = 11;
+    //       lostGSMillis = millis();
+    //     } else if (curr != 10 || curr != 11) {
+    //       curr = 0;
+    //     } 
+    //     break;
 
-      default:
-        curr = task;
+    //   default:
+    //     curr = task;
 
-    }
+    // }
 
     //* ACTUAL CODE
     // switch (curr) 
@@ -192,10 +199,10 @@ void loop() {
 
     // startChangeMillis = millis();
 
-    claw_close();
+    // claw_close();
 
     
-    Serial.println("0");
+    // Serial.println("0");
 
     //* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
@@ -215,16 +222,18 @@ void serialEvent()
   while (Serial2.available()) {
     int serialData = Serial2.read();
     if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = (int)serialData;}
-    switch (serialState) {
-      case 255:
-        rotation = ((double)(serialData)-90)/90;
-        break;
-      case 254:
-        rpm = (double)serialData;
-        break;
-      case 253:
-        task = (int)serialData;
-        break;
+    else {
+      switch (serialState) {
+        case 255:
+          rotation = ((double)(serialData)-90)/90;
+          break;
+        case 254:
+          rpm = (double)serialData;
+          break;
+        case 253:
+          task = (int)serialData;
+          break;
+      }
     }
   }
 }
