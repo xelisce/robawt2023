@@ -13,13 +13,16 @@
 class DFServo
 {
     public:
-        DFServo(int pin);
+        DFServo(int pin, double minus, double maxus, double range);
         void setAngle(double angle);
         double getAngle();
     
     private:
         int _pin;
-        double _angle;
+        double _angle,
+            _minus,
+            _maxus,
+            _range;
         Servo _servo;
 };
 
@@ -32,6 +35,7 @@ class Claw
             DFServo *sort, 
             DFServo *depositLeft, 
             DFServo *depositRight);
+        // bool available();
 
     private:
         DFServo *_left,
@@ -40,6 +44,7 @@ class Claw
             *_sort,
             *_depositLeft,
             *_depositRight;
+        // long _lastAction;
 };
 
 

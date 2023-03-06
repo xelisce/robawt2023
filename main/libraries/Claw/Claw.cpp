@@ -8,15 +8,19 @@
 #include <Servo.h>
 #include "Claw.h"
 
-DFServo::DFServo(int pin)
+DFServo::DFServo(int pin, double minus, double maxus, double range)
 {
     _pin = pin;
     _servo.attach(pin);
+    _minus = minus;
+    _maxus = maxus;
+    _range = range;
 }
 
 void DFServo::setAngle(double angle)
 {
     _angle = angle;
+    _servo.writeMicroseconds((_angle / _range) * (_maxus - _minus) + _minus);
 }
 
 double DFServo::getAngle() {return _angle;}
@@ -30,3 +34,5 @@ Claw::Claw(DFServo *left, DFServo *right, DFServo *lift, DFServo *sort, DFServo 
     _depositLeft = depositLeft;
     _depositRight = depositRight;
 }
+
+// bool Claw::available() {return (millis - _lastAction) > 1000;}
