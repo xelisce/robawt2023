@@ -9,7 +9,8 @@
 //#include "VL53L1X.h"
 #include "VL53L0X.h" //? Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
-// #include "Claw.h"
+#include <Servo.h>
+#include "Claw.h"
 
 #define TCAADDR 0x70
 #define L0XADDR 0x29
@@ -19,6 +20,7 @@ Motor MotorL(13, 12, 19, 18); //M2 swapped
 Motor MotorR(10, 11, 16, 17); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X l_tof, r_tof;
+DFServo claw_arm(7, 500, 2000, 180);
 
 //* MOTOR ENCODERS */
 void ISRLA() {MotorL.readEncA();}
@@ -26,17 +28,13 @@ void ISRLB() {MotorL.readEncB();}
 void ISRRA() {MotorR.readEncA();}
 void ISRRB() {MotorR.readEncB();}
 
-//* DEPRECATED LIDAR CODE */
-// MUX Mux(&Wire, 20, 21);
-// L1X LidarFL(&Mux, 4);
-// L0X LidarClaw(6);
-
 //* CONSTANTS
 const int TX1PIN = 8,
   RX1PIN = 9,
   SDAPIN = 20,
   SCLPIN = 21,
-  SWTPIN = 14;
+  SWTPIN = 14,
+
 
 int serialState = 0;
 int l_dist = 0;
@@ -48,6 +46,9 @@ int task = 0;
 void setup() {
 
   pinMode(SWTPIN, INPUT);
+
+  //* SERVOS */
+  // claw_arm.setAngle(0);
 
   //* USB SERIAL COMMS */
   Serial.begin(9600);
@@ -62,19 +63,9 @@ void setup() {
   // Serial.println("Pi serial initialised");
 
   //* MULTIPLEXER */
-//  Wire.setSDA(SDAPIN);
-//  Wire.setSCL(SCLPIN);
-//  Wire.begin();
-//  Wire.setClock(400000);
-
-//  tcaselect(3);
-//  sensor.setTimeout(500);
-//  while (!sensor.init()) {Serial.println("L0X failed to initialise");}
-//  sensor.startContinuous(50);
-
   businit(&Wire, SDAPIN, SCLPIN);
 
-  l0xinit(&l_tof, 3);
+  l0xinit(&Wire, &l_tof, 3);
   // l0xinit(r_tof, 5);
 
   //* MOTOR ENCODERS */
@@ -87,51 +78,45 @@ void setup() {
 
 void loop() {
 
-
 //  serialEvent();
 
   if (digitalRead(SWTPIN)) {
 
     //* ACTUAL CODE
-    switch (task) {
+    // switch (task) {
 
-      case 0: //normal lt
-        Robawt.setSteer(rpm, rotation);
-        break;
+    //   case 0: //normal lt
+    //     Robawt.setSteer(rpm, rotation);
+    //     break;
 
-      case 1: //left gs
-        Robawt.setSteer(rpm, -0.5);
-        break;
+    //   case 1: //left gs
+    //     Robawt.setSteer(rpm, -0.5);
+    //     break;
       
-      case 2: //right gs
-        Robawt.setSteer(rpm, 0.5);
-        break;
+    //   case 2: //right gs
+    //     Robawt.setSteer(rpm, 0.5);
+    //     break;
 
-      case 3: //double gs
-        Robawt.setSteer(50, 1);
-        break;
+    //   case 3: //double gs
+    //     Robawt.setSteer(50, 1);
+    //     break;
 
-      case 4: //red line
-        Robawt.setSteer(0, 0);
-        Robawt.reset();
-        break;
+    //   case 4: //red line
+    //     Robawt.setSteer(0, 0);
+    //     Robawt.reset();
+    //     break;
 
 
-      case 5: //moving backwards (blue)
-        Robawt.setSteer(-rpm, 0);
-        break;
+    //   case 5: //moving backwards (blue)
+    //     Robawt.setSteer(-rpm, 0);
+    //     break;
 
-    }
+    // }
 
     //* READ LIDAR */
     tcaselect(3);
     l_dist = l_tof.readRangeContinuousMillimeters();
     Serial.println(l_dist);
-
-//    tcaselect(3);
-//    int value = sensor.readRangeContinuousMillimeters();
-//    if (sensor.timeoutOccurred()) Serial.println("TIMEOUT");
-//    else Serial.println(value);
 
     //* DEBUG PASSED VARIABLES */
     // Serial.print("task: ");
@@ -209,12 +194,13 @@ void businit(TwoWire *bus, int sdaPin, int sclPin)
   bus->setClock(400000); 
 }
 
-void l0xinit(VL53L0X *sensor, uint8_t i)
+void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i)
 {
   tcaselect(i);
   sensor->setTimeout(500);
   while (!sensor->init()) {Serial.println("L0X failed to initialise");}
   sensor->startContinuous(33);
+  sensor->setBus(bus);
 }
 
 // int l0xread(VL53L0X *sensor, uint8_t i)
