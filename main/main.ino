@@ -20,7 +20,7 @@ Motor MotorL(13, 12, 19, 18); //M2 swapped
 Motor MotorR(10, 11, 16, 17); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X l_tof, r_tof;
-DFServo claw_arm(7, 500, 2000, 180);
+DFServo claw_arm(7, 500, 2000, 300);
 
 //* MOTOR ENCODERS */
 void ISRLA() {MotorL.readEncA();}
@@ -41,7 +41,12 @@ int l_dist = 0;
 
 double rotation = 0;
 double rpm = 40;
-int task = 0;
+int task = 0, 
+  prev_task = 0, 
+  curr = 0;
+
+long lostGSMillis;
+
 
 void setup() {
 
@@ -51,9 +56,9 @@ void setup() {
   // claw_arm.setAngle(0);
 
   //* USB SERIAL COMMS */
-  Serial.begin(9600);
-  while (!Serial) delay(10);
-  Serial.println("USB serial initialised");
+  // Serial.begin(9600);
+  // while (!Serial) delay(10);
+  // Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
   // Serial2.setRX(RX1PIN);
@@ -78,12 +83,37 @@ void setup() {
 
 void loop() {
 
-//  serialEvent();
+  serialEvent();
 
   if (digitalRead(SWTPIN)) {
 
+    claw_arm.setAngle(180);
+
+    //* HANDLING THE INFO RECEIVED */
+    // switch (task)
+    // {
+
+    //   //~ Handling the continue turning after green squares
+    //   case 0:
+    //     if (curr == 1) {
+    //       curr = 10;
+    //       lostGSMillis = millis();
+    //     } else if (curr == 2) {
+    //       curr = 11;
+    //       lostGSMillis = millis();
+    //     } else if (curr != 10 || curr != 11) {
+    //       curr = 0;
+    //     }
+    //     break;
+
+    //   default:
+    //     curr = task;
+
+    // }
+
     //* ACTUAL CODE
-    // switch (task) {
+    // switch (curr) 
+    // {
 
     //   case 0: //normal lt
     //     Robawt.setSteer(rpm, rotation);
@@ -106,17 +136,24 @@ void loop() {
     //     Robawt.reset();
     //     break;
 
-
     //   case 5: //moving backwards (blue)
     //     Robawt.setSteer(-rpm, 0);
     //     break;
 
+    //   case 10: //only pico side --> just lost left green, return to lt
+    //     if (millis() - lostGSMillis > 200) curr = 0;
+    //     else Robawt.setSteer(rpm, -0.5);
+
+    //   case 11: //only pico side --> just lost right green, return to lt
+    //     if (millis() - lostGSMillis > 200) curr = 0;
+    //     else Robawt.setSteer(rpm, 0.5);
+
     // }
 
     //* READ LIDAR */
-    tcaselect(3);
-    l_dist = l_tof.readRangeContinuousMillimeters();
-    Serial.println(l_dist);
+    // tcaselect(3);
+    // l_dist = l_tof.readRangeContinuousMillimeters();
+    // Serial.println(l_dist);
 
     //* DEBUG PASSED VARIABLES */
     // Serial.print("task: ");
@@ -136,6 +173,8 @@ void loop() {
   } else {
 
     // startChangeMillis = millis();
+
+    claw_arm.setAngle(0);
 
     //* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
