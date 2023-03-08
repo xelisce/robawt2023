@@ -28,11 +28,11 @@ ser = serial.Serial("/dev/ttyS0", 9600)
 # l_black = 0
 u_black = 70
 
+l_blue = np.array([96, 170, 80], np.uint8)
+u_blue = np.array([106, 245, 191], np.uint8)
+
 l_green = np.array([30, 50, 60], np.uint8)
 u_green = np.array([85, 255, 255], np.uint8)
-
-l_blue = np.array([114, 4, 159], np.uint8)  #! to tune the blue values
-u_blue = np.array([133, 110, 255], np.uint8)
 
 l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
@@ -41,8 +41,6 @@ u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
 #* CONSTANTS CALIBRATION
 gs_roi_h = 300 #the crop height for gs #! increase after tuning  
-#? DOM: what the hell is roi 
-#? XEL: region of interest pfff
 gs_bksampleoffset = 10 #to offset sample above green squares
 gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned properly #DOM: this is gs_minimum_black_percentage
@@ -70,7 +68,10 @@ class Task(enum.Enum):
     RIGHT_GREEN = 2
     DOUBLE_GREEN = 3
     RED = 4
-    BLUE = 5  #rescue kit LOL
+    BEFORE_BLUE = 5  #Turning towards blue #^ TEMPORARY
+    BLUE = 6
+    BLUEFINAL = 7
+
 
 curr = Task.EMPTY
 red_now = False
@@ -82,6 +83,9 @@ reversing_now = False #for rescue kit
 moving_towards_blue = False #^ IM SORRY I KNOW THIS IS DISGUSTING :sob: lmao :eyes:
 journey = [] #to record the rotations of the robot
 
+#temporary
+start_blue = 0
+stop_blue = 0
 
 #* BEGIN OF LINETRACK LOOP CODE
 
@@ -98,7 +102,7 @@ while True:
     mask_green = cv2.inRange(frame_hsv, l_green, u_green)
     mask_gs = mask_green[gs_roi_h:, :]
     # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
-    # cv2.imshow("green square mask", mask_gs) #& debug green square mask
+    #cv2.imshow("green square mask", mask_gs) #& debug green square mask
     gs_sum = np.sum(mask_gs)
     # print(gs_sum) #& debug green min area
 
@@ -113,10 +117,8 @@ while True:
     # print(np.sum(mask_red)) #& debug red min area
 
     mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
-    #? DOM: Are there any specific restrictions for the bluemask eg. cropped height/width 
-    #? XEL: yeah depending on like how near u want the cube to be sensed, but this should only be done inside your np.sum if else to optimise performance
     blue_sum = np.sum(mask_blue)
-    #print(blue_sum) #& debug red min & max area
+    #print(blue_sum) #& debug blue mask
 
     #* RED LINE 
 
@@ -145,7 +147,7 @@ while True:
     elif not gs_now and gs_sum > gs_minarea:
         mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
         mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
-        # cv2.imshow("after erosion and dilation", mask_gs) #& debug green square mask
+        #cv2.imshow("after erosion and dilation", mask_gs) #& debug green square mask
 
         #~ Find y position of green (Can cut processing time here by putting fixed constant instead)
         green_row = np.amax(mask_gs, axis=1)
@@ -198,70 +200,79 @@ while True:
                 # else:
                     # print("ERROR: Green found but type indetermined")
 
-    #TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT?
+    #TODO: LOGIC HANDLING FOR WHEN + AFTER THE BOT PICKS UP THE RESCUE KIT?                                 
 
-    #* REVERSING MOVEMENTS (RESCUE KIT)
-    #^ DOM: thought process: reverse translation, then reverse rotation; handle movement on pico side
-    #^ Instead of time.time(), use TOF sensors to record time taken for bot to move
-    #^ XEL: the tof sensors dont read time btw you'll have to use millis() or elapsedMillis() on the pico
-    if reversing_now: 
-    #? XEL: ^ shouldnt this be elif because red takes precedence (line 122)
-        #~ If not enough time has elapsed since bot started moving backwards
-        if time.time() - stop_blue < (stop_blue - start_blue): 
-            curr = Task.BLUE #^ rpm will be negative on pico side
-            rpm = 40 
-        #~ If bot still has to rotate to its original rotation
-        elif len(journey) > 0:
-            curr = Task.EMPTY #^ A stopgap for now; more sophisticated way of doing this?
-            #print(len(journey)) #& debug rotations of bot
-            rotation = -(journey.pop())  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 #XEL: removed the 90
-            print(rotation)
-        else:
-            blue_now = False
-            reversing_now = False; 
+    # #* REVERSING MOVEMENTS (RESCUE KIT)
+    # #^ DOM: thought process: reverse translation, then reverse rotation; handle movement on pico side
+    # #^ Instead of time.time(), use TOF sensors to record time taken for bot to move
+    # #^ XEL: the tof sensors dont read time btw you'll have to use millis() or elapsedMillis() on the pico
+    # if reversing_now: 
+    # #? XEL: ^ shouldnt this be elif because red takes precedence (line 122)
+    # #? DOM: ^ ok no but what if the rescue kit is directly adjacent to the red line and then it detects the red strip instead 
+    # #?        of completing the rescue kit task;; anyways it shld complete the rescue kit task before doing anything else right
+    #     #~ If not enough time has elapsed since bot started moving backwards
+    #     if time.time() - stop_blue < (stop_blue - start_blue): 
+    #         curr = Task.BLUE #^ rpm will be negative on pico side
+    #         rpm = 40 
+    #     #~ If bot still has to rotate to its original rotation
+    #     elif len(journey) > 0:
+    #         curr = Task.EMPTY #^ A stopgap for now; more sophisticated way of doing this?
+    #         #print(len(journey)) #& debug rotations of bot
+    #         rotation = -(journey.pop())  #negative of the angle? adding 90 since original rotation ranges from 0 to 180 #XEL: removed the 90
+    #     else:
+    #         blue_now = False
+    #         reversing_now = False; 
+    #         curr = Task.EMPTY
 
     #* DETECTION OF RESCUE KIT
 
-    #~ If close enough to rescue kit:
-    #? XEL: Shouldnt this one also be elif
-    if blue_sum >= 2000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
+    # #~ If close enough to rescue kit:
+    if not reversing_now and blue_sum >= 10000000: #^ DOM: I foresee some problems when bot tries to pick up block & still sees it? add additional condition of not reversing_now?
         #time.sleep(2) #^ DOM: I assume the bot will pick up the cube here somehow?
-
-        stop_blue = time.time()
-        reversing_now = True
-        moving_towards_blue = False #^ sorry 
+        # stop_blue = time.time()
+        # reversing_now = True
+        # moving_towards_blue = False #^ sorry 
         # time_elapsed = stop_blue - start_blue
         # dist_travelled = rpm * time_elapsed
+        blue_now = True
+        curr = Task.BLUEFINAL
+        reversing_now = True
+
 
     #~ Rescue kit spotted:
+    #^ Current plan: handle movement of the robot on the pico side
     elif not reversing_now and blue_sum >= b_minarea:
+        print(blue_sum) #& debug blue sum
         blue_now = True
-        #mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
-        #mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
-        #? XEL: can we remove these two lines ^^
-
+        curr = Task.BEFORE_BLUE
         #~ Find x and y positions of rescue kit
+        blue_mask = blue_mask[100:, :]
         blueM = cv2.moments(mask_blue)
-        cx_blue = int(blueM["m10"] / blueM["m00"])
-        cy_blue = int(blueM["m01"] / blueM["m00"])
+        cv2.imshow("blue mask", mask_blue) #& debug blue mask
+        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0 
+        cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0 
         finalx = cx_blue - frame_org.shape[1]/2
         finaly = frame_org.shape[0]/2 - cy_blue
 
         #~ if the block isn't centred
-        if finalx != 0: 
-            deviation = math.atan(finalx/finaly) * 180/math.pi #conversion of angle from bot to rescue kit into degrees 
-            pid_deviation = deviation * kp
+        if abs(cx_blue-finalx) >= 10: #^ DOM: not refined yet; consider doing mod(finalx) < 100
+            if cx_blue < frame_org.shape[1]/2: #if rescue kit is left of the middle of frame
+                rotation = -20 #^ Fixed rotation of the bot DOM: Ok apparently 20 degrees is kinda slow lol; multiply by kp?
+            elif cx_blue > frame_org.shape[1]/2: #to the right
+                rotation = 20
 
-            if pid_deviation > 90:
-                pid_deviation = 90
-            elif pid_deviation < -90:
-                pid_deviation = -90
-            rotation = int(pid_deviation) + 90
-            journey.append(rotation)
-        elif not moving_towards_blue: #^ if block is centred: start timer and start moving towards block (maybe track the distance travelled too?)
-            start_blue = time.time() #time when bot starts moving towards blue
-            moving_towards_blue = True #^ this is dumbbb but its to ensure that this code runs only once
+        else:
+            curr = Task.BLUE
 
+            #! Comment out the bottom and uncomment the top later
+            # deviation = math.atan(finalx/finaly) * 180/math.pi if finaly != 0 else 0 #conversion of angle from bot to rescue kit into degrees 
+            # rotation = deviation * kp
+        # elif not moving_towards_blue: #^ if block is centred: start timer and start moving towards block (maybe track the distance travelled too?)
+        #     start_blue = time.time() #time when bot starts moving towards blue
+        #     moving_towards_blue = True #^ this is dumbbb but its to ensure that this code runs only once
+    elif blue_now: #^ Temporary
+        blue_now = False
+        reversing_now = False
 
     #* LINETRACK
 
@@ -270,7 +281,7 @@ while True:
         curr = Task.EMPTY
         mask_gap = mask_black[crop_h_bw_gap:, :] 
         mask_black = mask_black[crop_h_bw:, :]
-        # cv2.imshow("black lt mask", mask_gap)
+        cv2.imshow("black lt mask", mask_gap)
         #^ maybe try, not needed (og kernel=5,5)
         # black_mask = cv2.erode(black_mask, kernel) 
         # black_mask = cv2.dilate(black_mask, kernel)
@@ -297,9 +308,9 @@ while True:
     
     #* SEND DATA TO PICO
 
-    # print("rpm:", rpm) #& debug sent variables
-    # print("rotation:", rotation)
-    # print("task:", curr.value)
+    print("rpm:", rpm) #& debug sent variables
+    print("rotation:", rotation)
+    print("task:", curr.value)
 
     rotation = int(rotation)
     if rotation > 90:
@@ -308,10 +319,12 @@ while True:
         rotation = -90
     rotation += 90
 
+    # if blue_now: #^ consider removing this later
+    #     journey.append(rotation)
+
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm, # 0 to 200 MAX, but 100 really damn fast alr
                 253, curr.value] #currently 0 to 5
-
     ser.write(to_pico)
 
     key = cv2.waitKey(1) #! remove for optimisation before robocup

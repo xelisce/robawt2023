@@ -85,7 +85,7 @@ void Motor::readEncB()
     if (!digitalRead(_encPinA)) {
         _begin = _end;
         _end = micros();
-        _encVal --;
+        _encVal --; 
         // _encDir = -1;
     }
 }
@@ -101,7 +101,8 @@ double Motor::getDist() {return ((double)(_encVal) / 374 * 9 * 3.14159265);} //i
 void Motor::resetPID() {_motorPID.Reset();}
 void Motor::resetEnc() 
 {
-    _pastEncVal = _encVal % 370;
+    _pastEncVal = _encVal % 370; //? DOM: Why's do you mod 370 here; actually what do all the values like 374, 370 and 9 even 
+                                 //? represent? im very confused
     _encVal = 0;
 }
 
