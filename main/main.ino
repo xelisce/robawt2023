@@ -15,8 +15,8 @@
 #define L0XADDR 0x29
 
 //* OBJECT INITIALISATIONS */
-Motor MotorL(13, 12, 19, 18); //M2 swapped
-Motor MotorR(10, 11, 16, 17); //M1
+Motor MotorR(13, 12, 19, 18); //M2 swapped
+Motor MotorL(10, 11, 0, 1); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X l_tof, r_tof;
 Servo servos[2];
@@ -24,7 +24,7 @@ Servo servos[2];
 //* SERVOS CONSTANTS SETUP */
 double servos_angle[2] = {0, 0}; //basic states initialised
 const double servos_max_angle[2] = {300, 300};
-const int servos_pin[2] = {7, 6};
+const int servos_pin[2] = {27, 26};
 bool servos_change = false;
 namespace Servos {
   enum Servos { LEFT, RIGHT };
@@ -40,9 +40,11 @@ void ISRRB() {MotorR.readEncB();}
 //* CONSTANTS
 const int TX1PIN = 8,
   RX1PIN = 9,
-  SDAPIN = 20,
-  SCLPIN = 21,
-  SWTPIN = 14;
+  TX0PIN = 16,
+  RX0PIN = 17,
+  SDAPIN = 4,
+  SCLPIN = 5,
+  SWTPIN = 28;
 
 
 int serialState = 0;
@@ -85,19 +87,19 @@ void setup() {
   Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
-  Serial2.setRX(RX1PIN);
-  Serial2.setTX(TX1PIN);
-  Serial2.begin(9600); //consider increasing baud
-  while (!Serial2) delay(10);
+  Serial1.setRX(RX0PIN);
+  Serial1.setTX(TX0PIN);
+  Serial1.begin(9600); //consider increasing baud
+  while (!Serial1) delay(10);
   Serial.println("Pi serial initialised");
 
   //* MULTIPLEXER */
   businit(&Wire, SDAPIN, SCLPIN);
 
-  l0xinit(&Wire, &l_tof, 3);
+//  l0xinit(&Wire, &l_tof, 3);
   // l0xinit(r_tof, 5);
 
-  //* MOTOR ENCODERS */
+  //* MOTOR ENCODERS */    //^ basically interrupts the main code to run the encoder code
   attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
   attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
   attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
@@ -107,12 +109,12 @@ void setup() {
 
 void loop() {
 
-  if (servos_change) {
-    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
-      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
-    }
-  }
-
+//  if (servos_change) {
+//    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+//      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+//    }
+//  }
+//
 //  Serial.print("Distance (cm): ");
 //  Serial.println(MotorL.getDist());
 //  Serial.print("Angle (deg): ");
@@ -127,122 +129,127 @@ void loop() {
     // claw_open();
 
     //* HANDLING THE INFO RECEIVED */
-    switch (task)
-    {
-
-      //~ Handling the continue turning after green squares
-      case 0:
-        if (curr == 1) {
-          curr = 10;
-          lostGSMillis = millis();
-        } else if (curr == 2) {
-          curr = 11;
-          lostGSMillis = millis();
-        } else if (curr != 10 || curr != 11) {
-          curr = 0;
-        } 
-        break;
-
-      default:
-        curr = task;
-
-    }
+//    switch (task)
+//    {
+//
+//      //~ Handling the continue turning after green squares
+//      case 0:
+//        if (curr == 1) {
+//          curr = 10;
+//          lostGSMillis = millis();
+//        } else if (curr == 2) {
+//          curr = 11;
+//          lostGSMillis = millis();
+//        } else if (curr != 10 || curr != 11) {
+//          curr = 0;
+//        } 
+//        break;
+//
+//      default:
+//        curr = task;
+//
+//    }
 
     //* ACTUAL CODE
-    switch (curr) 
-    {
-
-      case 0: //normal lt
-        Robawt.setSteer(rpm, rotation);
-        break;
-
-      case 1: //left gs
-        Robawt.setSteer(rpm, -0.5);
-        break;
-      
-      case 2: //right gs
-        Robawt.setSteer(rpm, 0.5);
-        break;
-
-      case 3: //double gs
-        Robawt.setSteer(50, 1);
-        break;
-
-      case 4: //red line
-        Robawt.setSteer(0, 0);
-        Robawt.reset();
-        break;
-
-      case 5: //turning towards blue
-        Robawt.setSteer(rpm, rotation);
-        if (start_L_dist == 0) {start_L_dist = MotorL.getDist(); start_R_dist = MotorR.getDist();}
-         Serial.print("Left Motor: ");
-         Serial.println(MotorL.getDist());
-         Serial.print("Right Motor: ");
-         Serial.println(MotorR.getDist());
-        prev_L_dist = MotorL.getDist();
-        prev_R_dist = MotorR.getDist();
-        break;
-      case 6: //relatively centred on blue? TEMPORARY
-        Robawt.setSteer(rpm , 0);
-        startBlueMillis = millis();
-        startReverse = millis();
-        //? DOM: insert code for picking up the block? not sure how that'll wrk
-        //? Or should I handle the reversal of the robot in a separate case instead
-        /*
-        if (servos_change){
-          include timeelapsed variable
-          if (timeElapsed == 0) {timeElapsed = millis() - startBlueMillis; double startReverse = millis()
-          if (millis - startReverse < timeElapsed) Robawt.setSteer(-rpm, 0);
-          else if ((MotorL.getDist() - prev_L_dist <= prev_L_dist - start_L_dist) &&  motorR.getDist() - prev_R_dist <= prev_R_dist - start_R_dist)
-          {
-            Robawt.setSteer(-rpm, rotation)
-          }
-          else 
-          }
-
-        */
-        break;
-      case 7: //^ reversing; FOR TESTING PURPOSES ONLY!!! Remove afterwards.
-        if (timeElapsed == 0) {timeElapsed = millis() - startBlueMillis; startReverse = millis();}
-          if (millis() - startReverse < timeElapsed) Robawt.setSteer(-rpm, 0);
-          else if ((MotorL.getDist() - prev_L_dist <= prev_L_dist - start_L_dist) &&  MotorR.getDist() - prev_R_dist <= prev_R_dist - start_R_dist)
-          {
-            Robawt.setSteer(-rpm, rotation);
-          }
-          else curr = 0;
-        break;
-
-      case 10: //only pico side --> just lost left green, return to lt
-        if (millis() - lostGSMillis > 200) curr = 0;
-        else Robawt.setSteer(rpm, -0.5);
-
-      case 11: //only pico side --> just lost right green, return to lt
-        if (millis() - lostGSMillis > 200) curr = 0;
-        else Robawt.setSteer(rpm, 0.5);
-
-    }
+//    switch (curr) 
+//    {
+//
+//      case 0: //normal lt
+//        Robawt.setSteer(rpm, rotation);
+//        break;
+//
+//      case 1: //left gs
+//        Robawt.setSteer(rpm, -0.5);
+//        break;
+//      
+//      case 2: //right gs
+//        Robawt.setSteer(rpm, 0.5);
+//        break;
+//
+//      case 3: //double gs
+//        Robawt.setSteer(50, 1);
+//        break;
+//
+//      case 4: //red line
+//        Robawt.setSteer(0, 0);
+//        Robawt.reset();
+//        break;
+//
+//      case 5: //turning towards blue
+//        Robawt.setSteer(rpm, rotation);
+//        if (start_L_dist == 0) {start_L_dist = MotorL.getDist(); start_R_dist = MotorR.getDist();}
+//        Serial.print("Left Motor: ");
+//        Serial.println(MotorL.getDist());
+//        Serial.print("Right Motor: ");
+//        Serial.println(MotorR.getDist());
+//        prev_L_dist = MotorL.getDist();
+//        prev_R_dist = MotorR.getDist();
+//        break;
+//      case 6: //relatively centred on blue? TEMPORARY
+//        Robawt.setSteer(rpm , 0);
+//        if (startBlueMillis == 0) {startBlueMillis = millis();}
+//        //? DOM: insert code for picking up the block? not sure how that'll wrk
+//        //? Or should I handle the reversal of the robot in a separate case instead
+//        /*
+//        if (servos_change){
+//          include timeelapsed variable
+//          if (timeElapsed == 0) {timeElapsed = millis() - startBlueMillis; double startReverse = millis()
+//          if (millis - startReverse < timeElapsed) Robawt.setSteer(-rpm, 0);
+//          else if ((MotorL.getDist() - prev_L_dist <= prev_L_dist - start_L_dist) &&  motorR.getDist() - prev_R_dist <= prev_R_dist - start_R_dist)
+//          {
+//            Robawt.setSteer(-rpm, rotation)
+//          }
+//          else 
+//          }
+//
+//        */
+//        break;
+//      case 7: //^ reversing; FOR TESTING PURPOSES ONLY!!! Remove afterwards.
+//        if (timeElapsed == 0) {timeElapsed = millis() - startBlueMillis; startReverse = millis();}
+//        if (millis() - startReverse < timeElapsed) Robawt.setSteer(-rpm, 0);
+//        else if ((MotorL.getDist() - prev_L_dist <= prev_L_dist - start_L_dist) &&  (MotorR.getDist() - prev_R_dist <= prev_R_dist - start_R_dist))
+//        {
+//          Robawt.setSteer(-rpm, rotation);
+//        }
+//        else Robawt.setSteer(0,0);
+//        break;
+//
+//      case 10: //only pico side --> just lost left green, return to lt
+//        if (millis() - lostGSMillis > 200) curr = 0;
+//        else Robawt.setSteer(rpm, -0.5);
+//
+//      case 11: //only pico side --> just lost right green, return to lt
+//        if (millis() - lostGSMillis > 200) curr = 0;
+//        else Robawt.setSteer(rpm, 0.5);
+//
+//    }
 
     //* READ LIDAR */
     // tcaselect(3);
     // l_dist = l_tof.readRangeContinuousMillimeters();
     // Serial.println(l_dist);
 
-    //* DEBUG PASSED VARIABLES */
-     Serial.print("task: ");
-     Serial.println(task);
-     Serial.print("rotation: ");
-     Serial.println(rotation);
-     Serial.print("rpm: ");
-     Serial.println(rpm);
+    /* DEBUG PASSED VARIABLES */
+//     Serial.print("task: ");
+//     Serial.println(task);
+//     Serial.print("rotation: ");
+//     Serial.println(rotation);
+//     Serial.print("rpm: ");
+//     Serial.println(rpm);
 
     //* TEST PID */
-    // double val = MotorL.setRpm(20);
-    // Serial.print("Actual rpm: ");
-    // Serial.print(MotorL.getRpm());
-    // Serial.print(" Output pwm: ");
-    // Serial.println(val);
+//     double val = MotorL.setRpm(40);
+//     Serial.print("Actual rpm: ");
+//     Serial.println(MotorL.getRpm());
+//     Serial.print(" Output pwm: ");
+//     Serial.println(val);
 
+     
+     
+
+
+//     Robawt.setSteer(40, 0);
+     
   } else {
 
     // startChangeMillis = millis();
@@ -253,13 +260,16 @@ void loop() {
     // Serial.println("0");
 
     //* TO MAKE ROBOT STOP */
-    Robawt.setSteer(0, 0);
-    Robawt.reset();
+//    Robawt.setSteer(0, 0);
+//    Robawt.reset();
 
     //* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);
     // MotorL.resetPID();
   }
+
+  Serial.print("Switch state");
+  Serial.println(digitalRead(SWTPIN));
 }
 
 
@@ -267,8 +277,8 @@ void loop() {
 
 void serialEvent()
 {
-  while (Serial2.available()) {
-    int serialData = Serial2.read();
+  while (Serial1.available()) {
+    int serialData = Serial1.read();
     if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = (int)serialData;}
     else {
       switch (serialState) {

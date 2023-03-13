@@ -13,7 +13,8 @@ class Task(enum.Enum):
     DOUBLE_GREEN = 3
     RED = 4
 
-ser = serial.Serial ("/dev/ttyS0", 9600)    #Open port with baud rate
+#^13/3, DOM: Changed serial port from ttyS0 to ttyserial0
+ser = serial.Serial("/dev/ttyserial0", 9600)    #Open port with baud rate
 while True:
     # received_data = ser.read()              #read serial port
     # sleep(0.03)

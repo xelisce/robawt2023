@@ -54,7 +54,7 @@ double Motor::getRpm()
         double lastInterval = _end - _begin;
         double nowInterval = micros()-_end; //1/370*60 
         if (lastInterval < nowInterval)
-            return 162162/nowInterval;
+            return 162162/nowInterval; //^ math hack by converting no. of rotations into degrees or sth
         else
             return 162162/lastInterval;
     } else {
@@ -115,8 +115,8 @@ Vroom::Vroom(Motor *l, Motor *r)
 
 void Vroom::setSteer(double rpm, double rotation) 
 {
-    if (rpm > 210) rpm = 210;
-    if (rpm < -210) rpm = -210;
+    if (rpm > 100) rpm = 100;
+    if (rpm < -100) rpm = -100;
     if (rotation > 1) rotation = 1;
     if (rotation < -1) rotation = -1;
     double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe

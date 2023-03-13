@@ -25,7 +25,7 @@ l_sat_thresh = np.array([180, 100, 255], np.uint8)
 #print("og shape:", evac_org.shape[1], evac_org.shape[0])
 evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
 evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
-evac_max = np.amax(evac_org, axis=2)
+evac_max = np.amax(evac_org, axis=2) #to get max "intensity/saturation" of every pixel (RGB)
 
 # evac_sat = evac_hsv[:, :, 1]
 
@@ -56,7 +56,15 @@ if circles is not None:
         cv2.circle(evac_gray,(i [0],i[1]),2,(0,0,255),3)
 
 evac_max = evac_max[crop_h:, :]
-circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, 1.2, 70, param1 = 200 , param2 =27, minRadius= 40, maxRadius=100)
+
+#^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
+#^ (I still have no idea what dp does btw)
+#^ 1. min and max radius
+#^ 2. param1, which controls the sensitivity of the edge detection (gradient value); a higher value will reduce no. of circles detected
+#^ 3. param2, which controls the threshold for circle detection; a larger value will reduce no. of circles detected
+#^ Prev values were param1 = 200, param2 = 27
+#~ Detection of circles
+circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, 1.2, 70, param1=273, param2=30, minRadius=40, maxRadius=100)
 balls = []
 if circles is not None:
     for x, y, r in circles[0]:

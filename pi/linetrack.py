@@ -10,7 +10,7 @@ import enum
 #* CAMERA
 lt_stream = WebcamStream(stream_id = 0)
 lt_stream.start()
-lt_frame = lt_stream.read()
+lt_frame = lt_stream.read() 
 width, height_org = lt_frame.shape[1], lt_frame.shape[0]
 print("Line track camera width:", width, "Camera height:", height_org)
 
@@ -22,7 +22,7 @@ height = height_org - crop_h_bw
 # print(f"Line track image centred on ({cam_x}, {cam_y})")
 
 #* SERIAL
-ser = serial.Serial("/dev/ttyS0", 9600)
+ser = serial.Serial("/dev/serial0", 9600)
 
 #* COLOR CALIBRATION
 # l_black = 0
@@ -96,6 +96,7 @@ while True:
     #* IMAGE SETUP
 
     frame_org = lt_stream.read()
+    frame_org = cv2.flip(frame_org, 0)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -246,7 +247,7 @@ while True:
         blue_now = True
         curr = Task.BEFORE_BLUE
         #~ Find x and y positions of rescue kit
-        blue_mask = blue_mask[100:, :]
+        mask_blue = mask_blue[100:, :]
         blueM = cv2.moments(mask_blue)
         cv2.imshow("blue mask", mask_blue) #& debug blue mask
         cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0 

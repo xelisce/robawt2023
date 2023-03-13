@@ -42,7 +42,7 @@ class Motor
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
             _kp = 0.5,
-            _ki = 6,
+            _ki = 8,
             _kd = 0;
         // bool _dontReset;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
