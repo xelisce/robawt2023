@@ -73,7 +73,7 @@ long startReverse = 0;
 
 void setup() {
 
-  pinMode(SWTPIN, INPUT);
+  pinMode(SWTPIN, INPUT_PULLDOWN);
 
   //* SERVOS */
   for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
@@ -109,11 +109,11 @@ void setup() {
 
 void loop() {
 
-//  if (servos_change) {
-//    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
-//      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
-//    }
-//  }
+  if (servos_change) {
+    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+    }
+  }
 //
 //  Serial.print("Distance (cm): ");
 //  Serial.println(MotorL.getDist());
@@ -126,54 +126,54 @@ void loop() {
 
   if (!digitalRead(SWTPIN)) {
 
-    // claw_open();
+    claw_open();
 
     //* HANDLING THE INFO RECEIVED */
-//    switch (task)
-//    {
-//
-//      //~ Handling the continue turning after green squares
-//      case 0:
-//        if (curr == 1) {
-//          curr = 10;
-//          lostGSMillis = millis();
-//        } else if (curr == 2) {
-//          curr = 11;
-//          lostGSMillis = millis();
-//        } else if (curr != 10 || curr != 11) {
-//          curr = 0;
-//        } 
-//        break;
-//
-//      default:
-//        curr = task;
-//
-//    }
+    switch (task)
+    {
+
+      //~ Handling the continue turning after green squares
+      case 0:
+        if (curr == 1) {
+          curr = 10;
+          lostGSMillis = millis();
+        } else if (curr == 2) {
+          curr = 11;
+          lostGSMillis = millis();
+        } else if (curr != 10 || curr != 11) {
+          curr = 0;
+        } 
+        break;
+
+      default:
+        curr = task;
+
+    }
 
     //* ACTUAL CODE
-//    switch (curr) 
-//    {
-//
-//      case 0: //normal lt
-//        Robawt.setSteer(rpm, rotation);
-//        break;
-//
-//      case 1: //left gs
-//        Robawt.setSteer(rpm, -0.5);
-//        break;
-//      
-//      case 2: //right gs
-//        Robawt.setSteer(rpm, 0.5);
-//        break;
-//
-//      case 3: //double gs
-//        Robawt.setSteer(50, 1);
-//        break;
-//
-//      case 4: //red line
-//        Robawt.setSteer(0, 0);
-//        Robawt.reset();
-//        break;
+    switch (curr) 
+    {
+
+      case 0: //normal lt
+        Robawt.setSteer(rpm, rotation);
+        break;
+
+      case 1: //left gs
+        Robawt.setSteer(rpm, -0.5);
+        break;
+      
+      case 2: //right gs
+        Robawt.setSteer(rpm, 0.5);
+        break;
+
+      case 3: //double gs
+        Robawt.setSteer(50, 1);
+        break;
+
+      case 4: //red line
+        Robawt.setSteer(0, 0);
+        Robawt.reset();
+        break;
 //
 //      case 5: //turning towards blue
 //        Robawt.setSteer(rpm, rotation);
@@ -190,6 +190,7 @@ void loop() {
 //        if (startBlueMillis == 0) {startBlueMillis = millis();}
 //        //? DOM: insert code for picking up the block? not sure how that'll wrk
 //        //? Or should I handle the reversal of the robot in a separate case instead
+//        //? XEL: yes pls diff case
 //        /*
 //        if (servos_change){
 //          include timeelapsed variable
@@ -214,15 +215,15 @@ void loop() {
 //        else Robawt.setSteer(0,0);
 //        break;
 //
-//      case 10: //only pico side --> just lost left green, return to lt
-//        if (millis() - lostGSMillis > 200) curr = 0;
-//        else Robawt.setSteer(rpm, -0.5);
-//
-//      case 11: //only pico side --> just lost right green, return to lt
-//        if (millis() - lostGSMillis > 200) curr = 0;
-//        else Robawt.setSteer(rpm, 0.5);
-//
-//    }
+      case 10: //only pico side --> just lost left green, return to lt
+        if (millis() - lostGSMillis > 100) curr = 0;
+        else Robawt.setSteer(rpm, -0.5);
+
+      case 11: //only pico side --> just lost right green, return to lt
+        if (millis() - lostGSMillis > 100) curr = 0;
+        else Robawt.setSteer(rpm, 0.5);
+
+    }
 
     //* READ LIDAR */
     // tcaselect(3);
@@ -230,12 +231,12 @@ void loop() {
     // Serial.println(l_dist);
 
     /* DEBUG PASSED VARIABLES */
-//     Serial.print("task: ");
-//     Serial.println(task);
-//     Serial.print("rotation: ");
-//     Serial.println(rotation);
-//     Serial.print("rpm: ");
-//     Serial.println(rpm);
+    Serial.print("task: ");
+    Serial.println(task);
+    Serial.print("rotation: ");
+    Serial.println(rotation);
+    Serial.print("rpm: ");
+    Serial.println(rpm);
 
     //* TEST PID */
 //     double val = MotorL.setRpm(40);
@@ -243,10 +244,6 @@ void loop() {
 //     Serial.println(MotorL.getRpm());
 //     Serial.print(" Output pwm: ");
 //     Serial.println(val);
-
-     
-     
-
 
 //     Robawt.setSteer(40, 0);
      
@@ -260,16 +257,16 @@ void loop() {
     // Serial.println("0");
 
     //* TO MAKE ROBOT STOP */
-//    Robawt.setSteer(0, 0);
-//    Robawt.reset();
+   Robawt.setSteer(0, 0);
+   Robawt.reset();
 
     //* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);
     // MotorL.resetPID();
   }
 
-  Serial.print("Switch state");
-  Serial.println(digitalRead(SWTPIN));
+  // Serial.print("Switch state");
+  // Serial.println(digitalRead(SWTPIN));
 }
 
 

@@ -50,7 +50,7 @@ b_minarea = 10000 #! ~DOM: to tune the values
 
 rpm_setpt = 40
 rpm = 40
-kp = 1.5 #constant used for PID?
+kp = 1.5 #constant used for PID
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -97,6 +97,8 @@ while True:
 
     frame_org = lt_stream.read()
     frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
+    # cv2.imshow("correctly flipped image", frame_org) #& debug flipped image
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -211,6 +213,7 @@ while True:
     # #? XEL: ^ shouldnt this be elif because red takes precedence (line 122)
     # #? DOM: ^ ok no but what if the rescue kit is directly adjacent to the red line and then it detects the red strip instead 
     # #?        of completing the rescue kit task;; anyways it shld complete the rescue kit task before doing anything else right
+    # #? XEL: Fair point fair point
     #     #~ If not enough time has elapsed since bot started moving backwards
     #     if time.time() - stop_blue < (stop_blue - start_blue): 
     #         curr = Task.BLUE #^ rpm will be negative on pico side
@@ -249,7 +252,7 @@ while True:
         #~ Find x and y positions of rescue kit
         mask_blue = mask_blue[100:, :]
         blueM = cv2.moments(mask_blue)
-        cv2.imshow("blue mask", mask_blue) #& debug blue mask
+        # cv2.imshow("blue mask", mask_blue) #& debug blue mask
         cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0 
         cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0 
         finalx = cx_blue - frame_org.shape[1]/2
@@ -282,7 +285,7 @@ while True:
         curr = Task.EMPTY
         mask_gap = mask_black[crop_h_bw_gap:, :] 
         mask_black = mask_black[crop_h_bw:, :]
-        cv2.imshow("black lt mask", mask_gap)
+        # cv2.imshow("black lt mask", mask_gap)
         #^ maybe try, not needed (og kernel=5,5)
         # black_mask = cv2.erode(black_mask, kernel) 
         # black_mask = cv2.dilate(black_mask, kernel)
