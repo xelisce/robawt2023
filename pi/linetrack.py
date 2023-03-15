@@ -61,7 +61,14 @@ x_com_scale = ((1-y_com) ** 0.3)
 x_gap_scale = y_com ** 0.4
 x_gap_com = x_com * x_gap_scale
 x_com *= x_com_scale
-#^ not scaled according to available picture!!
+# ^ not scaled according to available picture!!
+
+gap_mask = np.zeros([height, width], dtype="uint8")
+peak_triangle_gap = 20
+points = np.array([[0, 0], [width, 0], [int(width/2), int(height-peak_triangle_gap)]])
+cv2.fillConvexPoly(gap_mask, points, 255)
+gap_x_com = cv2.bitwise_and(x_com, x_com, mask=gap_mask)
+gap_y_com = cv2.bitwise_and(y_com, y_com, mask=gap_mask)
 
 gap_mask = np.zeros([height, width], dtype="uint8") #? DOM: Can we stick to one naming convention for mask variables, ie. mask_[object]
 peak_triangle_gap = 20
@@ -113,7 +120,7 @@ while True:
     # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
     # cv2.imshow("green square mask", mask_gs) #& debug green square mask
     gs_sum = np.sum(mask_gs)
-    # print("Green sum:", gs_sum) #& debug green min area
+    print("Green sum:", gs_sum) #& debug green min area
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
@@ -146,7 +153,7 @@ while True:
     #~ Turn while still seeing green
     elif gs_now and gs_sum < 20000:
         if curr.name == "DOUBLE_GREEN":
-            if np.sum(mask_black) > 15000000:
+            if np.sum(mask_black_org) > 15000000:
                 gs_now = False
         else:
             gs_now = False
@@ -299,9 +306,9 @@ while True:
     
     #* SEND DATA TO PICO
 
-    #print("rpm:", rpm) #& debug sent variables
+    # print("rpm:", rpm) #& debug sent variables
     print("rotation:", rotation)
-    #print("task:", curr.value)
+    # print("task:", curr.value)
 
     rotation = int(rotation)
     if rotation > 90:
