@@ -7,6 +7,7 @@ class WebcamStream:
         self.stream_id = stream_id
         print(self.stream_id)
         self.vcap = cv2.VideoCapture(self.stream_id)
+        # assert self.vcap.isOpened()
         
         if self.vcap.isOpened() is False:
             print('[Exiting]: Error accessing webcam stream. (MultiThread)')
