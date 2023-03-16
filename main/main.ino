@@ -6,10 +6,11 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-//#include "VL53L1X.h"
+#include "VL53L1X.h"
 #include "VL53L0X.h" //? Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
 #include <Servo.h>
+#include <elapsedMillis.h>
 
 #define TCAADDR 0x70
 #define L0XADDR 0x29
@@ -18,16 +19,17 @@
 Motor MotorR(13, 12, 19, 18); //M2 swapped
 Motor MotorL(10, 11, 1, 0); //M1
 Vroom Robawt(&MotorL, &MotorR);
-VL53L0X front_tof; //, r_tof;
-Servo servos[2];
+VL53L0X front_tof, l_tof, r_tof, fl_tof; //, r_tof;
+VL53L1X fb_tof;
+Servo servos[3];
 
 //* SERVOS CONSTANTS SETUP */
-double servos_angle[2] = {0, 0}; //basic states initialised
-const double servos_max_angle[2] = {300, 300};
-const int servos_pin[2] = {27, 26};
+double servos_angle[3] = {0, 0, 0}; //basic states initialised
+const double servos_max_angle[3] = {180, 300, 300};
+const int servos_pin[3] = {27, 26, 22};
 bool servos_change = false;
 namespace Servos {
-  enum Servos { LEFT, RIGHT };
+  enum Servos { ARM, LEFT, RIGHT };
 }
 // unsigned long servo_time_start;
 
@@ -48,7 +50,11 @@ const int TX1PIN = 8,
   LEDPIN = 3;
 
 int serialState = 0;
-int front_dist = 0;
+int front_dist = 0,
+  fb_dist = 0,
+  l_dist = 0,
+  r_dist = 0,
+  fl_dist = 0;
 
 double rotation = 0;
 double rpm = 40;
@@ -81,7 +87,7 @@ void setup() {
   pinMode(LEDPIN, OUTPUT);
 
   //* SERVOS */
-  for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+  for (int i = Servos::ARM; i != (Servos::RIGHT + 1); i++) {
     servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
     servos[i].attach(servos_pin[i], 500, 2500); // (pin, min, max)
   }
@@ -102,6 +108,9 @@ void setup() {
   businit(&Wire, SDAPIN, SCLPIN);
 
   l0xinit(&Wire, &front_tof, 4);
+  l0xinit(&Wire, &fl_tof, 3);
+  l1xinit(&fb_tof, 2);
+  l0xinit(&Wire, &l_tof, 1);
   //l0xinit(r_tof, 5);
 
   //* MOTOR ENCODERS */    //^ basically interrupts the main code to run the encoder code
@@ -116,7 +125,7 @@ void setup() {
 
 void loop() {
   
-  digitalWrite(LEDPIN, HIGH); // Turns on LED by setting it to high voltage?
+  digitalWrite(LEDPIN, HIGH);
 
   if (servos_change) {
     for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
@@ -125,9 +134,29 @@ void loop() {
     servos_change = false; //^ DOM: not sure if this is correct
   }
 
+  tcaselect(1);
+  l_dist = l_tof.readRangeContinuousMillimeters();
+  tcaselect(2);
+  fb_dist = fb_tof.read();
+  tcaselect(3);
+  fl_dist = fl_tof.readRangeContinuousMillimeters();
+  tcaselect(4);
+  front_dist = front_tof.readRangeContinuousMillimeters();
+  Serial.print("left: ");
+  Serial.println(l_dist);
+  Serial.print("front below: ");
+  Serial.println(fb_dist);
+  Serial.print("front left: ");
+  Serial.println(fl_dist);
+  Serial.print("front: ");
+  Serial.println(front_dist);
+
   serialEvent();  //^ DOM: Reminder for anyone reading this to uncomment this when testing LOL
 
   if (!digitalRead(SWTPIN)) {
+
+    claw_close();
+    claw_up();
 
     //claw_open();
 
@@ -213,7 +242,7 @@ void loop() {
         
         if (sinceStop < 2000) Robawt.setSteer(0, 0); //^ DOM: Remove this debug shit later
         else { 
-        //* Debug varibles */
+        //& Debug varibles
 //        Serial.print("ABS value");
 //        Serial.println(abs(MotorL.getDist() - rev_L_dist));
 //        Serial.print("prev - start");
@@ -285,6 +314,8 @@ void loop() {
     //* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
     Robawt.reset();
+    claw_open();
+    claw_down();
 
     //* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);
@@ -371,20 +402,14 @@ void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i)
   sensor->setBus(bus);
 }
 
-// int l0xread(VL53L0X *sensor, uint8_t i)
-// {
-//   tcaselect(i);
-//   return sensor->readRangeContinuousMillimeters();
-// }
-
-// void l1xinit(VL53L1X *sensor, uint8_t pin)
-// {
-//   tcaselect(pin);
-//   sensor.setTimeout(500);
-//   while (!sensor.init()) {Serial.println("L1X failed to initialise");}
-//   sensor.setDistanceMode(VL53L1X::Medium);
-//   sensor.startContinuous(50);
-// }
+void l1xinit(VL53L1X *sensor, uint8_t i)
+{
+  tcaselect(i);
+  sensor->setTimeout(500);
+  while (!sensor->init()) {Serial.println("L1X failed to initialise");}
+  sensor->setDistanceMode(VL53L1X::Medium);
+  sensor->startContinuous(50);
+}
 
 // int l1xread(VL53L1X *sensor, uint8_t pin)
 // {
@@ -405,5 +430,15 @@ void claw_open() {
 void claw_close() {
   servos_angle[Servos::RIGHT] = 110;
   servos_angle[Servos::LEFT] = 0;
+  servos_change = true;
+}
+
+void claw_up() {
+  servos_angle[Servos::ARM] = 180;
+  servos_change = true;
+}
+
+void claw_down() {
+  servos_angle[Servos::ARM] = 0;
   servos_change = true;
 }
