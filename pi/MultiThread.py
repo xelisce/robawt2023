@@ -19,7 +19,7 @@ class WebcamStream:
         #reading a single frame from vcap stream for initialisation
         self.grabbed, self.frame = self.vcap.read()
         if self.grabbed is False:
-            print('[Exiting]: No more frames to read.')
+            print('[Exiting]: No more frames to read. (MutiThread)')
             exit(0)
         #self.stopped is initialised to False
         self.stopped = True
@@ -37,7 +37,7 @@ class WebcamStream:
                 break
             self.grabbed, self.frame = self.vcap.read()
             if self.grabbed is False:
-                print('[Exiting]: No more frames to read.')
+                print('[Exiting]: No more frames to read. (MultiThread)')
                 self.stopped = True
                 break
         self.vcap.release()

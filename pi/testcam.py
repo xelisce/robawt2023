@@ -4,7 +4,7 @@ from FPS import FPS
 
 #Note: FPS counts every frame processed, if looking for every frame passed must modify code
 
-webcam_stream = WebcamStream(stream_id=0) #0 id for main camera
+webcam_stream = WebcamStream(stream_id=0) #0 id for main camera, 2 for evac
 webcam_stream.start()
 timer = FPS().start()
 
