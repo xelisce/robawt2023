@@ -7,7 +7,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "VL53L1X.h"
-#include "VL53L0X.h" //? Note the L0X library is blocking --> if have time can rewrite the function
+#include "VL53L0X.h" //^ Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
 #include <Servo.h>
 #include <elapsedMillis.h>
@@ -21,15 +21,15 @@ Motor MotorL(10, 11, 1, 0); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X front_tof, l_tof, r_tof, fl_tof; //, r_tof;
 VL53L1X fb_tof;
-Servo servos[3];
+Servo servos[6];
 
 //* SERVOS CONSTANTS SETUP */
-double servos_angle[3] = {0, 0, 0}; //basic states initialised
-const double servos_max_angle[3] = {180, 300, 300};
-const int servos_pin[3] = {27, 26, 22};
+double servos_angle[6] = {0, 0, 0, 0, 0, 0}; //basic states initialised
+const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
+const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
 namespace Servos {
-  enum Servos { ARM, LEFT, RIGHT };
+  enum Servos { ARM, LEFT, RIGHT, S4, S5, S6 };
 }
 // unsigned long servo_time_start;
 
@@ -58,12 +58,19 @@ int front_dist = 0,
 
 double rotation = 0;
 double rpm = 40;
-int task = 0, 
+int task = 39, 
   prev_task = 0, 
   curr = 0;
 
-long lostGSMillis;
+long lostGSMillis, 
+  startGSMillis;
 
+long startEvacMillis;
+bool see_ball = false;
+bool in_evac = true;
+
+double evac_setdist,
+  wall_rot;
 
 //* LOGIC SETUP
 
@@ -87,7 +94,7 @@ void setup() {
   pinMode(LEDPIN, OUTPUT);
 
   //* SERVOS */
-  for (int i = Servos::ARM; i != (Servos::RIGHT + 1); i++) {
+  for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
     servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
     servos[i].attach(servos_pin[i], 500, 2500); // (pin, min, max)
   }
@@ -101,19 +108,28 @@ void setup() {
   Serial1.setRX(RX0PIN);
   Serial1.setTX(TX0PIN);
   Serial1.begin(9600); //consider increasing baud
-  while (!Serial1) delay(10);
+  while (!Serial1) delay(10); 
   Serial.println("Pi serial initialised");
+
+  //* TEENSY SERIAL COMMS */
+  // Serial2.setRX(RX1PIN);
+  // Serial2.setRX(TX1PIN);
+  // Serial2.begin(9600);
+  // while (!Serial2) delay(10); 
+  // Serial.println("Teensy serial initialised");
 
   //* MULTIPLEXER */
   businit(&Wire, SDAPIN, SCLPIN);
 
-  l0xinit(&Wire, &front_tof, 4);
+  // l0xinit(&Wire, &front_tof, 4);
   l0xinit(&Wire, &fl_tof, 3);
   l1xinit(&fb_tof, 2);
-  l0xinit(&Wire, &l_tof, 1);
+  // l0xinit(&Wire, &l_tof, 1);
   //l0xinit(r_tof, 5);
 
-  //* MOTOR ENCODERS */    //^ basically interrupts the main code to run the encoder code
+  //* MOTOR ENCODERS */    
+  //^ basically interrupts the main code to run the encoder code 
+  //^ uhm not just the main code its every code thats what attach interrupt means
   attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
   attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
   attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
@@ -128,37 +144,38 @@ void loop() {
   digitalWrite(LEDPIN, HIGH);
 
   if (servos_change) {
-    for (int i = Servos::LEFT; i != (Servos::RIGHT + 1); i++) {
+    for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
       servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
     }
-    servos_change = false; //^ DOM: not sure if this is correct
+    servos_change = false; //^ DOM: not sure if this is correct //^ XEL: why not??
   }
 
-  tcaselect(1);
-  l_dist = l_tof.readRangeContinuousMillimeters();
+  // tcaselect(1);
+  // l_dist = l_tof.readRangeContinuousMillimeters();
   tcaselect(2);
   fb_dist = fb_tof.read();
   tcaselect(3);
   fl_dist = fl_tof.readRangeContinuousMillimeters();
-  tcaselect(4);
-  front_dist = front_tof.readRangeContinuousMillimeters();
-  Serial.print("left: ");
-  Serial.println(l_dist);
+  // tcaselect(4);
+  // front_dist = front_tof.readRangeContinuousMillimeters();
+  // Serial.print("left: ");
+  // Serial.println(l_dist);
   Serial.print("front below: ");
   Serial.println(fb_dist);
   Serial.print("front left: ");
   Serial.println(fl_dist);
-  Serial.print("front: ");
-  Serial.println(front_dist);
+  // Serial.print("front: ");
+  // Serial.println(front_dist);
 
-  serialEvent();  //^ DOM: Reminder for anyone reading this to uncomment this when testing LOL
+  if (curr != 39) serialEvent();
 
   if (!digitalRead(SWTPIN)) {
 
-    claw_close();
+    // claw_open();
     claw_up();
+    claw_close();
 
-    //claw_open();
+    // test_all_servos();
 
     //* HANDLING THE INFO RECEIVED */
     switch (task)
@@ -177,12 +194,52 @@ void loop() {
         } 
         break;
 
+      case 1:
+        if (curr == 0) {
+          startGSMillis = millis();
+        }
+        curr = 1;
+        break;
+
+      case 2:
+        if (curr == 0) {
+          startGSMillis = millis();
+        }
+        curr = 1;
+        break;
+
+      case 3:
+        if (curr == 0) {
+          startGSMillis = millis();
+        }
+        curr = 1;
+        break;
+
+      //~ Evac
+      case 9: //evac no ball
+        see_ball = false;
+        if (curr == 41 || curr == 42) curr = 42; //enter post-ball
+        else curr = 40;
+        break;
+
+      case 10: //evac got ball
+        see_ball = true;
+        curr = 41;
+        break;
+
       default:
-        curr = task;
+        if ((curr == 1 || curr == 2) && (millis() - startGSMillis > 400)) {
+          curr = task;
+        } else if (curr == 3 && (millis() - startGSMillis > 600)) {
+          curr = task;
+        } else if (curr != 40 && curr != 39) {
+          curr = task;
+        }
+        break;
 
     }
 
-    //* ACTUAL CODE
+//     //* ACTUAL CODE
     switch (curr) 
     {
 
@@ -278,14 +335,53 @@ void loop() {
         break;
 
       case 10: //only pico side --> just lost left green, return to lt
-        if (millis() - lostGSMillis > 100) curr = 0;
+        if (millis() - lostGSMillis > 200) curr = 0;
         else Robawt.setSteer(rpm, -0.5);
+        break;
 
       case 11: //only pico side --> just lost right green, return to lt
-        if (millis() - lostGSMillis > 100) curr = 0;
+        if (millis() - lostGSMillis > 200) curr = 0;
         else Robawt.setSteer(rpm, 0.5);
+        break;
+
+      case 39: //initialise evac
+        startEvacMillis = millis();
+        task = 40;
+        curr = 40;
+        break;
+
+      case 40: // evac wall track with diagonal lidar
+        // claw_open();
+        evac_setdist = 140 + (millis() - startEvacMillis)/500;
+        if (evac_setdist > 600) {evac_setdist = 600;}
+        wall_rot = (evac_setdist - fl_dist) * 0.0095;
+        Robawt.setSteer(30, wall_rot);
+        break;
+
+      case 41: //ball seen
+        claw_halfclose();
+        if (fb_dist < 100) {
+          // claw_close();
+          Robawt.setSteer(0, 0); //! remove after testing
+        } else {
+          Robawt.setSteer(25, rotation);
+        }
+        break;
+
+      case 42: //post-ball
+        claw_halfclose();
+        if (fb_dist < 100) {
+          // claw_close();
+          Robawt.setSteer(0, 0); //! remove after testing
+        } else {
+          curr = 40; //go back to wall track
+        }
+        break;
 
     }
+
+//     Serial.print("Case");
+//     Serial.println(curr);
 
     //* DEBUG PASSED VARIABLES */
 //    Serial.print("task: ");
@@ -295,7 +391,6 @@ void loop() {
 //    Serial.print("rpm: ");
 //    Serial.println(rpm);
 
-
     //* TEST PID */
 //     double val = MotorL.setRpm(40);
 //     Serial.print("Actual rpm: ");
@@ -304,8 +399,7 @@ void loop() {
 //     Serial.println(val);
 //     Robawt.setSteer(40, 0);   
 
-  } 
-  else {
+  } else {
     
     // startChangeMillis = millis();
     // claw_close();
@@ -316,6 +410,7 @@ void loop() {
     Robawt.reset();
     claw_open();
     claw_down();
+    // test_all_servos2();
 
     //* TO MAKE LEFT MOTOR STOP */
     // MotorL.setRpm(0);
@@ -419,7 +514,7 @@ void l1xinit(VL53L1X *sensor, uint8_t i)
 //   else return value;
 // }
 
-int pwmangle(double angle, int max_angle) {return (int)(angle/max_angle * 2000 + 500);}
+int pwmangle(double angle, double max_angle) {return (int)(angle/max_angle * 2000 + 500);}
 
 void claw_open() {
   servos_angle[Servos::RIGHT] = 0;
@@ -434,11 +529,41 @@ void claw_close() {
 }
 
 void claw_up() {
-  servos_angle[Servos::ARM] = 180;
+  servos_angle[Servos::ARM] = 0;
   servos_change = true;
 }
 
 void claw_down() {
-  servos_angle[Servos::ARM] = 0;
+  servos_angle[Servos::ARM] = 180;
   servos_change = true;
+}
+
+void claw_halfclose() {
+  servos_angle[Servos::RIGHT] = 30;
+  servos_angle[Servos::LEFT] = 80;
+  servos_change = true;
+}
+
+void test_all_servos() {
+  servos_angle[Servos::ARM] = 0;
+  servos_angle[Servos::RIGHT] = 0;
+  servos_angle[Servos::LEFT] = 0;
+  // servos_angle[Servos::S4] = 0;
+  // servos_angle[Servos::S5] = 0;
+  // servos_angle[Servos::S6] = 0;
+  servos_change = true;
+}
+
+void test_all_servos2() {
+  servos_angle[Servos::ARM] = 180;
+  servos_angle[Servos::RIGHT] = 300;
+  servos_angle[Servos::LEFT] = 300;
+  // servos_angle[Servos::S4] = 300;
+  // servos_angle[Servos::S5] = 300;
+  // servos_angle[Servos::S6] = 300;
+  servos_change = true;
+}
+
+void send_pi(int i) {
+  Serial1.println(i);
 }
