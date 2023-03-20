@@ -13,19 +13,26 @@ class Task(enum.Enum):
     DOUBLE_GREEN = 3
     RED = 4
 
-#^13/3, DOM: Changed serial port from ttyS0 to ttyserial0
-ser = serial.Serial("/dev/ttyserial0", 9600)    #Open port with baud rate
+ser = serial.Serial("/dev/serial0", 9600)    #Open port with baud rate
 while True:
-    received_data = ser.read()              #read serial port
-    sleep(0.03)
-    data_left = ser.inWaiting()             #check for remaining byte
-    received_data += ser.read(data_left)
-    print(received_data)                   #print received data
-    # ser.write(received_data) 
+
+    if(ser.in_waiting > 0):
+        received_data = ser.read()              #read serial port
+        # sleep(0.03)
+        data_left = ser.inWaiting()             #check for remaining byte
+        received_data += ser.read(data_left)
+        print(received_data)                 #print received data
+        print("integered:", ord(received_data))
+        # ser.write(received_data) 
+
+    # if(ser.in_waiting > 0):
+    #     receive_string = ser.readline().decode('utf-8').rstrip()
+    #     print(receive_string)
+
 
     # ser.write([1])
 
-    sleep(1)
+    # sleep(1)
     # rotation += 1
     # speed += 10
 

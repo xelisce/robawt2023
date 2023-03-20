@@ -14,7 +14,7 @@ lt_frame = lt_stream.read()
 width, height_org = lt_frame.shape[1], lt_frame.shape[0]
 print("Line track camera width:", width, "Camera height:", height_org)
 
-crop_h_bw = 93
+crop_h_bw = 93 
 crop_h_bw_gap = 110
 height = height_org - crop_h_bw
 # cam_x = width/2 #-1 to bias robot to the right
@@ -23,6 +23,13 @@ height = height_org - crop_h_bw
 
 #* SERIAL
 ser = serial.Serial("/dev/serial0", 9600)
+
+def receive_pico(ser) -> int:
+    if(ser.in_waiting > 0):
+        received_data = ser.read()
+        data_left = ser.inWaiting()
+        received_data += ser.read(data_left)
+        return ord(received_data)
 
 #* COLOR CALIBRATION
 # l_black = 0
@@ -103,7 +110,8 @@ reversing_now = False #for rescue kit #^ DOM: i think i can remove this; hopeful
 #* BEGIN OF LINETRACK LOOP CODE
 
 while True:
-    if lt_stream.stopped:
+    from_pico = receive_pico(ser)
+    if lt_stream.stopped or from_pico == 1:
         break
 
     #* IMAGE SETUP
@@ -316,7 +324,6 @@ while True:
     elif rotation < -90:
         rotation = -90
     rotation += 90
-
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm, # 0 to 200 MAX, but 100 really damn fast alr

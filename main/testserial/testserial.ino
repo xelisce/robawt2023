@@ -16,7 +16,9 @@ void setup() {
 }
 
 void loop() {
-  if(Serial.available()) {
-    Serial2.write(Serial.read());
-  }
+  // if(Serial.available()) {
+    Serial1.write(20);
+    Serial.println(20);
+    delay(1000);
+  // }
 }
