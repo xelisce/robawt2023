@@ -33,7 +33,7 @@ def receive_pico(ser) -> int:
 
 #* COLOR CALIBRATION
 # l_black = 0
-u_black = 70
+u_black = 79
 
 l_blue = np.array([96, 170, 80], np.uint8)
 u_blue = np.array([106, 245, 191], np.uint8) #! blue needs more tuning to account for lighting 
@@ -103,6 +103,7 @@ red_now = False
 gs_now = False
 gap_now = False
 blue_now = False 
+see_line = 0
 
 #~ Rescue kit
 reversing_now = False #for rescue kit #^ DOM: i think i can remove this; hopefully
@@ -266,9 +267,21 @@ while True:
         blue_now = False
         reversing_now = False
 
-    #* LINETRACK
-
     if not gs_now and not red_now and not blue_now:
+
+        #* OBSTACLE
+
+        mask_seeline = mask_black_org[250:]
+        cv2.imshow('obstacle see line', mask_seeline)
+        black_line_sum = np.sum(mask_seeline)
+        print("black sum for obstacle:", black_line_sum) #& debug obstacle see line
+        if black_line_sum > 13000000:
+            see_line = 1
+        else:
+            see_line = 0
+        print("see line value", see_line)
+
+        #* LINETRACK
 
         curr = Task.EMPTY
         # mask_gap = mask_black[crop_h_bw_gap:, :] 
@@ -327,7 +340,8 @@ while True:
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm, # 0 to 200 MAX, but 100 really damn fast alr
-                253, curr.value] #currently 0 to 5
+                253, curr.value] # currently 0 to 5
+                # 252, see_line] # 0 for false or 1 for true
     ser.write(to_pico)
 
     key = cv2.waitKey(1) #! remove for optimisation before robocup
