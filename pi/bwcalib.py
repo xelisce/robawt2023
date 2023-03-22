@@ -10,6 +10,8 @@ def update(val):
     bw_thresh = val
 
 frame_org = cam_stream.read()
+frame_org = cv2.flip(frame_org, 0)
+frame_org = cv2.flip(frame_org, 1)
 gray_org = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
 t, thresh = cv2.threshold(gray_org, bw_thresh, 255, cv2.THRESH_BINARY_INV)
 cv2.imshow('frame', thresh)
