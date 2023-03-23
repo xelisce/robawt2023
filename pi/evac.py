@@ -9,7 +9,7 @@ evac_stream = WebcamStream(stream_id=2)
 evac_stream.start()
 evac_org = evac_stream.read()
 width, height_org = evac_org.shape[1], evac_org.shape[0]
-print("Line track camera width:", width, "Camera height:", height_org)
+print("Evac camera width:", width, "Camera height:", height_org)
 
 #* SERIAL
 ser = serial.Serial("/dev/serial0", 9600)
@@ -17,13 +17,20 @@ ser = serial.Serial("/dev/serial0", 9600)
 rpm = 25
 
 crop_h = 183
-kp_ball = 1.5
+# kp_ball = 0.2
 
 height = height_org - crop_h
 # u_black = 55
 
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
 l_sat_thresh = np.array([180, 100, 255], np.uint8)
+
+dp = 1.2
+min_dist = 70
+param1 = 184
+param2 = 28
+min_radius = 40
+max_radius = 170
 
 class Task(enum.Enum):
     EMPTY = 0
@@ -59,7 +66,7 @@ while True:
     #^ 3. param2, which controls the threshold for circle detection; a larger value will reduce no. of circles detected
     #^ Prev values were param1 = 200, param2 = 27
 
-    circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, 1.2, 70, param1=273, param2=30, minRadius=60, maxRadius=100)
+    circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1=param1, param2=param2, minRadius=min_dist, maxRadius=max_radius)
     balls = []
     if circles is not None:
         for x, y, r in circles[0]:
@@ -79,10 +86,16 @@ while True:
 
         y_ball = biggest_ball["y"]
         x_ball = biggest_ball["x"]
-        rotation = math.atan2(x, y) * 180/math.pi if y != 0 else 0
+        deviation = math.atan2(x, y) * 180/math.pi if y != 0 else 0
+        if abs(deviation) < 15:
+            rotation = 0
+        elif deviation > 0:
+            rotation = 90
+        elif deviation < 0:
+            rotation = -90
 
         print("rotation:", rotation)
-        rotation *= kp_ball
+        # rotation *= kp_ball
         # print("task:", curr.value)
     
     #* NO BALL
@@ -99,7 +112,7 @@ while True:
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm, # 0 to 200 MAX, but 100 really damn fast alr
-                253, curr.value] #currently 0 to 5
+                253, curr.value]
     ser.write(to_pico)
 
     key = cv2.waitKey(1)
