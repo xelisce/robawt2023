@@ -21,6 +21,7 @@
 #define debug_switch 0
 #define debug_motors 0
 #define debug_pid 0
+#define debug_ball 1
 
 //* OBJECT INITIALISATIONS */
 Motor MotorR(13, 12, 19, 18); //M2 swapped
@@ -31,7 +32,7 @@ VL53L1X fb_tof;
 Servo servos[6];
 
 //* SERVOS CONSTANTS SETUP */
-double servos_angle[6] = {0, 0, 110, 0, 0, 0}; //basic states initialised
+double servos_angle[6] = {0, 0, 95, 0, 0, 0}; //basic states initialised
 const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
@@ -72,7 +73,8 @@ int task = 39,
 long lostGSMillis, 
   startGSMillis;
 
-long startEvacMillis;
+long startEvacMillis,
+  evacBallTimer;
 bool see_ball = false;
 bool in_evac = true;
 
@@ -145,7 +147,7 @@ void setup() {
 
 //* -----------END SETUP-----------*//
 
-#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid
+#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball
 void loop() 
 {
   
@@ -193,6 +195,7 @@ void loop()
 
       //~ Handling the continue turning after green squares 
       case 0:
+        if (in_evac) break;
         if (curr == 1) {
           curr = 10;
           lostGSMillis = millis();
@@ -205,34 +208,39 @@ void loop()
         break;
 
       case 1:
-        if (curr == 0) {
-          startGSMillis = millis();
-        }
+      if (in_evac) break;
+        if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
       case 2:
-        if (curr == 0) {
-          startGSMillis = millis();
-        }
+        if (in_evac) break;
+        if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
       case 3:
-        if (curr == 0) {
-          startGSMillis = millis();
-        }
+        if (in_evac) break;
+        if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
       //~ Evac
       case 9: //evac no ball
+        if (!in_evac) break;
         see_ball = false;
-        if (curr == 41 || curr == 42) curr = 42; //enter post-ball
-        else curr = 40;
+        if (curr == 41) {
+          curr = 42; //enter post-ball
+          evacBallTimer = millis();
+        } else if (curr == 42 && (millis() - evacBallTimer) > 1000 && see_ball()) {
+          curr = 40; //go wall track
+        } else if (curr == 42) {
+          curr = 42;
+        }
         break;
 
       case 10: //evac got ball
+        if (!in_evac) break;
         see_ball = true;
         curr = 41;
         break;
@@ -242,7 +250,7 @@ void loop()
           curr = task;
         } else if (curr == 3 && (millis() - startGSMillis > 600)) {
           curr = task;
-        } else if (curr != 40 && curr != 39) {
+        } else if (!in_evac) {
           curr = task;
         }
         break;
@@ -354,6 +362,8 @@ void loop()
         else Robawt.setSteer(rpm, 0.5);
         break;
 
+      //* EVAC
+
       case 39: //initialise evac
         startEvacMillis = millis();
         task = 40;
@@ -368,38 +378,40 @@ void loop()
         Robawt.setSteer(30, wall_rot);
         break;
 
-      case 41: //ball seen
+      case 41: //turn to ball
         claw_halfclose();
-        if (fb_dist < 100) {
-          // claw_close();
-          Robawt.setSteer(0, 0); //! remove after testing
+        if (fb_dist < 70) {
+          curr = 43; 
         } else {
-          Robawt.setSteer(25, rotation);
+          Robawt.setSteer(10, rotation);
         }
         break;
 
-      case 42: //post-ball
+      case 42: //post ball
         claw_halfclose();
-        if (fb_dist < 100) {
-          // claw_close();
-          Robawt.setSteer(0, 0); //! remove after testing
-        } else {
-          curr = 40; //go back to wall track
+        if (fb_dist < 70) {
+          curr = 43; //enter pickup
         }
+        Robawt.setSteer(25, 0);
+        break;
+
+      case 43: //start pickup seq
+        claw_close();
+        Robawt.setSteer(0,0);
         break;
 
     }
 
-//     Serial.print("Case");
-//     Serial.println(curr);
+    Serial.print("Case");
+    Serial.println(curr);
 
     //* DEBUG PASSED VARIABLES */
-//    Serial.print("task: ");
-//    Serial.println(task);
-//    Serial.print("rotation: ");
-//    Serial.println(rotation);
-//    Serial.print("rpm: ");
-//    Serial.println(rpm);
+   Serial.print("task: ");
+   Serial.println(task);
+   Serial.print("rotation: ");
+   Serial.println(rotation);
+   Serial.print("rpm: ");
+   Serial.println(rpm);
 
   } else {
 
@@ -493,14 +505,14 @@ void l1xinit(VL53L1X *sensor, uint8_t i)
 int pwmangle(double angle, double max_angle) {return (int)(angle/max_angle * 2000 + 500);}
 
 void claw_open() {
-  servos_angle[Servos::RIGHT] = 110;
+  servos_angle[Servos::RIGHT] = 95;
   servos_angle[Servos::LEFT] = 0;
   servos_change = true;
 }
 
 void claw_close() {
   servos_angle[Servos::RIGHT] = 0;
-  servos_angle[Servos::LEFT] = 110;
+  servos_angle[Servos::LEFT] = 95;
   servos_change = true;
 }
 
@@ -516,7 +528,7 @@ void claw_down() {
 
 void claw_halfclose() {
   servos_angle[Servos::RIGHT] = 80;
-  servos_angle[Servos::LEFT] = 30;
+  servos_angle[Servos::LEFT] = 10;
   servos_change = true;
 }
 
@@ -544,6 +556,11 @@ void send_pi(int i) {
   Serial1.println(i);
 }
 
+void see_ball() {
+  int scaled_top_lidar = front_dist * 20;
+  return (scaled_top_lidar - fb_dist > 30 && fb_dist < 60);
+}
+
 //* DEBUG LOOPS */
 
 #if debug_servos
@@ -555,6 +572,7 @@ void loop()
     }
     servos_change = false;
   }
+  claw_down();
 
   if (!digitalRead(SWTPIN)) {
     claw_open();
@@ -569,22 +587,22 @@ void loop()
 #if debug_lidars
 void loop()
 {
-  tcaselect(1);
-  l_dist = l_tof.readRangeContinuousMillimeters();
+  // tcaselect(1);
+  // l_dist = l_tof.readRangeContinuousMillimeters();
   tcaselect(2);
   fb_dist = fb_tof.read();
   tcaselect(3);
   fl_dist = fl_tof.readRangeContinuousMillimeters();
-  tcaselect(4);
-  front_dist = front_tof.readRangeContinuousMillimeters();
-  Serial.print("left: ");
-  Serial.println(l_dist);
+  // tcaselect(4);
+  // front_dist = front_tof.readRangeContinuousMillimeters();
+  // Serial.print("left: ");
+  // Serial.println(l_dist);
   Serial.print("front below: ");
   Serial.println(fb_dist);
   Serial.print("front left: ");
   Serial.println(fl_dist);
-  Serial.print("front: ");
-  Serial.println(front_dist);
+  // Serial.print("front: ");
+  // Serial.println(front_dist);
 }
 #endif
 
@@ -628,5 +646,27 @@ void loop()
   Serial.print(valL);
   Serial.print("    ");
   Serial.println(valR);
+}
+#endif
+
+#if debug_ball
+void loop()
+{
+  tcaselect(2);
+  fb_dist = fb_tof.read();
+  tcaselect(3);
+  fl_dist = fl_tof.readRangeContinuousMillimeters();
+  tcaselect(4);
+  front_dist = front_tof.readRangeContinuousMillimeters();
+
+  Serial.print("front below: ");
+  Serial.println(fb_dist);
+  Serial.print("front left: ");
+  Serial.println(fl_dist);
+  Serial.print("front: ");
+  Serial.println(front_dist);
+
+  Serial.print("See ball: ");
+  Serial.println(see_balls());
 }
 #endif
