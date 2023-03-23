@@ -5,7 +5,7 @@ from MultiThread import WebcamStream
 lt_stream = WebcamStream(stream_id=0) #0 id for main camera
 lt_stream.start()
 
-evac_stream = WebcamStream(stream_id=2) #0 id for main camera
+evac_stream = WebcamStream(stream_id=2) #2 id for evac camera
 evac_stream.start()
 
 lt_frame = lt_stream.read()
@@ -22,6 +22,8 @@ while True:
         break
     
     lt_frame = lt_stream.read()
+    lt_frame = cv2.flip(lt_frame, 0)
+    lt_frame = cv2.flip(lt_frame, 1)
     cv2.imshow('line track frame', lt_frame)
 
     evac_frame = evac_stream.read()

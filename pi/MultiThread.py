@@ -7,6 +7,7 @@ class WebcamStream:
         self.stream_id = stream_id
         print(self.stream_id)
         self.vcap = cv2.VideoCapture(self.stream_id)
+        self.vcap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         # assert self.vcap.isOpened()
         
         if self.vcap.isOpened() is False:
@@ -20,7 +21,7 @@ class WebcamStream:
         #reading a single frame from vcap stream for initialisation
         self.grabbed, self.frame = self.vcap.read()
         if self.grabbed is False:
-            print('[Exiting]: No more frames to read. (MutiThread)')
+            print('[Exiting]: No more frames to read. (MultiThread)')
             exit(0)
         #self.stopped is initialised to False
         self.stopped = True
