@@ -15,6 +15,13 @@
 #define TCAADDR 0x70
 #define L0XADDR 0x29
 
+//* DEBUG VARIABLES */
+#define debug_servos 0
+#define debug_lidars 0
+#define debug_switch 0
+#define debug_motors 0
+#define debug_pid 0
+
 //* OBJECT INITIALISATIONS */
 Motor MotorR(13, 12, 19, 18); //M2 swapped
 Motor MotorL(10, 11, 1, 0); //M1
@@ -24,7 +31,7 @@ VL53L1X fb_tof;
 Servo servos[6];
 
 //* SERVOS CONSTANTS SETUP */
-double servos_angle[6] = {0, 0, 0, 0, 0, 0}; //basic states initialised
+double servos_angle[6] = {0, 0, 110, 0, 0, 0}; //basic states initialised
 const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
@@ -100,9 +107,9 @@ void setup() {
   }
 
   //* USB SERIAL COMMS */
-  Serial.begin(9600);
-  while (!Serial) delay(10);
-  Serial.println("USB serial initialised");
+  // Serial.begin(9600);
+  // while (!Serial) delay(10);
+  // Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
   Serial1.setRX(RX0PIN);
@@ -138,8 +145,9 @@ void setup() {
 
 //* -----------END SETUP-----------*//
 
-
-void loop() {
+#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid
+void loop() 
+{
   
   digitalWrite(LEDPIN, HIGH);
 
@@ -147,7 +155,7 @@ void loop() {
     for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
       servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
     }
-    servos_change = false; //^ DOM: not sure if this is correct //^ XEL: why not??
+    servos_change = false;
   }
 
   // tcaselect(1);
@@ -160,10 +168,10 @@ void loop() {
   // front_dist = front_tof.readRangeContinuousMillimeters();
   // Serial.print("left: ");
   // Serial.println(l_dist);
-  Serial.print("front below: ");
-  Serial.println(fb_dist);
-  Serial.print("front left: ");
-  Serial.println(fl_dist);
+  // Serial.print("front below: ");
+  // Serial.println(fb_dist);
+  // Serial.print("front left: ");
+  // Serial.println(fl_dist);
   // Serial.print("front: ");
   // Serial.println(front_dist);
 
@@ -172,12 +180,14 @@ void loop() {
   if (!digitalRead(SWTPIN)) {
 
     // claw_open();
-    claw_up();
-    claw_close();
+    // claw_up();
+
+    // claw_close();
 
     // test_all_servos();
 
     //* HANDLING THE INFO RECEIVED */
+    if (curr != 39) {
     switch (task)
     {
 
@@ -237,7 +247,7 @@ void loop() {
         }
         break;
 
-    }
+    }}
 
 //     //* ACTUAL CODE
     switch (curr) 
@@ -351,7 +361,7 @@ void loop() {
         break;
 
       case 40: // evac wall track with diagonal lidar
-        // claw_open();
+        claw_open();
         evac_setdist = 140 + (millis() - startEvacMillis)/500;
         if (evac_setdist > 600) {evac_setdist = 600;}
         wall_rot = (evac_setdist - fl_dist) * 0.0095;
@@ -391,53 +401,19 @@ void loop() {
 //    Serial.print("rpm: ");
 //    Serial.println(rpm);
 
-    //* TEST PID */
-//     double val = MotorL.setRpm(40);
-//     Serial.print("Actual rpm: ");
-//     Serial.println(MotorL.getRpm());
-//     Serial.print(" Output pwm: ");
-//     Serial.println(val);
-//     Robawt.setSteer(40, 0);   
-
   } else {
-    
-    // startChangeMillis = millis();
-    // claw_close();
-    // Serial.println("0");
 
     //* TO MAKE ROBOT STOP */
     Robawt.setSteer(0, 0);
     Robawt.reset();
     claw_open();
     claw_down();
-    // test_all_servos2();
-
-    //* TO MAKE LEFT MOTOR STOP */
-    // MotorL.setRpm(0);
-    // MotorL.resetPID();
+    curr = 39; //~ force_evac
   }
-
-  //* DEBUG SWITCH STATE (1 is off, 0 is on)*/
-  // Serial.print("Switch state");
-  // Serial.println(digitalRead(SWTPIN));
-
-    //* DEBUG MOTOR DISTANCES */
-//  Serial.print("Distance (cm): ");
-//  Serial.println(MotorL.getDist());
-//  Serial.print("Angle (deg): ");
-//  Serial.println(MotorL.getAngle());
-//  Serial.print("Enc Val: ");
-//  Serial.println(MotorL.getEncVal());
-
-    //* READ LIDAR */
-//    tcaselect(4);
-//    front_dist = front_tof.readRangeContinuousMillimeters();
-//    Serial.println(front_dist);
 }
+#endif
 
 //* -----------END LOOP-----------*//
-
-
 
 
 //* FUNCTIONS */
@@ -517,14 +493,14 @@ void l1xinit(VL53L1X *sensor, uint8_t i)
 int pwmangle(double angle, double max_angle) {return (int)(angle/max_angle * 2000 + 500);}
 
 void claw_open() {
-  servos_angle[Servos::RIGHT] = 0;
-  servos_angle[Servos::LEFT] = 110;
+  servos_angle[Servos::RIGHT] = 110;
+  servos_angle[Servos::LEFT] = 0;
   servos_change = true;
 }
 
 void claw_close() {
-  servos_angle[Servos::RIGHT] = 110;
-  servos_angle[Servos::LEFT] = 0;
+  servos_angle[Servos::RIGHT] = 0;
+  servos_angle[Servos::LEFT] = 110;
   servos_change = true;
 }
 
@@ -539,8 +515,8 @@ void claw_down() {
 }
 
 void claw_halfclose() {
-  servos_angle[Servos::RIGHT] = 30;
-  servos_angle[Servos::LEFT] = 80;
+  servos_angle[Servos::RIGHT] = 80;
+  servos_angle[Servos::LEFT] = 30;
   servos_change = true;
 }
 
@@ -567,3 +543,90 @@ void test_all_servos2() {
 void send_pi(int i) {
   Serial1.println(i);
 }
+
+//* DEBUG LOOPS */
+
+#if debug_servos
+void loop() 
+{
+  if (servos_change) {
+    for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
+      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+    }
+    servos_change = false;
+  }
+
+  if (!digitalRead(SWTPIN)) {
+    claw_open();
+    // test_all_servos();
+  } else {
+    claw_close();
+    // test_all_servos2();
+  }
+}
+#endif
+
+#if debug_lidars
+void loop()
+{
+  tcaselect(1);
+  l_dist = l_tof.readRangeContinuousMillimeters();
+  tcaselect(2);
+  fb_dist = fb_tof.read();
+  tcaselect(3);
+  fl_dist = fl_tof.readRangeContinuousMillimeters();
+  tcaselect(4);
+  front_dist = front_tof.readRangeContinuousMillimeters();
+  Serial.print("left: ");
+  Serial.println(l_dist);
+  Serial.print("front below: ");
+  Serial.println(fb_dist);
+  Serial.print("front left: ");
+  Serial.println(fl_dist);
+  Serial.print("front: ");
+  Serial.println(front_dist);
+}
+#endif
+
+#if debug_switch
+void loop()
+{
+  Serial.print("Switch state");
+  Serial.println(digitalRead(SWTPIN));
+}
+#endif
+
+#if debug_motors
+void loop()
+{
+ Serial.print("Distance (cm): ");
+ Serial.print(MotorL.getDist());
+ Serial.print("    ");
+ Serial.println(MotorR.getDist());
+ Serial.print("Angle (deg): ");
+ Serial.print(MotorL.getAngle());
+ Serial.print("    ");
+ Serial.println(MotorR.getAngle());
+ Serial.print("Enc Val: ");
+ Serial.print(MotorL.getEncVal());
+ Serial.print("    ");
+ Serial.println(MotorR.getEncVal());
+}
+#endif
+
+#if debug_pid
+void loop()
+{
+  // Robawt.setSteer(40, 0);
+  double valL = MotorL.setRpm(40);
+  double valR = MotorR.setRpm(40);
+  Serial.print("Actual rpm: ");
+  Serial.print(MotorL.getRpm());
+  Serial.print("    ");
+  Serial.println(MotorR.getRpm());
+  Serial.print(" Output pwm: ");
+  Serial.print(valL);
+  Serial.print("    ");
+  Serial.println(valR);
+}
+#endif
