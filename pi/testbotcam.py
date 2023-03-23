@@ -13,6 +13,8 @@ while True:
         break
     else:
         frame = webcam_stream.read()
+        frame = cv2.flip(frame, 0)
+        frame = cv2.flip(frame, 1)
     
     cv2.imshow('frame', frame)
     timer.update()
