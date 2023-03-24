@@ -1,7 +1,7 @@
 // --------------------------------------
 // main.cpp
 //
-// Main script on robot
+// Main script on pico
 // --------------------------------------
 
 #include <Arduino.h>
@@ -16,12 +16,18 @@
 #define L0XADDR 0x29
 
 //* DEBUG VARIABLES */
+//~ Main code runs OR
 #define debug_servos 0
 #define debug_lidars 0
 #define debug_switch 0
 #define debug_motors 0
 #define debug_pid 0
-#define debug_ball 1
+#define debug_ball 0
+#define debug_teensy_serial 0
+//~ Runs WITH main code
+#define debug_curr 0
+#define debug_passed_vars 0
+#define debug_lidars_while 0
 
 //* OBJECT INITIALISATIONS */
 Motor MotorR(13, 12, 19, 18); //M2 swapped
@@ -32,7 +38,7 @@ VL53L1X fb_tof;
 Servo servos[6];
 
 //* SERVOS CONSTANTS SETUP */
-double servos_angle[6] = {0, 0, 95, 0, 0, 0}; //basic states initialised
+double servos_angle[6] = {180, 0, 95, 0, 0, 0}; //basic states initialised
 const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
@@ -47,7 +53,9 @@ void ISRLB() {MotorL.readEncB();}
 void ISRRA() {MotorR.readEncA();}
 void ISRRB() {MotorR.readEncB();}
 
-//* CONSTANTS
+//* CONSTANTS */
+
+//~ Pins
 const int TX1PIN = 8,
   RX1PIN = 9,
   TX0PIN = 16,
@@ -57,32 +65,42 @@ const int TX1PIN = 8,
   SWTPIN = 28,
   LEDPIN = 3;
 
-int serialState = 0;
+//~ Multiplexer 
+const int F_LIDAR = 4,
+  FL_LIDAR = 5,
+  FB_LIDAR = 2,
+  L_LIDAR = 1,
+  R_LIDAR = 7;
+
+//* LOGIC SET UP */
+
+//~ Lidars
 int front_dist = 0,
   fb_dist = 0,
   l_dist = 0,
   r_dist = 0,
   fl_dist = 0;
 
-double rotation = 0;
-double rpm = 40;
-int task = 39, 
-  prev_task = 0, 
+//~ Movement and logic
+double rotation = 0,
+  rpm = 40;
+int serialState = 0,
+  task = 39, 
+  prev_task = 0,
   curr = 0;
 
+//~ Green squares
 long lostGSMillis, 
   startGSMillis;
 
+//~ Evac
 long startEvacMillis,
   evacBallTimer;
-bool see_ball = false;
 bool in_evac = true;
-
 double evac_setdist,
   wall_rot;
 
-//* LOGIC SETUP
-
+//~ Blue cube
 double prev_L_dist = 0;
 double prev_R_dist = 0;
 double start_L_dist = 0;
@@ -90,12 +108,14 @@ double start_R_dist = 0;
 double rev_L_dist = 0;
 double rev_R_dist = 0;
 double prev_rotation = 0;
-
 long startBlueMillis = 0;
 long timeElapsed = 0;
 long startReverse = 0;
-
 elapsedMillis sinceStop;
+
+//~ Teensy serial
+bool left135 = false,
+  right135 = false;
 
 void setup() {
 
@@ -109,36 +129,36 @@ void setup() {
   }
 
   //* USB SERIAL COMMS */
-  // Serial.begin(9600);
-  // while (!Serial) delay(10);
-  // Serial.println("USB serial initialised");
+  Serial.begin(9600);
+  while (!Serial) delay(10);
+  Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
-  Serial1.setRX(RX0PIN);
-  Serial1.setTX(TX0PIN);
-  Serial1.begin(9600); //consider increasing baud
-  while (!Serial1) delay(10); 
-  Serial.println("Pi serial initialised");
+  // Serial1.setRX(RX0PIN);
+  // Serial1.setTX(TX0PIN);
+  // Serial1.begin(9600); //consider increasing baud
+  // while (!Serial1) delay(10); 
+  // Serial.println("Pi serial initialised");
 
   //* TEENSY SERIAL COMMS */
-  // Serial2.setRX(RX1PIN);
-  // Serial2.setRX(TX1PIN);
-  // Serial2.begin(9600);
-  // while (!Serial2) delay(10); 
-  // Serial.println("Teensy serial initialised");
+  Serial2.setRX(RX1PIN);
+  Serial2.setRX(TX1PIN);
+  Serial2.begin(9600);
+  while (!Serial2) delay(10); 
+  Serial.println("Teensy serial initialised");
 
   //* MULTIPLEXER */
   businit(&Wire, SDAPIN, SCLPIN);
 
-  // l0xinit(&Wire, &front_tof, 4);
-  l0xinit(&Wire, &fl_tof, 3);
-  l1xinit(&fb_tof, 2);
-  // l0xinit(&Wire, &l_tof, 1);
-  //l0xinit(r_tof, 5);
+  l0xinit(&Wire, &front_tof, F_LIDAR);
+  l0xinit(&Wire, &fl_tof, FL_LIDAR);
+  l1xinit(&fb_tof, FB_LIDAR);
+  l0xinit(&Wire, &l_tof, L_LIDAR);
+  //l0xinit(r_tof, R_LIDAR);
 
   //* MOTOR ENCODERS */    
   //^ basically interrupts the main code to run the encoder code 
-  //^ uhm not just the main code its every code thats what attach interrupt means
+  //^ uhm not just the main code its *every* code thats what attach interrupt means
   attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
   attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
   attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
@@ -147,7 +167,7 @@ void setup() {
 
 //* -----------END SETUP-----------*//
 
-#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball
+#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball && !debug_teensy_serial
 void loop() 
 {
   
@@ -160,36 +180,33 @@ void loop()
     servos_change = false;
   }
 
-  // tcaselect(1);
-  // l_dist = l_tof.readRangeContinuousMillimeters();
-  tcaselect(2);
-  fb_dist = fb_tof.read();
-  tcaselect(3);
-  fl_dist = fl_tof.readRangeContinuousMillimeters();
-  // tcaselect(4);
-  // front_dist = front_tof.readRangeContinuousMillimeters();
-  // Serial.print("left: ");
-  // Serial.println(l_dist);
-  // Serial.print("front below: ");
-  // Serial.println(fb_dist);
-  // Serial.print("front left: ");
-  // Serial.println(fl_dist);
-  // Serial.print("front: ");
-  // Serial.println(front_dist);
+  //* LIDAR READINGS */
 
-  if (curr != 39) serialEvent();
+  tcaselect(L_LIDAR);
+  l_dist = l_tof.readRangeContinuousMillimeters();
+  tcaselect(FB_LIDAR);
+  fb_dist = fb_tof.read();
+  tcaselect(FL_LIDAR);
+  fl_dist = fl_tof.readRangeContinuousMillimeters();
+  tcaselect(F_LIDAR);
+  front_dist = front_tof.readRangeContinuousMillimeters();
+
+  #if debug_lidars_while
+  Serial.print("left: ");
+  Serial.println(l_dist);
+  Serial.print("front below: ");
+  Serial.println(fb_dist);
+  Serial.print("front left: ");
+  Serial.println(fl_dist);
+  Serial.print("front: ");
+  Serial.println(front_dist);
+  #endif
 
   if (!digitalRead(SWTPIN)) {
 
-    // claw_open();
-    // claw_up();
-
-    // claw_close();
-
-    // test_all_servos();
-
     //* HANDLING THE INFO RECEIVED */
-    if (curr != 39) {
+
+    if (curr != 39) { //case 39 is transitioning into evac
     switch (task)
     {
 
@@ -207,19 +224,19 @@ void loop()
         } 
         break;
 
-      case 1:
+      case 1: //left green
       if (in_evac) break;
         if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
-      case 2:
+      case 2: //right green
         if (in_evac) break;
         if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
-      case 3:
+      case 3: //double green
         if (in_evac) break;
         if (curr == 0) startGSMillis = millis();
         curr = 1;
@@ -256,8 +273,9 @@ void loop()
         break;
 
     }}
+    
+    //* ACTUAL CODE CURRENT */
 
-//     //* ACTUAL CODE
     switch (curr) 
     {
 
@@ -402,16 +420,21 @@ void loop()
 
     }
 
-    Serial.print("Case");
-    Serial.println(curr);
-
     //* DEBUG PASSED VARIABLES */
-   Serial.print("task: ");
-   Serial.println(task);
-   Serial.print("rotation: ");
-   Serial.println(rotation);
-   Serial.print("rpm: ");
-   Serial.println(rpm);
+
+    #if debug_curr
+    Serial.print("Case: ");
+    Serial.println(curr);
+    #endif
+
+    #if debug_passed_vars
+    Serial.print("Task: ");
+    Serial.println(task);
+    Serial.print("Rotation: ");
+    Serial.println(rotation);
+    Serial.print("Rpm: ");
+    Serial.println(rpm);
+    #endif
 
   } else {
 
@@ -420,7 +443,8 @@ void loop()
     Robawt.reset();
     claw_open();
     claw_down();
-    curr = 39; //~ force_evac
+
+    curr = 39; //! force_evac
   }
 }
 #endif
@@ -428,7 +452,7 @@ void loop()
 //* -----------END LOOP-----------*//
 
 
-//* FUNCTIONS */
+//* SERIAL FUNCTIONS */
 
 void serialEvent()
 {
@@ -451,7 +475,22 @@ void serialEvent()
   }
 }
 
-void tcaselect(uint8_t i)  //^ DOM: this is the MUX/multiplexer
+void teensySerialEvent()
+{
+  while (Serial2.available()) {
+    int serialTeensyData = Serial2.read();
+    switch (serialTeensyData) {
+      case 1:
+        in_evac = true;
+        Serial.println("In evac");
+        break;
+    }
+  }
+}
+
+//* LIDAR & MULTIPLEXER FUNCTIONS */
+
+void tcaselect(uint8_t i)  //Multiplexer: TCA9548A
 {
   if (i > 0 && i < 7) {
     Wire.beginTransmission(TCAADDR);
@@ -468,7 +507,7 @@ void tcaselect(uint8_t i)  //^ DOM: this is the MUX/multiplexer
   }
 }
 
-void businit(TwoWire *bus, int sdaPin, int sclPin)
+void businit(TwoWire *bus, int sdaPin, int sclPin) //I2C for Multiplexer
 {
   bus->setSDA(sdaPin);
   bus->setSCL(sclPin);
@@ -476,7 +515,7 @@ void businit(TwoWire *bus, int sdaPin, int sclPin)
   bus->setClock(400000); 
 }
 
-void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i)
+void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i) //Lidar: VL53L0X
 {
   tcaselect(i);
   sensor->setTimeout(500);
@@ -485,7 +524,7 @@ void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i)
   sensor->setBus(bus);
 }
 
-void l1xinit(VL53L1X *sensor, uint8_t i)
+void l1xinit(VL53L1X *sensor, uint8_t i) //Lidar: VL53L1X
 {
   tcaselect(i);
   sensor->setTimeout(500);
@@ -502,7 +541,13 @@ void l1xinit(VL53L1X *sensor, uint8_t i)
 //   else return value;
 // }
 
-int pwmangle(double angle, double max_angle) {return (int)(angle/max_angle * 2000 + 500);}
+
+//* CLAW & SERVO FUNCTIONS */
+
+int pwmangle(double angle, double max_angle) //Servo PWM
+{
+  return (int)(angle/max_angle * 2000 + 500);
+}
 
 void claw_open() {
   servos_angle[Servos::RIGHT] = 95;
@@ -518,6 +563,11 @@ void claw_close() {
 
 void claw_up() {
   servos_angle[Servos::ARM] = 0;
+  servos_change = true;
+}
+
+void claw_service_up() {
+  servos_angle[Servos::ARM] = 140;
   servos_change = true;
 }
 
@@ -552,13 +602,14 @@ void test_all_servos2() {
   servos_change = true;
 }
 
+//* EVAC FUNCTIONS */
+
 void send_pi(int i) {
   Serial1.println(i);
 }
 
-void see_ball() {
-  int scaled_top_lidar = front_dist * 20;
-  return (scaled_top_lidar - fb_dist > 30 && fb_dist < 60);
+bool see_ball() {
+  return (front_dist - fb_dist > 30 && fb_dist < 95);
 }
 
 //* DEBUG LOOPS */
@@ -587,13 +638,13 @@ void loop()
 #if debug_lidars
 void loop()
 {
-  // tcaselect(1);
+  // tcaselect(L_LIDAR);
   // l_dist = l_tof.readRangeContinuousMillimeters();
-  tcaselect(2);
+  tcaselect(FB_LIDAR);
   fb_dist = fb_tof.read();
-  tcaselect(3);
+  tcaselect(FL_LIDAR);
   fl_dist = fl_tof.readRangeContinuousMillimeters();
-  // tcaselect(4);
+  // tcaselect(F_LIDAR);
   // front_dist = front_tof.readRangeContinuousMillimeters();
   // Serial.print("left: ");
   // Serial.println(l_dist);
@@ -652,12 +703,22 @@ void loop()
 #if debug_ball
 void loop()
 {
-  tcaselect(2);
+  if (servos_change) {
+    for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
+      servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+    }
+    servos_change = false;
+  }
+
+  if (!digitalRead(SWTPIN)) claw_service_up();
+  else claw_down();
+
+  tcaselect(FB_LIDAR);
   fb_dist = fb_tof.read();
-  tcaselect(3);
+  tcaselect(FL_LIDAR);
   fl_dist = fl_tof.readRangeContinuousMillimeters();
-  tcaselect(4);
-  front_dist = front_tof.readRangeContinuousMillimeters();
+  tcaselect(F_LIDAR);
+  front_dist = front_tof.readRangeContinuousMillimeters() + 45;
 
   Serial.print("front below: ");
   Serial.println(fb_dist);
@@ -667,6 +728,29 @@ void loop()
   Serial.println(front_dist);
 
   Serial.print("See ball: ");
-  Serial.println(see_balls());
+  Serial.println(see_ball());
+
+  if (see_ball()) {
+    claw_close();
+  } else {
+    claw_open();
+  }
+}
+#endif
+
+#if debug_teensy_serial
+void loop()
+{
+  teensySerialEvent();
+
+  // //~ To lift the claw to access the teensy
+  // if (servos_change) {
+  //   for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
+  //     servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+  //   }
+  //   servos_change = false;
+  // }
+  // claw_up();
+
 }
 #endif
