@@ -23,7 +23,7 @@
 #define debug_motors 0
 #define debug_pid 0
 #define debug_ball 0
-#define debug_teensy_serial 0
+#define debug_teensy_comms 0
 //~ Runs WITH main code
 #define debug_curr 0
 #define debug_passed_vars 0
@@ -37,7 +37,7 @@ VL53L0X front_tof, l_tof, r_tof, fl_tof; //, r_tof;
 VL53L1X fb_tof;
 Servo servos[6];
 
-//* SERVOS CONSTANTS SETUP */
+//* SERVOS SETUP */
 double servos_angle[6] = {180, 0, 95, 0, 0, 0}; //basic states initialised
 const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
@@ -56,8 +56,8 @@ void ISRRB() {MotorR.readEncB();}
 //* CONSTANTS */
 
 //~ Pins
-const int TX1PIN = 8,
-  RX1PIN = 9,
+const int TNYPIN1 = 8,
+  TNYPIN2 = 9,
   TX0PIN = 16,
   RX0PIN = 17,
   SDAPIN = 4,
@@ -121,6 +121,8 @@ void setup() {
 
   pinMode(SWTPIN, INPUT_PULLDOWN);
   pinMode(LEDPIN, OUTPUT);
+  pinMode(TNYPIN1, INPUT);
+  pinMode(TNYPIN2, INPUT);
 
   //* SERVOS */
   for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
@@ -134,18 +136,11 @@ void setup() {
   Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
-  // Serial1.setRX(RX0PIN);
-  // Serial1.setTX(TX0PIN);
-  // Serial1.begin(9600); //consider increasing baud
-  // while (!Serial1) delay(10); 
-  // Serial.println("Pi serial initialised");
-
-  //* TEENSY SERIAL COMMS */
-  Serial2.setRX(RX1PIN);
-  Serial2.setRX(TX1PIN);
-  Serial2.begin(9600);
-  while (!Serial2) delay(10); 
-  Serial.println("Teensy serial initialised");
+  Serial1.setRX(RX0PIN);
+  Serial1.setTX(TX0PIN);
+  Serial1.begin(9600); //consider increasing baud
+  while (!Serial1) delay(10); 
+  Serial.println("Pi serial initialised");
 
   //* MULTIPLEXER */
   businit(&Wire, SDAPIN, SCLPIN);
@@ -205,6 +200,9 @@ void loop()
   if (!digitalRead(SWTPIN)) {
 
     //* HANDLING THE INFO RECEIVED */
+
+    serialEvent();
+    teensyEvent();
 
     if (curr != 39) { //case 39 is transitioning into evac
     switch (task)
@@ -444,7 +442,7 @@ void loop()
     claw_open();
     claw_down();
 
-    curr = 39; //! force_evac
+    // curr = 39; //! force_evac
   }
 }
 #endif
@@ -452,7 +450,7 @@ void loop()
 //* -----------END LOOP-----------*//
 
 
-//* SERIAL FUNCTIONS */
+//* COMMS FUNCTIONS */
 
 void serialEvent()
 {
@@ -475,16 +473,17 @@ void serialEvent()
   }
 }
 
-void teensySerialEvent()
+void teensyEvent()
 {
-  while (Serial2.available()) {
-    int serialTeensyData = Serial2.read();
-    switch (serialTeensyData) {
-      case 1:
-        in_evac = true;
-        Serial.println("In evac");
-        break;
-    }
+  int pin1State = digitalRead(TNYPIN1);
+  int pin2State = digitalRead(TNYPIN2);
+  if (pin1State && pin2State) {
+    in_evac = true;
+    curr = 39;
+  } else if (pin1State && !pin2State) {
+    left135 = true;
+  } else if (!pin1State && pin2State) {
+    right135 = true;
   }
 }
 
@@ -738,19 +737,18 @@ void loop()
 }
 #endif
 
-#if debug_teensy_serial
+#if debug_teensy_comms
 void loop()
 {
-  teensySerialEvent();
+  teensyEvent();
+  Serial.print("In Evac: ");
+  Serial.println(in_evac);
+  Serial.print("Left 135: ");
+  Serial.println(left135);
+  Serial.print("Right 135: ");
+  Serial.println(right135);
 
   // //~ To lift the claw to access the teensy
-  // if (servos_change) {
-  //   for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
-  //     servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
-  //   }
-  //   servos_change = false;
-  // }
-  // claw_up();
-
+  // servos[SERVOS::ARM].detach();
 }
 #endif
