@@ -8,3 +8,5 @@
 /pico-a
 /pi/tookwithcomcam.jpg
 /pi/keeponcom.ipynb
+.vscode/c_cpp_properties.json
+.gitignore
