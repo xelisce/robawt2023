@@ -230,19 +230,12 @@ while True:
                                 
 
     #* DETECTION OF RESCUE KIT
-    #^ Note from DOM: Will defo clean up the code once claw works haha yes
-
-    # #~ If close enough to rescue kit: (temporary, will use lidar to detect proximity instead)
-    # if not reversing_now and blue_sum >= 14000000: 
-    #     blue_now = True
-    #     reversing_now = True 
-    #     curr = Task.BLUEFINAL  #^ DOM: please remove BLUEFINAL later thxxx
 
     #~ Rescue kit spotted: 
     if not reversing_now and blue_sum >= b_minarea:
         # print("Blue sum: ", blue_sum) #& debug blue sum
         blue_now = True
-        if (curr.name != "BLUE" and curr.name != "BLUEFINAL"):
+        if (curr.name != "BLUE"):
             curr = Task.BEFORE_BLUE
 
         #~ Find x and y positions of rescue kit
