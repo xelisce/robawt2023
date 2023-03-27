@@ -114,6 +114,18 @@ long timeElapsed = 0;
 long startReverse = 0;
 elapsedMillis sinceStop;
 
+//~ Obstacle
+bool see_line = false;
+int side_dist = 0;
+double o_rotation = 0;
+int obs_state = 0;
+int turn_dir = 1;
+double obst_init_dist = 0; //check if this causes any errors
+bool obst_reversing = false;
+double obst_rotation = 0;
+int turning_state = 0;
+int obs_time_start = 0;
+
 //~ Teensy serial
 bool left135 = false,
   right135 = false;
@@ -280,6 +292,15 @@ void loop()
 
       case 0: //normal lt
         Robawt.setSteer(rpm, rotation);
+        if (fb_dist < 100){
+          curr = 12;
+          if (l_dist > r_dist){
+            turn_dir = -1;
+          }
+          else {
+            turn_dir = 1;
+          }
+        }
         break;
 
       case 1: //left gs
@@ -378,6 +399,150 @@ void loop()
         if (millis() - lostGSMillis > 200) curr = 0;
         else Robawt.setSteer(rpm, 0.5);
         break;
+      
+      //* OBSTACLE
+
+      case 12: //Obstacle
+        if (!obst_reversing){
+          obst_init_dist = MotorL.getDist();
+          obst_reversing = true;
+        }
+        Robawt.setSteer(-40, 0);
+        if (MotorL.getDist() - obst_init_dist < -12) //TUNE AGAIN, reverse for 3 cm??
+        {
+          Robawt.setSteer(0, 0);
+          Robawt.reset();
+          if (turn_dir == 1)// turn right (need to use left lidar)
+          {
+           side_dist = l_dist;
+           o_rotation = -1;
+           curr = 14;
+           obst_init_dist = MotorL.getDist();
+          }
+          else if (turn_dir == -1) { // turn left 
+            side_dist = r_dist;
+            curr = 16;
+            o_rotation = 1;
+            obst_init_dist = MotorL.getDist();
+          }
+        }
+
+      case 14: // turn right, use left tof
+        switch (turning_state)
+        {
+          case 0:
+          {
+            Robawt.setSteer(rpm, 1);
+            if (l_dist>150) turning_state ++;
+          }
+          break;
+
+          case 1:
+          {
+            Robawt.setSteer(rpm, 1);
+            if (l_dist<150) turning_state ++;
+          }
+          break;
+
+          case 2:
+          {
+            Robawt.setSteer(rpm, 0);
+            turning_state = 0;
+            curr = 18;
+            obs_time_start = millis();
+          }
+          break;
+        }
+        break;
+
+      case 16: // trun left, use right tof
+        switch (turning_state)
+        {
+          case 0:
+          {
+            Robawt.setSteer(rpm, -1);
+            if (r_dist>150) turning_state ++;
+          }
+          break;
+
+          case 1:
+          {
+            Robawt.setSteer(rpm, -1);
+            if (r_dist<150) turning_state ++;
+          }
+          break;
+
+          case 2:
+          {
+            Robawt.setSteer(rpm, 0);
+            turning_state = 0;
+            curr = 18;
+            obs_time_start = millis();
+          }
+          break;
+        }
+        break;
+
+      case 18:
+        if (turn_dir == 1)// turn right (need to use left lidar)
+        {
+          side_dist = l_dist;
+          o_rotation = -0.5;
+        }
+        else if (turn_dir == -1){
+           side_dist = r_dist;
+          o_rotation = 0.5;
+        }
+
+        switch (obs_state)
+        {
+          case 0:
+          {
+            Robawt.setSteer (25, 0);
+            if (side_dist < 200) obs_state++;
+          }
+           break;
+            
+          case 1:
+          {
+            Robawt.setSteer (25, 0);
+            if (side_dist > 200) obs_state++;
+          }
+          break;
+
+          case 2:
+          {
+            Robawt.setSteer (25, o_rotation);
+            if (side_dist < 200) obs_state++;
+          }
+          break;
+
+           case 3:
+          {
+            Robawt.setSteer (25, o_rotation);
+            if (side_dist > 200){
+              obs_state = 0;
+            }
+          }
+          break;
+        }
+
+        if (see_line && (millis() - obs_time_start) > 6000){
+          Robawt.setSteer(0, 0);
+          curr = 19;
+          obs_time_start = millis();
+          obs_state = 0;
+          see_line = false;
+        }
+        break;
+        
+      case 19:
+        Robawt.setSteer(30, (turn_dir)*0.5);
+        if (millis() - obs_time_start > 1000){
+          Robawt.setSteer(0,0);
+          curr = 0;
+        }
+
 
       //* EVAC
 
@@ -458,7 +623,7 @@ void serialEvent()
 {
   while (Serial1.available()) {
     int serialData = Serial1.read();
-    if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = (int)serialData;}
+    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
     else {
       switch (serialState) {
         case 255:
@@ -469,6 +634,10 @@ void serialEvent()
           break;
         case 253:
           task = (int)serialData;
+          break;
+        case 252:
+          see_line = (bool)(int)serialData;
+          Serial.println(see_line);
           break;
       }
     }
