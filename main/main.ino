@@ -67,10 +67,10 @@ const int TNYPIN1 = 8,
 
 //~ Multiplexer 
 const int F_LIDAR = 4,
-  FL_LIDAR = 5,
+  FL_LIDAR = 3,
   FB_LIDAR = 2,
   L_LIDAR = 1,
-  R_LIDAR = 7;
+  R_LIDAR = 5;
 
 //* LOGIC SET UP */
 
@@ -96,7 +96,8 @@ long lostGSMillis,
 //~ Evac
 long startEvacMillis,
   evacBallTimer;
-bool in_evac = true;
+bool in_evac = true,
+  see_ball = false;
 double evac_setdist,
   wall_rot;
 
@@ -132,7 +133,7 @@ void setup() {
 
   //* USB SERIAL COMMS */
   Serial.begin(9600);
-  while (!Serial) delay(10);
+  // while (!Serial) delay(10);
   Serial.println("USB serial initialised");
 
   //* PI SERIAL COMMS */
@@ -184,7 +185,7 @@ void loop()
   tcaselect(FL_LIDAR);
   fl_dist = fl_tof.readRangeContinuousMillimeters();
   tcaselect(F_LIDAR);
-  front_dist = front_tof.readRangeContinuousMillimeters();
+  front_dist = front_tof.readRangeContinuousMillimeters() + 45;
 
   #if debug_lidars_while
   Serial.print("left: ");
@@ -247,7 +248,7 @@ void loop()
         if (curr == 41) {
           curr = 42; //enter post-ball
           evacBallTimer = millis();
-        } else if (curr == 42 && (millis() - evacBallTimer) > 1000 && see_ball()) {
+        } else if (curr == 42 && (millis() - evacBallTimer) > 1500 && !ball_present()) {
           curr = 40; //go wall track
         } else if (curr == 42) {
           curr = 42;
@@ -261,9 +262,9 @@ void loop()
         break;
 
       default:
-        if ((curr == 1 || curr == 2) && (millis() - startGSMillis > 400)) {
-          curr = task;
-        } else if (curr == 3 && (millis() - startGSMillis > 600)) {
+        if ((curr == 1 || curr == 2) && (millis() - startGSMillis > 400)) { //min single square turn time
+          curr = task; 
+        } else if (curr == 3 && (millis() - startGSMillis > 600)) { //min double green turn time
           curr = task;
         } else if (!in_evac) {
           curr = task;
@@ -392,30 +393,31 @@ void loop()
         if (evac_setdist > 600) {evac_setdist = 600;}
         wall_rot = (evac_setdist - fl_dist) * 0.0095;
         Robawt.setSteer(30, wall_rot);
+        if (ball_present()) curr = 45;
         break;
 
       case 41: //turn to ball
         claw_halfclose();
-        if (fb_dist < 70) {
-          curr = 43; 
+        if (ball_present()) {
+          curr = 45; 
         } else {
-          Robawt.setSteer(10, rotation);
+          Robawt.setSteer(25, rotation);
         }
         break;
 
       case 42: //post ball
         claw_halfclose();
-        if (fb_dist < 70) {
-          curr = 43; //enter pickup
+        if (ball_present()) {
+          curr = 45; //enter pickup
         }
         Robawt.setSteer(25, 0);
         break;
 
-      case 43: //start pickup seq
+      case 45: //start pickup seq
         claw_close();
         Robawt.setSteer(0,0);
+        if (!ball_present()) curr = 40;
         break;
-
     }
 
     //* DEBUG PASSED VARIABLES */
@@ -442,7 +444,7 @@ void loop()
     claw_open();
     claw_down();
 
-    // curr = 39; //! force_evac
+    curr = 39; //! force_evac
   }
 }
 #endif
@@ -607,7 +609,7 @@ void send_pi(int i) {
   Serial1.println(i);
 }
 
-bool see_ball() {
+bool ball_present() {
   return (front_dist - fb_dist > 30 && fb_dist < 95);
 }
 
@@ -727,9 +729,9 @@ void loop()
   Serial.println(front_dist);
 
   Serial.print("See ball: ");
-  Serial.println(see_ball());
+  Serial.println(ball_present());
 
-  if (see_ball()) {
+  if (ball_present()) {
     claw_close();
   } else {
     claw_open();

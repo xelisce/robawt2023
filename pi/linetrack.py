@@ -30,6 +30,8 @@ def receive_pico(ser) -> int:
         data_left = ser.inWaiting()
         received_data += ser.read(data_left)
         return ord(received_data)
+    else:
+        return 0
 
 #* COLOR CALIBRATION
 # l_black = 0
@@ -157,7 +159,6 @@ while True:
         rpm = rpm_setpt
 
     #* JUST FOUND GREEN SQUARE PREVIOUSLY
-    #TODO XEL make single green squares for longer
 
     #~ Turn while still seeing green
     elif gs_now and gs_sum < 20000:

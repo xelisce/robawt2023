@@ -5,21 +5,22 @@ import serial
 import enum
 import math
 
+#* SERIAL
+ser = serial.Serial("/dev/serial0", 9600)
+
+rpm = 25
+
+#* IMAGE START
 evac_stream = WebcamStream(stream_id=2)
 evac_stream.start()
 evac_org = evac_stream.read()
 width, height_org = evac_org.shape[1], evac_org.shape[0]
 print("Evac camera width:", width, "Camera height:", height_org)
 
-#* SERIAL
-ser = serial.Serial("/dev/serial0", 9600)
-
-rpm = 25
-
-crop_h = 183
+crop_h_evac = 183
 # kp_ball = 0.2
 
-height = height_org - crop_h
+height = height_org - crop_h_evac
 # u_black = 55
 
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
@@ -44,9 +45,23 @@ class Task(enum.Enum):
     NOBALL = 9
     BALL = 10
 
+def receive_pico() -> int:
+    global ser
+    if(ser.in_waiting > 0):
+        received_data = ser.read()
+        data_left = ser.inWaiting()
+        received_data += ser.read(data_left)
+        return ord(received_data)
+    else:
+        return 0
+
 while True:
     if evac_stream.stopped:
         break
+
+    pico_task = receive_pico()
+    if pico_task == 2:
+        break #start looking for evac point
     
     #* IMAGE SETUP
 
@@ -56,7 +71,7 @@ while True:
     
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
-    evac_max = evac_max[crop_h:, :]
+    evac_max = evac_max[crop_h_evac:, :]
 
     #* CIRCLE DETECTION
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
@@ -121,3 +136,18 @@ while True:
 
 evac_stream.stop()
 cv2.destroyAllWindows()
+
+#* LOOKING FOR EVAC POINT
+
+#* IMAGE START
+evac_stream2 = WebcamStream(stream_id=0)
+evac_stream2.start()
+evac_org = evac_stream2.read()
+width, height_org = evac_org.shape[1], evac_org.shape[0]
+print("Evac camera width:", width, "Camera height:", height_org)
+
+crop_h_evac = 183
+# kp_ball = 0.2
+height = height_org - crop_h_evac
+
+print("Done")
