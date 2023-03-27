@@ -25,8 +25,8 @@
 #define debug_ball 0
 #define debug_teensy_comms 0
 //~ Runs WITH main code
-#define debug_curr 0
-#define debug_passed_vars 0
+#define debug_curr 1
+#define debug_passed_vars 1
 #define debug_lidars_while 0
 
 //* OBJECT INITIALISATIONS */
@@ -96,7 +96,7 @@ long lostGSMillis,
 //~ Evac
 long startEvacMillis,
   evacBallTimer;
-bool in_evac = true,
+bool in_evac = false,
   see_ball = false;
 double evac_setdist,
   wall_rot;
@@ -233,13 +233,13 @@ void loop()
       case 2: //right green
         if (in_evac) break;
         if (curr == 0) startGSMillis = millis();
-        curr = 1;
+        curr = 2;
         break;
 
       case 3: //double green
         if (in_evac) break;
         if (curr == 0) startGSMillis = millis();
-        curr = 1;
+        curr = 3;
         break;
 
       //~ Evac
@@ -445,7 +445,7 @@ void loop()
     claw_open();
     claw_down();
 
-    curr = 39; //! force_evac
+    // curr = 39; //! force_evac
   }
 }
 #endif

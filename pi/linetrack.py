@@ -59,6 +59,7 @@ b_minarea = 500000 #! ~DOM: to tune the values
 
 rpm_setpt = 40
 rpm = 40
+rotation = 0
 kp = 1.4 #constant used for PID
 
 #* IMAGE PROCESSING
@@ -273,7 +274,7 @@ while True:
         #* OBSTACLE
 
         mask_seeline = mask_black_org[250:]
-        cv2.imshow('obstacle see line', mask_seeline)
+        # cv2.imshow('obstacle see line', mask_seeline)
         black_line_sum = np.sum(mask_seeline)
         print("black sum for obstacle:", black_line_sum) #& debug obstacle see line
         if black_line_sum > 13000000:
@@ -281,7 +282,7 @@ while True:
         else:
             see_line = 0
         print("see line value", see_line)
-        
+
         #* LINETRACK
 
         curr = Task.EMPTY
@@ -330,7 +331,7 @@ while True:
 
     # print("rpm:", rpm) #& debug sent variables
     print("rotation:", rotation)
-    print("task:", curr.value)
+    print("task:", curr)
 
     rotation = int(rotation)
     if rotation > 90:
