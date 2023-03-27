@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/../**"
+                "${workspaceFolder}/../**",
+                "${workspaceFolder}/main/libraries/VL53L1X",
+                "${workspaceFolder}/main/libraries/elapsedMillis-1.0.6"
             ],
             "defines": [
                 "_DEBUG",
