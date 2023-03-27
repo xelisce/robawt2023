@@ -10,7 +10,7 @@
 #include "VL53L0X.h" //^ Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
 #include <Servo.h>
-#include <elapsedMillis.h>
+//#include <elapsedMillis.h>
 
 #define TCAADDR 0x70
 #define L0XADDR 0x29
@@ -33,7 +33,7 @@
 Motor MotorR(13, 12, 19, 18); //M2 swapped
 Motor MotorL(10, 11, 1, 0); //M1
 Vroom Robawt(&MotorL, &MotorR);
-VL53L0X front_tof, l_tof, r_tof, fl_tof; //, r_tof;
+VL53L0X front_tof, l_tof, r_tof, fl_tof; 
 VL53L1X fb_tof;
 Servo servos[6];
 
@@ -112,7 +112,8 @@ double prev_rotation = 0;
 long startBlueMillis = 0;
 long timeElapsed = 0;
 long startReverse = 0;
-elapsedMillis sinceStop;
+long pickup_timer = 0;
+//elapsedMillis sinceStop;
 
 //~ Teensy serial
 bool left135 = false,
@@ -159,6 +160,9 @@ void setup() {
   attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
   attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
   attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
+
+  claw_open();
+  claw_down();
 }
 
 //* -----------END SETUP-----------*//
@@ -218,7 +222,7 @@ void loop()
         } else if (curr == 2) {
           curr = 11;
           lostGSMillis = millis();
-        } else if (curr != 10 && curr != 11 && curr != 7) {       //^ DOM: I'll add a temp case for rescue kit :thumbs: 
+        } else if (curr != 10 && curr != 11 && curr != 7) {
           curr = 0;
         } 
         break;
@@ -240,6 +244,9 @@ void loop()
         if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
+
+      case 6:
+        if (curr == 7) curr = 7; //^ more sophisticated way of doing this?
 
       //~ Evac
       case 9: //evac no ball
@@ -315,58 +322,57 @@ void loop()
       case 6: //relatively centred on blue
         Robawt.setSteer(rpm , 0);
         if (startBlueMillis == 0) {startBlueMillis = millis();}
-        //TODO: insert code for picking up the block? not sure how that'll work
-        /*pseudocode:
-        if (front_dist < 30) {
-            stop for 1s? 
-            pick up 
-            if (servos_change) curr = 7;
+        if (fb_dist < 100) {  //^ no walls for linetrack right?? this is fineeee
+          pickup_timer = millis();
+          Robawt.setSteer(0, 0);
+
+          claw_down();
+          claw_close();
+          timeElapsed = millis() - startBlueMillis;
+          startReverse = millis();
+          curr = 7;       
         }
-        */
        break;
        
       case 7: //Reversing bot (reminder to make it pico side only)
-        if (timeElapsed == 0) {
-          timeElapsed = millis() - startBlueMillis; 
-          startReverse = millis(); 
-          sinceStop = 0; //temporary; used to stop the bot
-        }
-        
-        if (sinceStop < 2000) Robawt.setSteer(0, 0); //^ DOM: Remove this debug shit later
-        else { 
-        //& Debug varibles
-//        Serial.print("ABS value");
-//        Serial.println(abs(MotorL.getDist() - rev_L_dist));
-//        Serial.print("prev - start");
-//        Serial.println(prev_L_dist - start_L_dist);
+        // if (timeElapsed == 0) {
+        //   timeElapsed = millis() - startBlueMillis; 
+        //   startReverse = millis(); 
+        //   sinceStop = 0; //temporary; used to stop the bot
+        // }
+        if (millis() - pickup_timer > 2000) { 
+          claw_up();
+          claw_open();
 
-        //~ Move backwards first
-        if (millis() - startReverse <= timeElapsed) {
-          Robawt.setSteer(-rpm, 0);
-        }
-        
-        //~ Rotating in the opposite direction
-        else { 
-          if (rev_L_dist == 0) {rev_L_dist = MotorL.getDist(); rev_R_dist = MotorR.getDist(); }
-          double L_dist_to_travel = prev_L_dist - start_L_dist;
-          double R_dist_to_travel = prev_R_dist - start_R_dist;
-          double dist_L_Travelled = abs(MotorL.getDist() - rev_L_dist); //^ ABSing cuz distance will decrease when moving backwards
-          double dist_R_Travelled = abs(MotorR.getDist() - rev_R_dist);
-
-          //^ If motor hasn't travelled the requisite distance
-          if ((dist_L_Travelled <= L_dist_to_travel) && (dist_R_Travelled <= R_dist_to_travel)) {
-            Robawt.setSteer(-rpm, prev_rotation);
+          //~ Move backwards first
+          if (millis() - startReverse <= timeElapsed) {
+            Robawt.setSteer(-rpm, 0);
           }
-          else {
-            //curr = 0;
-            Robawt.setSteer(0, 0);
-            Robawt.reset();
-//            Serial.print("Finished reversing");
-            //^ DOM: reset variables to test blue lolz
-            //timeElapsed = 0, startBlueMillis = 0, prev_rotation = 0, start_L_dist = 0, rev_L_dist = 0;
+          
+          //~ Rotating in the opposite direction
+          else { 
+            if (rev_L_dist == 0) {rev_L_dist = MotorL.getDist(); rev_R_dist = MotorR.getDist(); }
+            double L_dist_to_travel = prev_L_dist - start_L_dist;
+            double R_dist_to_travel = prev_R_dist - start_R_dist;
+            double dist_L_Travelled = abs(MotorL.getDist() - rev_L_dist); //^ ABSing cuz distance will decrease when moving backwards
+            double dist_R_Travelled = abs(MotorR.getDist() - rev_R_dist);
+
+            //^ If motor hasn't travelled the requisite distance
+            if ((dist_L_Travelled <= L_dist_to_travel) && (dist_R_Travelled <= R_dist_to_travel)) {
+              Robawt.setSteer(-rpm, prev_rotation);
+            }
+            else {
+              //curr = 0;
+              Robawt.setSteer(0, 0);
+              Robawt.reset();
+              claw_down();
+  //            Serial.print("Finished reversing");
+              //^ DOM: reset variables to test blue lolz
+              //timeElapsed = 0, startBlueMillis = 0, prev_rotation = 0, start_L_dist = 0, rev_L_dist = 0;
+            }
           }
         }
-        }
+        else Robawt.setSteer(0, 0);
         break;
 
       case 10: //only pico side --> just lost left green, return to lt

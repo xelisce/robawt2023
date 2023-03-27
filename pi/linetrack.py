@@ -14,7 +14,7 @@ lt_frame = lt_stream.read()
 width, height_org = lt_frame.shape[1], lt_frame.shape[0]
 print("Line track camera width:", width, "Camera height:", height_org)
 
-crop_h_bw = 93 
+crop_h_bw = 93
 crop_h_bw_gap = 110
 height = height_org - crop_h_bw
 # cam_x = width/2 #-1 to bias robot to the right
@@ -55,11 +55,11 @@ gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned properly #DOM: this is gs_minimum_black_percentage
 gs_minarea = 4000000 #^ consider making this scaled by pixels (/255)
 
-b_minarea = 1000000 #! ~DOM: to tune the values 
+b_minarea = 500000 #! ~DOM: to tune the values 
 
 rpm_setpt = 40
 rpm = 40
-kp = 2 #constant used for PID
+kp = 1.4 #constant used for PID
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -131,7 +131,7 @@ while True:
     # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
     # cv2.imshow("green square mask", mask_gs) #& debug green square mask
     gs_sum = np.sum(mask_gs)
-    print("Green sum:", gs_sum) #& debug green min area
+    #print("Green sum:", gs_sum) #& debug green min area
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
@@ -159,7 +159,7 @@ while True:
         rpm = rpm_setpt
 
     #* JUST FOUND GREEN SQUARE PREVIOUSLY
-
+    
     #~ Turn while still seeing green
     elif gs_now and gs_sum < 20000:
         if curr.name == "DOUBLE_GREEN":
@@ -231,15 +231,15 @@ while True:
     #* DETECTION OF RESCUE KIT
     #^ Note from DOM: Will defo clean up the code once claw works haha yes
 
-    #~ If close enough to rescue kit: (temporary, will use lidar to detect proximity instead)
-    if not reversing_now and blue_sum >= 14000000: 
-        blue_now = True
-        reversing_now = True 
-        curr = Task.BLUEFINAL  #^ DOM: please remove BLUEFINAL later thxxx
+    # #~ If close enough to rescue kit: (temporary, will use lidar to detect proximity instead)
+    # if not reversing_now and blue_sum >= 14000000: 
+    #     blue_now = True
+    #     reversing_now = True 
+    #     curr = Task.BLUEFINAL  #^ DOM: please remove BLUEFINAL later thxxx
 
-    #~ Rescue kit spotted:
-    elif not reversing_now and blue_sum >= b_minarea:
-        print("Blue sum: ", blue_sum) #& debug blue sum
+    #~ Rescue kit spotted: 
+    if not reversing_now and blue_sum >= b_minarea:
+        # print("Blue sum: ", blue_sum) #& debug blue sum
         blue_now = True
         if (curr.name != "BLUE" and curr.name != "BLUEFINAL"):
             curr = Task.BEFORE_BLUE
@@ -247,7 +247,7 @@ while True:
         #~ Find x and y positions of rescue kit
         blueM = cv2.moments(mask_blue)
         cv2.imshow("blue mask", mask_blue) #& debug blue mask
-        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0 #^ nvm tentative: changed from "else 0" to "else cx_blue" 
+        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
         cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
         finalx = cx_blue - frame_org.shape[1]/2
         #finaly = frame_org.shape[0]/2 - cy_blue
@@ -255,9 +255,9 @@ while True:
         #~ if the block isn't centred
         if abs(finalx) >= 60: #^ DOM: not refined yet; consider doing abs(...) >= 100
             if cx_blue < frame_org.shape[1]/2: #if rescue kit is to the left of the frame's middle
-                rotation = -20 #^ Fixed rotation of the bot; DOM: try 45 degrees instead? ie. only turn 1 wheel
+                rotation = -45 #^ Fixed rotation of the bot; DOM: try 45 degrees instead? ie. only turn 1 wheel
             elif cx_blue > frame_org.shape[1]/2: #to the right
-                rotation = 20
+                rotation = 45
 
         #~ else if the block is (relatively) centred:
         else:
@@ -269,7 +269,7 @@ while True:
         reversing_now = False
 
     if not gs_now and not red_now and not blue_now:
-
+        
         #* OBSTACLE
 
         mask_seeline = mask_black_org[250:]
@@ -281,7 +281,7 @@ while True:
         else:
             see_line = 0
         print("see line value", see_line)
-
+        
         #* LINETRACK
 
         curr = Task.EMPTY
@@ -314,7 +314,7 @@ while True:
         else:
             y_black = cv2.bitwise_and(gap_y_com, gap_y_com, mask = mask_black)
             x_black = cv2.bitwise_and(gap_x_com, gap_x_com, mask = mask_black)
-            print("Gap")
+            # print("Gap")
 
         #~ Line track values
         y_resultant = np.mean(y_black)
@@ -330,7 +330,7 @@ while True:
 
     # print("rpm:", rpm) #& debug sent variables
     print("rotation:", rotation)
-    # print("task:", curr.value)
+    print("task:", curr.value)
 
     rotation = int(rotation)
     if rotation > 90:
