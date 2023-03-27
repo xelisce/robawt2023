@@ -10,7 +10,7 @@
 #include "VL53L0X.h" //^ Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
 #include <Servo.h>
-//#include <elapsedMillis.h>
+#include <elapsedMillis.h>
 
 #define TCAADDR 0x70
 #define L0XADDR 0x29
@@ -33,7 +33,7 @@
 Motor MotorR(13, 12, 19, 18); //M2 swapped
 Motor MotorL(10, 11, 1, 0); //M1
 Vroom Robawt(&MotorL, &MotorR);
-VL53L0X front_tof, l_tof, r_tof, fl_tof; 
+VL53L0X front_tof, l_tof, r_tof, fl_tof;
 VL53L1X fb_tof;
 Servo servos[6];
 
@@ -66,11 +66,11 @@ const int TNYPIN1 = 8,
   LEDPIN = 3;
 
 //~ Multiplexer 
-const int F_LIDAR = 4,
+const int F_LIDAR = 5,
   FL_LIDAR = 3,
   FB_LIDAR = 2,
   L_LIDAR = 1,
-  R_LIDAR = 5;
+  R_LIDAR = 7;
 
 //* LOGIC SET UP */
 
@@ -112,20 +112,7 @@ double prev_rotation = 0;
 long startBlueMillis = 0;
 long timeElapsed = 0;
 long startReverse = 0;
-long pickup_timer = 0;
-//elapsedMillis sinceStop;
-
-//~ Obstacle
-bool see_line = false;
-int side_dist = 0;
-double o_rotation = 0;
-int obs_state = 0;
-int turn_dir = 1;
-double obst_init_dist = 0; //check if this causes any errors
-bool obst_reversing = false;
-double obst_rotation = 0;
-int turning_state = 0;
-int obs_time_start = 0;
+elapsedMillis sinceStop;
 
 //~ Teensy serial
 bool left135 = false,
@@ -159,11 +146,12 @@ void setup() {
   //* MULTIPLEXER */
   businit(&Wire, SDAPIN, SCLPIN);
 
-  l0xinit(&Wire, &front_tof, F_LIDAR);
   l0xinit(&Wire, &fl_tof, FL_LIDAR);
+  l0xinit(&Wire, &front_tof, F_LIDAR);
+  
   l1xinit(&fb_tof, FB_LIDAR);
   l0xinit(&Wire, &l_tof, L_LIDAR);
-  //l0xinit(r_tof, R_LIDAR);
+  l0xinit(&Wire, &r_tof, R_LIDAR);
 
   //* MOTOR ENCODERS */    
   //^ basically interrupts the main code to run the encoder code 
@@ -172,9 +160,6 @@ void setup() {
   attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
   attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
   attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
-
-  claw_open();
-  claw_down();
 }
 
 //* -----------END SETUP-----------*//
@@ -234,7 +219,7 @@ void loop()
         } else if (curr == 2) {
           curr = 11;
           lostGSMillis = millis();
-        } else if (curr != 10 && curr != 11 && curr != 7) {
+        } else if (curr != 10 && curr != 11 && curr != 7) {       //^ DOM: I'll add a temp case for rescue kit :thumbs: 
           curr = 0;
         } 
         break;
@@ -256,9 +241,6 @@ void loop()
         if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
-
-      case 6:
-        if (curr == 7) curr = 7; //^ more sophisticated way of doing this?
 
       //~ Evac
       case 9: //evac no ball
@@ -299,15 +281,6 @@ void loop()
 
       case 0: //normal lt
         Robawt.setSteer(rpm, rotation);
-        if (fb_dist < 100){
-          curr = 12;
-          if (l_dist > r_dist){
-            turn_dir = -1;
-          }
-          else {
-            turn_dir = 1;
-          }
-        }
         break;
 
       case 1: //left gs
@@ -343,57 +316,58 @@ void loop()
       case 6: //relatively centred on blue
         Robawt.setSteer(rpm , 0);
         if (startBlueMillis == 0) {startBlueMillis = millis();}
-        if (fb_dist < 100) {  //^ no walls for linetrack right?? this is fineeee
-          pickup_timer = millis();
-          Robawt.setSteer(0, 0);
-
-          claw_down();
-          claw_close();
-          timeElapsed = millis() - startBlueMillis;
-          startReverse = millis();
-          curr = 7;       
+        //TODO: insert code for picking up the block? not sure how that'll work
+        /*pseudocode:
+        if (front_dist < 30) {
+            stop for 1s? 
+            pick up 
+            if (servos_change) curr = 7;
         }
+        */
        break;
        
       case 7: //Reversing bot (reminder to make it pico side only)
-        // if (timeElapsed == 0) {
-        //   timeElapsed = millis() - startBlueMillis; 
-        //   startReverse = millis(); 
-        //   sinceStop = 0; //temporary; used to stop the bot
-        // }
-        if (millis() - pickup_timer > 2000) { 
-          claw_up();
-          claw_open();
+        if (timeElapsed == 0) {
+          timeElapsed = millis() - startBlueMillis; 
+          startReverse = millis(); 
+          sinceStop = 0; //temporary; used to stop the bot
+        }
+        
+        if (sinceStop < 2000) Robawt.setSteer(0, 0); //^ DOM: Remove this debug shit later
+        else { 
+        //& Debug varibles
+//        Serial.print("ABS value");
+//        Serial.println(abs(MotorL.getDist() - rev_L_dist));
+//        Serial.print("prev - start");
+//        Serial.println(prev_L_dist - start_L_dist);
 
-          //~ Move backwards first
-          if (millis() - startReverse <= timeElapsed) {
-            Robawt.setSteer(-rpm, 0);
+        //~ Move backwards first
+        if (millis() - startReverse <= timeElapsed) {
+          Robawt.setSteer(-rpm, 0);
+        }
+        
+        //~ Rotating in the opposite direction
+        else { 
+          if (rev_L_dist == 0) {rev_L_dist = MotorL.getDist(); rev_R_dist = MotorR.getDist(); }
+          double L_dist_to_travel = prev_L_dist - start_L_dist;
+          double R_dist_to_travel = prev_R_dist - start_R_dist;
+          double dist_L_Travelled = abs(MotorL.getDist() - rev_L_dist); //^ ABSing cuz distance will decrease when moving backwards
+          double dist_R_Travelled = abs(MotorR.getDist() - rev_R_dist);
+
+          //^ If motor hasn't travelled the requisite distance
+          if ((dist_L_Travelled <= L_dist_to_travel) && (dist_R_Travelled <= R_dist_to_travel)) {
+            Robawt.setSteer(-rpm, prev_rotation);
           }
-          
-          //~ Rotating in the opposite direction
-          else { 
-            if (rev_L_dist == 0) {rev_L_dist = MotorL.getDist(); rev_R_dist = MotorR.getDist(); }
-            double L_dist_to_travel = prev_L_dist - start_L_dist;
-            double R_dist_to_travel = prev_R_dist - start_R_dist;
-            double dist_L_Travelled = abs(MotorL.getDist() - rev_L_dist); //^ ABSing cuz distance will decrease when moving backwards
-            double dist_R_Travelled = abs(MotorR.getDist() - rev_R_dist);
-
-            //^ If motor hasn't travelled the requisite distance
-            if ((dist_L_Travelled <= L_dist_to_travel) && (dist_R_Travelled <= R_dist_to_travel)) {
-              Robawt.setSteer(-rpm, prev_rotation);
-            }
-            else {
-              //curr = 0;
-              Robawt.setSteer(0, 0);
-              Robawt.reset();
-              claw_down();
-  //            Serial.print("Finished reversing");
-              //^ DOM: reset variables to test blue lolz
-              //timeElapsed = 0, startBlueMillis = 0, prev_rotation = 0, start_L_dist = 0, rev_L_dist = 0;
-            }
+          else {
+            //curr = 0;
+            Robawt.setSteer(0, 0);
+            Robawt.reset();
+//            Serial.print("Finished reversing");
+            //^ DOM: reset variables to test blue lolz
+            //timeElapsed = 0, startBlueMillis = 0, prev_rotation = 0, start_L_dist = 0, rev_L_dist = 0;
           }
         }
-        else Robawt.setSteer(0, 0);
+        }
         break;
 
       case 10: //only pico side --> just lost left green, return to lt
@@ -405,150 +379,6 @@ void loop()
         if (millis() - lostGSMillis > 200) curr = 0;
         else Robawt.setSteer(rpm, 0.5);
         break;
-      
-      //* OBSTACLE
-
-      case 12: //Obstacle
-        if (!obst_reversing){
-          obst_init_dist = MotorL.getDist();
-          obst_reversing = true;
-        }
-        Robawt.setSteer(-40, 0);
-        if (MotorL.getDist() - obst_init_dist < -12) //TUNE AGAIN, reverse for 3 cm??
-        {
-          Robawt.setSteer(0, 0);
-          Robawt.reset();
-          if (turn_dir == 1)// turn right (need to use left lidar)
-          {
-           side_dist = l_dist;
-           o_rotation = -1;
-           curr = 14;
-           obst_init_dist = MotorL.getDist();
-          }
-          else if (turn_dir == -1) { // turn left 
-            side_dist = r_dist;
-            curr = 16;
-            o_rotation = 1;
-            obst_init_dist = MotorL.getDist();
-          }
-        }
-
-      case 14: // turn right, use left tof
-        switch (turning_state)
-        {
-          case 0:
-          {
-            Robawt.setSteer(rpm, 1);
-            if (l_dist>150) turning_state ++;
-          }
-          break;
-
-          case 1:
-          {
-            Robawt.setSteer(rpm, 1);
-            if (l_dist<150) turning_state ++;
-          }
-          break;
-
-          case 2:
-          {
-            Robawt.setSteer(rpm, 0);
-            turning_state = 0;
-            curr = 18;
-            obs_time_start = millis();
-          }
-          break;
-        }
-        break;
-
-      case 16: // trun left, use right tof
-        switch (turning_state)
-        {
-          case 0:
-          {
-            Robawt.setSteer(rpm, -1);
-            if (r_dist>150) turning_state ++;
-          }
-          break;
-
-          case 1:
-          {
-            Robawt.setSteer(rpm, -1);
-            if (r_dist<150) turning_state ++;
-          }
-          break;
-
-          case 2:
-          {
-            Robawt.setSteer(rpm, 0);
-            turning_state = 0;
-            curr = 18;
-            obs_time_start = millis();
-          }
-          break;
-        }
-        break;
-
-      case 18:
-        if (turn_dir == 1)// turn right (need to use left lidar)
-        {
-          side_dist = l_dist;
-          o_rotation = -0.5;
-        }
-        else if (turn_dir == -1){
-           side_dist = r_dist;
-          o_rotation = 0.5;
-        }
-
-        switch (obs_state)
-        {
-          case 0:
-          {
-            Robawt.setSteer (25, 0);
-            if (side_dist < 200) obs_state++;
-          }
-           break;
-            
-          case 1:
-          {
-            Robawt.setSteer (25, 0);
-            if (side_dist > 200) obs_state++;
-          }
-          break;
-
-          case 2:
-          {
-            Robawt.setSteer (25, o_rotation);
-            if (side_dist < 200) obs_state++;
-          }
-          break;
-
-           case 3:
-          {
-            Robawt.setSteer (25, o_rotation);
-            if (side_dist > 200){
-              obs_state = 0;
-            }
-          }
-          break;
-        }
-
-        if (see_line && (millis() - obs_time_start) > 6000){
-          Robawt.setSteer(0, 0);
-          curr = 19;
-          obs_time_start = millis();
-          obs_state = 0;
-          see_line = false;
-        }
-        break;
-        
-      case 19:
-        Robawt.setSteer(30, (turn_dir)*0.5);
-        if (millis() - obs_time_start > 1000){
-          Robawt.setSteer(0,0);
-          curr = 0;
-        }
-
 
       //* EVAC
 
@@ -629,7 +459,7 @@ void serialEvent()
 {
   while (Serial1.available()) {
     int serialData = Serial1.read();
-    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
+    if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = (int)serialData;}
     else {
       switch (serialState) {
         case 255:
@@ -640,10 +470,6 @@ void serialEvent()
           break;
         case 253:
           task = (int)serialData;
-          break;
-        case 252:
-          see_line = (bool)(int)serialData;
-          Serial.println(see_line);
           break;
       }
     }
@@ -695,7 +521,9 @@ void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i) //Lidar: VL53L0X
 {
   tcaselect(i);
   sensor->setTimeout(500);
-  while (!sensor->init()) {Serial.println("L0X failed to initialise");}
+  while (!sensor->init()) {
+    Serial.print(i); 
+    Serial.println("L0X failed to initialise");}
   sensor->startContinuous(33);
   sensor->setBus(bus);
 }
