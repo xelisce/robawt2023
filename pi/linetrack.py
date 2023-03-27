@@ -98,7 +98,6 @@ class Task(enum.Enum):
     RED = 4
     BEFORE_BLUE = 5  #Turning towards blue #^ TEMPORARY
     BLUE = 6
-    BLUEFINAL = 7
 
 
 curr = Task.EMPTY
@@ -106,6 +105,7 @@ red_now = False
 gs_now = False
 gap_now = False
 blue_now = False 
+blue_once = False
 see_line = 0
 
 #~ Rescue kit
@@ -247,7 +247,7 @@ while True:
 
         #~ Find x and y positions of rescue kit
         blueM = cv2.moments(mask_blue)
-        cv2.imshow("blue mask", mask_blue) #& debug blue mask
+        # cv2.imshow("blue mask", mask_blue) #& debug blue mask
         cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
         cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
         finalx = cx_blue - frame_org.shape[1]/2
@@ -257,8 +257,10 @@ while True:
         if abs(finalx) >= 60: #^ DOM: not refined yet; consider doing abs(...) >= 100
             if cx_blue < frame_org.shape[1]/2: #if rescue kit is to the left of the frame's middle
                 rotation = -45 #^ Fixed rotation of the bot; DOM: try 45 degrees instead? ie. only turn 1 wheel
+                rpm = 20
             elif cx_blue > frame_org.shape[1]/2: #to the right
                 rotation = 45
+                rpm = 20
 
         #~ else if the block is (relatively) centred:
         else:
@@ -268,6 +270,7 @@ while True:
     elif blue_now and blue_sum < 2000: 
         blue_now = False
         reversing_now = False
+        rpm = rpm_setpt
 
     if not gs_now and not red_now and not blue_now:
         
