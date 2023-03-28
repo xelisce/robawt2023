@@ -23,11 +23,14 @@
 #define debug_motors 0
 #define debug_pid 0
 #define debug_ball 0
+#define debug_cube 0
 #define debug_teensy_comms 0
 //~ Runs WITH main code
-#define debug_curr 1
+#define debug_curr 0
 #define debug_passed_vars 0
 #define debug_lidars_while 0
+#define debug_teensy_vars 1
+#define debug_with_led 1
 
 //* OBJECT INITIALISATIONS */
 Motor MotorR(13, 12, 19, 18); //M2 swapped
@@ -38,7 +41,7 @@ VL53L1X fb_tof;
 Servo servos[6];
 
 //* SERVOS SETUP */
-double servos_angle[6] = {180, 0, 95, 0, 0, 0}; //basic states initialised
+double servos_angle[6] = {180, 0, 135, 0, 0, 0}; //basic states initialised
 const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
@@ -56,8 +59,8 @@ void ISRRB() {MotorR.readEncB();}
 //* CONSTANTS */
 
 //~ Pins
-const int TNYPIN1 = 8,
-  TNYPIN2 = 9,
+const int TNYPIN1 = 9,
+  TNYPIN2 = 8,
   TX0PIN = 16,
   RX0PIN = 17,
   SDAPIN = 4,
@@ -127,9 +130,10 @@ double obst_rotation = 0;
 int turning_state = 0;
 int obs_time_start = 0;
 
-//~ Teensy serial
+//~ 135
 bool left135 = false,
   right135 = false;
+long last135Millis, start135Millis;
 
 void setup() {
 
@@ -138,6 +142,8 @@ void setup() {
   pinMode(LEDPIN, OUTPUT);
   pinMode(TNYPIN1, INPUT);
   pinMode(TNYPIN2, INPUT);
+
+  last135Millis = millis();
 
   //* SERVOS */
   for (int i = Servos::ARM; i != (Servos::S6 + 1); i++) {
@@ -178,10 +184,9 @@ void setup() {
 //* -----------END SETUP-----------*//
 
 
-#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball && !debug_teensy_serial
+#if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball && !debug_cube && !debug_teensy_serial
 void loop() 
 {
-  
   digitalWrite(LEDPIN, HIGH);
 
   if (servos_change) {
@@ -231,6 +236,7 @@ void loop()
       //~ Handling the continue turning after green squares 
       case 0:
         if (in_evac) break;
+
         if (curr == 1) {
           curr = 10;
           lostGSMillis = millis();
@@ -238,8 +244,20 @@ void loop()
           curr = 11;
           lostGSMillis = millis();
         } else if (curr != 10 && curr != 11 && curr != 7) {       //^ DOM: I'll add a temp case for rescue kit :thumbs: 
+          if (left135) {
+            if (curr != 27 && millis() - last135Millis > 1500) {
+              start135Millis = millis();
+              curr = 27;
+            }
+          } else if (right135) {
+            if (curr != 28 && millis() - last135Millis > 1500) {
+              start135Millis = millis();
+              curr = 28;
+            }
+          } 
+        } else {
           curr = 0;
-        } 
+        }
         break;
 
       case 1: //left green
@@ -352,7 +370,7 @@ void loop()
           Robawt.setSteer(0, 0);
 
           claw_down();
-          claw_close();
+          claw_close_cube();
           timeElapsed = millis() - startBlueMillis;
           curr = 7;       
         }
@@ -362,8 +380,9 @@ void loop()
         if (millis() - pickup_timer > 2000) { 
           claw_up();
           claw_open();
-          
+          #if debug_with_led
           digitalWrite(ONBOARDLEDPIN, HIGH);
+          #endif
           //~ Move backwards first
           if (millis()- startReverse <= timeElapsed) {
             Robawt.setSteer(-rpm, 0);
@@ -385,8 +404,9 @@ void loop()
               Robawt.setSteer(0, 0);
               Robawt.reset();
               claw_down();
-              
+              #if debug_with_led
               digitalWrite(ONBOARDLEDPIN, LOW);
+              #endif
               curr = 0;
               Serial.print("LOL");
             }
@@ -410,7 +430,7 @@ void loop()
         if (millis() - lostGSMillis > 200) curr = 0;
         else Robawt.setSteer(rpm, 0.5);
         break;
-      /*
+      
       //* OBSTACLE
 
       case 12: //Obstacle
@@ -553,7 +573,40 @@ void loop()
           Robawt.setSteer(0,0);
           curr = 0;
         }
-      */
+      
+
+      //* 135
+
+      case 27: //left135
+        Robawt.setSteer(rpm, -0.8);
+        #if debug_with_led
+        digitalWrite(ONBOARDLEDPIN, HIGH);
+        #endif
+        if (millis() - start135Millis > 1500) {
+          last135Millis = millis();
+          curr = 0;
+          left135 = false;
+          #if debug_with_led
+          digitalWrite(ONBOARDLEDPIN, LOW);
+          #endif
+        }
+        break;
+      
+      case 28: //right135
+        Robawt.setSteer(rpm, 0.8);
+        #if debug_with_led
+        digitalWrite(ONBOARDLEDPIN, HIGH);
+        #endif
+        if (millis() - start135Millis > 1500) {
+          last135Millis = millis();
+          curr = 0;
+          right135 = false;
+          #if debug_with_led
+          digitalWrite(ONBOARDLEDPIN, LOW);
+          #endif
+        }
+        break;
+
       //* EVAC
 
       case 39: //initialise evac
@@ -611,6 +664,15 @@ void loop()
     Serial.println(rpm);
     #endif
 
+    #if debug_teensy_vars
+    Serial.print("Evac: ");
+    Serial.println(in_evac);
+    Serial.print("Left135: ");
+    Serial.println(left135);
+    Serial.print("Right135: ");
+    Serial.println(right135);
+    #endif
+
   } else {
 
     //* TO MAKE ROBOT STOP */
@@ -623,6 +685,10 @@ void loop()
     rev_L_dist = 0;
     prev_rotation = 0;
     start_L_dist = 0;
+
+    in_evac = false;
+    left135 = false;
+    right135 = false;
 
     // curr = 39; //! force_evac
   }
@@ -659,13 +725,18 @@ void teensyEvent()
 {
   int pin1State = digitalRead(TNYPIN1);
   int pin2State = digitalRead(TNYPIN2);
-  if (pin1State && pin2State) {
-    in_evac = true;
-    curr = 39;
-  } else if (pin1State && !pin2State) {
+  if (pin1State && pin2State) { //silver 11
+    // in_evac = true;
+    // curr = 39;
+    left135 = false;
+    right135 = false;
+  } else if (!in_evac && !pin1State && pin2State) { //left 01
     left135 = true;
-  } else if (!pin1State && pin2State) {
+  } else if (!in_evac && pin1State && !pin2State) { //right 10
     right135 = true;
+  } else {
+    left135 = false;
+    right135 = false;
   }
 }
 
@@ -736,14 +807,20 @@ int pwmangle(double angle, double max_angle) //Servo PWM
 }
 
 void claw_open() {
-  servos_angle[Servos::RIGHT] = 85;
+  servos_angle[Servos::RIGHT] = 135; 
   servos_angle[Servos::LEFT] = 0;
   servos_change = true;
 }
 
-void claw_close() {
-  servos_angle[Servos::RIGHT] = 0;
-  servos_angle[Servos::LEFT] = 85;
+void claw_close() { //ball
+  servos_angle[Servos::RIGHT] = 30;
+  servos_angle[Servos::LEFT] = 100;
+  servos_change = true;
+}
+
+void claw_close_cube() {
+  servos_angle[Servos::RIGHT] = 20;
+  servos_angle[Servos::LEFT] = 110;
   servos_change = true;
 }
 
@@ -886,7 +963,7 @@ void loop()
 }
 #endif
 
-#if debug_ball
+#if debug_ball || debug_cube
 void loop()
 {
   if (servos_change) {
@@ -917,7 +994,12 @@ void loop()
   Serial.println(ball_present());
 
   if (ball_present()) {
+    #if debug_cube
+    claw_close_cube();
+    #endif
+    #if debug_ball
     claw_close();
+    #endif
   } else {
     claw_open();
   }

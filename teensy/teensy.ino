@@ -4,7 +4,7 @@
 #define RTEMT PIN_B6
 #define PICOP1 PIN_D2
 #define PICOP2 PIN_D3
-#define debug_values 1
+#define debug_values 0
 
 const int left_thresh = 15,
   right_thresh = 8;
@@ -100,22 +100,22 @@ void loop()
 
   switch (send)
   {
-  case 0: //silver
+  case 0: //silver 11
+    digitalWrite(PICOP1, HIGH);
+    digitalWrite(PICOP2, HIGH);
+    break;
+
+  case 1: //left 01
     digitalWrite(PICOP1, LOW);
     digitalWrite(PICOP2, HIGH);
     break;
 
-  case 1: //left
+  case 2: //right 10
     digitalWrite(PICOP1, HIGH);
     digitalWrite(PICOP2, LOW);
     break;
 
-  case 2: //right
-    digitalWrite(PICOP1, HIGH);
-    digitalWrite(PICOP2, HIGH);
-    break;
-
-  case 3: //nothing
+  case 3: //nothing 00
     digitalWrite(PICOP1, LOW);
     digitalWrite(PICOP2, LOW);
     break;
