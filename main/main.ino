@@ -1,4 +1,4 @@
-// --------------------------------------
+  // --------------------------------------
 // main.cpp
 //
 // Main script on pico
@@ -70,11 +70,11 @@ const int TNYPIN1 = 9,
   ONBOARDLEDPIN = 25;
 
 //~ Multiplexer 
-const int F_LIDAR =5,
+const int F_LIDAR = 4,
   FL_LIDAR = 3,
   FB_LIDAR = 2,
-  L_LIDAR = 1;
-//  R_LIDAR = 7;
+  L_LIDAR = 1,
+  R_LIDAR = 7;
 
 //* LOGIC SET UP */
 
@@ -91,7 +91,7 @@ double rotation = 0,
 int serialState = 0,
   task = 39, 
   prev_task = 0,
-  curr = 39;
+  curr = 0;
 
 //~ Green squares
 long lostGSMillis, 
@@ -117,6 +117,7 @@ long startBlueMillis = 0;
 long timeElapsed = 0;
 long startReverse = 0;
 long pickup_timer = 0;
+long drop_timer = 0;
 
 //~ Obstacle
 bool see_line = false;
@@ -184,6 +185,8 @@ void setup() {
 //* -----------END SETUP-----------*//
 
 
+
+
 #if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball && !debug_cube && !debug_teensy_serial
 void loop() 
 {
@@ -206,23 +209,25 @@ void loop()
   fl_dist = fl_tof.readRangeContinuousMillimeters();
   tcaselect(F_LIDAR);
   front_dist = front_tof.readRangeContinuousMillimeters() + 45;
-//  tcaselect(R_LIDAR);
-//  r_dist = r_tof.readRangeContinuousMillimeters();
+  tcaselect(R_LIDAR);
+  r_dist = r_tof.readRangeContinuousMillimeters();
 
-  #if debug_lidars_while
-  Serial.print("left: ");
-  Serial.println(l_dist);
-  Serial.print("front below: ");
-  Serial.println(fb_dist);
-  Serial.print("front left: ");
-  Serial.println(fl_dist);
-  Serial.print("front: ");
-  Serial.println(front_dist);
-//  Serial.print("right: ");
-//  Serial.println(r_dist);
-  #endif
+
 
   if (!digitalRead(SWTPIN)) {
+
+      #if debug_lidars_while
+      Serial.print("left: ");
+      Serial.println(l_dist);
+      Serial.print("front below: ");
+      Serial.println(fb_dist);
+      Serial.print("front left: ");
+      Serial.println(fl_dist);
+      Serial.print("front: ");
+      Serial.println(front_dist);
+      Serial.print("right: ");
+      Serial.println(r_dist);
+      #endif
 
     //* HANDLING THE INFO RECEIVED */
 
@@ -238,12 +243,20 @@ void loop()
         if (in_evac) break;
 
         if (curr == 1) {
-          curr = 10;
-          lostGSMillis = millis();
-        } else if (curr == 2) {
-          curr = 11;
-          lostGSMillis = millis();
-        } else if (curr != 10 && curr != 11 && curr != 7) {       //^ DOM: I'll add a temp case for rescue kit :thumbs: 
+          if (millis() - startGSMillis > 700) {
+            curr = 10;
+            lostGSMillis = millis();
+          }
+        } else if (curr == 2){
+          if (millis() - startGSMillis > 700) {
+            curr = 11;
+            lostGSMillis = millis();
+          }
+        } else if (curr == 3){
+            if (millis() - startGSMillis > 1400) {
+            curr = 0;
+          }
+        } else if (curr != 10 && curr != 11 && curr != 7 && curr != 8) { 
           // if (left135) {
           //   if (curr != 27 && millis() - last135Millis > 1500) {
           //     start135Millis = millis();
@@ -256,18 +269,21 @@ void loop()
           //   }
           // } else {
           curr = 0;
+          Serial.println("Default pass");
           // }
         }
         break;
 
       case 1: //left green
-      if (in_evac) break;
+        if (in_evac) break;
+        if (curr == 3) break;
         if (curr == 0) startGSMillis = millis();
         curr = 1;
         break;
 
       case 2: //right green
         if (in_evac) break;
+        if (curr == 3) break;
         if (curr == 0) startGSMillis = millis();
         curr = 2;
         break;
@@ -278,14 +294,14 @@ void loop()
         curr = 3;
         break;
 
-      case 5: //reversing from rescue
-        if (curr == 7) curr = 7; //^ more sophisticated way of doing this?
-        else curr = 5;
+      case 5: //reversing from rescue; pi sometimes sends over case 5 even tho its not supposed to 
+        if (curr != 7 && curr != 8) curr = 5;
+        else Serial.println("it was 5?");
         break;
         
       case 6: //reversing from rescue
-        if (curr == 7) curr = 7; //^ more sophisticated way of doing this?
-        else curr = 6;
+        if (curr != 7 && curr != 8) curr = 6;
+        else Serial.println("it was 6?");
         break;
 
       //~ Evac
@@ -310,11 +326,11 @@ void loop()
         break;
 
       default:
-        if ((curr == 1 || curr == 2) && (millis() - startGSMillis > 400)) { //min single square turn time
+        if ((curr == 1 || curr == 2) && (millis() - startGSMillis > 700)) { //min single square turn time
           curr = task; 
-        } else if (curr == 3 && (millis() - startGSMillis > 600)) { //min double green turn time
+        } else if (curr == 3 && (millis() - startGSMillis > 1400)) { //min double green turn time
           curr = task;
-        } else if (!in_evac) {
+        } else if (!in_evac && curr != 8) {
           curr = task;
         }
         break;
@@ -328,24 +344,23 @@ void loop()
 
       case 0: //normal lt
         Robawt.setSteer(rpm, rotation);
-//        digitalWrite(ONBOARDLEDPIN, LOW);
-        // if (front_dist <100){
-        //   curr=12;
+        // if (fb_dist < 100){
+        //   curr = 12;
         //   if (l_dist > r_dist){
-        //     turn_dir = -1;  
+        //     turn_dir = -1;
         //   }
-        //   else{
+        //   else {
         //     turn_dir = 1;
         //   }
         // }
         break;
 
       case 1: //left gs
-        Robawt.setSteer(rpm, -0.5);
+        Robawt.setSteer(rpm, -0.6);
         break;
       
       case 2: //right gs
-        Robawt.setSteer(rpm, 0.5);
+        Robawt.setSteer(rpm, 0.6);
         break;
 
       case 3: //double gs
@@ -363,32 +378,38 @@ void loop()
         if (start_L_dist == 0) {start_L_dist = MotorL.getDist(); start_R_dist = MotorR.getDist();}
         prev_L_dist = MotorL.getDist();
         prev_R_dist = MotorR.getDist();
-        //* Debug motor enc values */
-//        Serial.print("Left Motor: ");
-//        Serial.println(MotorL.getDist());
-//        Serial.print("Right Motor: ");
-//        Serial.println(MotorR.getDist());
         break;
 
       case 6: //relatively centred on blue
         Robawt.setSteer(rpm , 0);
+        claw_down();
         claw_halfclose();
         if (startBlueMillis == 0) {startBlueMillis = millis();}
-        // if (fb_dist < 100) {  //^ no walls for linetrack right?? this is fineeee
         if (ball_present()) {
           pickup_timer = millis();
           Robawt.setSteer(0, 0);
 
           claw_down();
           claw_close_cube();
+
           timeElapsed = millis() - startBlueMillis;
           curr = 7;       
         }
        break;
        
-      case 7: //Reversing bot
-        if (millis() - pickup_timer > 2000) { 
-          claw_up();
+      case 7: //Reversing bot pt 1
+        if (millis() - pickup_timer > 1000) { 
+          claw_up();   
+          drop_timer = millis();
+          curr = 8; 
+        }
+        else {
+          Robawt.setSteer(0, 0);
+        }  
+        break;
+
+      case 8: //reversing bot pt 2
+        if (millis() - drop_timer > 1000){
           claw_open();
           #if debug_with_led
           digitalWrite(ONBOARDLEDPIN, HIGH);
@@ -398,7 +419,7 @@ void loop()
             Robawt.setSteer(-rpm, 0);
           }
           
-          //~ Rotating in the opposite direction
+          //~ Rotate in the opposite direction
           else { 
             if (rev_L_dist == 0) {rev_L_dist = MotorL.getDist(); rev_R_dist = MotorR.getDist(); }
             double L_dist_to_travel = prev_L_dist - start_L_dist;
@@ -417,27 +438,25 @@ void loop()
               #if debug_with_led
               digitalWrite(ONBOARDLEDPIN, LOW);
               #endif
+              Serial.println("Finished Reversing");
               curr = 0;
-              Serial.print("LOL");
             }
           }
         }
         else {
-          Robawt.setSteer(0, 0);
-          Serial.println(timeElapsed);
-          Serial.println(startReverse);
-          startReverse = millis();
+            Robawt.setSteer(0, 0);
+            startReverse = millis();
+            Serial.println(startReverse);
         }
-        
-        break;
+
 
       case 10: //only pico side --> just lost left green, return to lt
-        if (millis() - lostGSMillis > 200) curr = 0;
+        if (millis() - lostGSMillis > 400) curr = 0;
         else Robawt.setSteer(rpm, -0.5);
         break;
 
       case 11: //only pico side --> just lost right green, return to lt
-        if (millis() - lostGSMillis > 200) curr = 0;
+        if (millis() - lostGSMillis > 400) curr = 0;
         else Robawt.setSteer(rpm, 0.5);
         break;
       
@@ -691,16 +710,17 @@ void loop()
     claw_open();
     claw_down();
     
+    //~ To reset the shady rescue kit code
     startBlueMillis = 0;
     rev_L_dist = 0;
     prev_rotation = 0;
     start_L_dist = 0;
 
-    in_evac = true;
+    in_evac = false;
     left135 = false;
     right135 = false;
 
-    curr = 39; //! force_evac
+//    curr = 39; //! force_evac
   }
 }
 #endif
@@ -714,7 +734,7 @@ void serialEvent()
 {
   while (Serial1.available()) {
     int serialData = Serial1.read();
-    if (serialData == 255 || serialData == 254 || serialData == 253) {serialState = (int)serialData;}
+    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
     else {
       switch (serialState) {
         case 255:
@@ -725,6 +745,10 @@ void serialEvent()
           break;
         case 253:
           task = (int)serialData;
+          break;
+        case 252:
+          see_line = (bool)(int)serialData;
+          Serial.println(see_line);
           break;
       }
     }
@@ -829,8 +853,8 @@ void claw_close() { //ball
 }
 
 void claw_close_cube() {
-  servos_angle[Servos::RIGHT] = 20;
-  servos_angle[Servos::LEFT] = 110;
+  servos_angle[Servos::RIGHT] = 25;
+  servos_angle[Servos::LEFT] = 105;
   servos_change = true;
 }
 
@@ -851,7 +875,7 @@ void claw_down() {
 
 void claw_halfclose() {
   servos_angle[Servos::RIGHT] = 80;
-  servos_angle[Servos::LEFT] = 10;
+  servos_angle[Servos::LEFT] = 50;
   servos_change = true;
 }
 
