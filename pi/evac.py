@@ -18,7 +18,7 @@ width, height_org = evac_org.shape[1], evac_org.shape[0]
 print("Evac camera width:", width, "Camera height:", height_org)
 
 crop_h_evac = 183
-# kp_ball = 0.2
+kp_ball = 1
 
 height = height_org - crop_h_evac
 # u_black = 55
@@ -101,16 +101,10 @@ while True:
 
         y_ball = biggest_ball["y"]
         x_ball = biggest_ball["x"]
-        deviation = math.atan2(x, y) * 180/math.pi if y != 0 else 0
-        if abs(deviation) < 15:
-            rotation = 0
-        elif deviation > 0:
-            rotation = 90
-        elif deviation < 0:
-            rotation = -90
+        rotation = math.atan2(x, y) * 180/math.pi if y != 0 else 0
 
         print("rotation:", rotation)
-        # rotation *= kp_ball
+        rotation *= kp_ball
         # print("task:", curr.value)
     
     #* NO BALL

@@ -230,12 +230,19 @@ while True:
                                 
 
     #* DETECTION OF RESCUE KIT
+    #^ Note from DOM: Will defo clean up the code once claw works haha yes
+
+    # #~ If close enough to rescue kit: (temporary, will use lidar to detect proximity instead)
+    # if not reversing_now and blue_sum >= 14000000: 
+    #     blue_now = True
+    #     reversing_now = True 
+    #     curr = Task.BLUEFINAL  #^ DOM: please remove BLUEFINAL later thxxx
 
     #~ Rescue kit spotted: 
     if not reversing_now and blue_sum >= b_minarea:
         # print("Blue sum: ", blue_sum) #& debug blue sum
         blue_now = True
-        if (curr.name != "BLUE"):
+        if (curr.name != "BLUE" and curr.name != "BLUEFINAL"):
             curr = Task.BEFORE_BLUE
 
         #~ Find x and y positions of rescue kit
@@ -271,13 +278,13 @@ while True:
 
         mask_seeline = mask_black_org[250:]
         # cv2.imshow('obstacle see line', mask_seeline)
-        black_line_sum = np.sum(mask_seeline)
-        print("black sum for obstacle:", black_line_sum) #& debug obstacle see line
-        if black_line_sum > 13000000:
-            see_line = 1
-        else:
-            see_line = 0
-        print("see line value", see_line)
+        # black_line_sum = np.sum(mask_seeline)
+        # print("black sum for obstacle:", black_line_sum) #& debug obstacle see line
+        # if black_line_sum > 13000000:
+        #     see_line = 1
+        # else:
+        #     see_line = 0
+        # print("see line value", see_line)
 
         #* LINETRACK
 
@@ -325,7 +332,7 @@ while True:
     
     #* SEND DATA TO PICO
 
-    # print("rpm:", rpm) #& debug sent variables
+    print("rpm:", rpm) #& debug sent variables
     print("rotation:", rotation)
     print("task:", curr)
 

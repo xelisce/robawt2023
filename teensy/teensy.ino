@@ -4,7 +4,7 @@
 #define RTEMT PIN_B6
 #define PICOP1 PIN_D2
 #define PICOP2 PIN_D3
-#define debug_values 0
+#define debug_values 1
 
 const int left_thresh = 15,
   right_thresh = 8;
@@ -68,7 +68,7 @@ void loop()
   switch (curr)
   {
   case 0: //silver
-    if (millis() - startTimer < 700) send = 0;
+    if (millis() - startTimer < 1000) send = 0;
     else send = 3;
     #if debug_values
     Serial.println("SILVER LINE");
@@ -76,7 +76,7 @@ void loop()
     break;
 
   case 1: //left
-    if (millis() - startTimer < 700) send = 1;
+    if (millis() - startTimer < 1000) send = 1;
     else send = 3;
     #if debug_values
     Serial.println("LEFT TURN");
@@ -84,7 +84,7 @@ void loop()
     break;
 
   case 2:
-    if (millis() - startTimer < 700) send = 2;
+    if (millis() - startTimer < 1000) send = 2;
     else send = 3;
     #if debug_values
     Serial.println("RIGHT TURN");

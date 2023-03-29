@@ -28,8 +28,8 @@
 //~ Runs WITH main code
 #define debug_curr 0
 #define debug_passed_vars 0
-#define debug_lidars_while 0
-#define debug_teensy_vars 1
+#define debug_lidars_while 1
+#define debug_teensy_vars 0
 #define debug_with_led 1
 
 //* OBJECT INITIALISATIONS */
@@ -91,7 +91,7 @@ double rotation = 0,
 int serialState = 0,
   task = 39, 
   prev_task = 0,
-  curr = 0;
+  curr = 39;
 
 //~ Green squares
 long lostGSMillis, 
@@ -227,7 +227,7 @@ void loop()
     //* HANDLING THE INFO RECEIVED */
 
     serialEvent();
-    teensyEvent();
+    // teensyEvent();
 
     if (curr != 39) { //case 39 is transitioning into evac
     switch (task)
@@ -244,19 +244,19 @@ void loop()
           curr = 11;
           lostGSMillis = millis();
         } else if (curr != 10 && curr != 11 && curr != 7) {       //^ DOM: I'll add a temp case for rescue kit :thumbs: 
-          if (left135) {
-            if (curr != 27 && millis() - last135Millis > 1500) {
-              start135Millis = millis();
-              curr = 27;
-            }
-          } else if (right135) {
-            if (curr != 28 && millis() - last135Millis > 1500) {
-              start135Millis = millis();
-              curr = 28;
-            }
-          } 
-        } else {
+          // if (left135) {
+          //   if (curr != 27 && millis() - last135Millis > 1500) {
+          //     start135Millis = millis();
+          //     curr = 27;
+          //   }
+          // } else if (right135) {
+          //   if (curr != 28 && millis() - last135Millis > 1500) {
+          //     start135Millis = millis();
+          //     curr = 28;
+          //   }
+          // } else {
           curr = 0;
+          // }
         }
         break;
 
@@ -292,20 +292,21 @@ void loop()
       case 9: //evac no ball
         if (!in_evac) break;
         see_ball = false;
-        if (curr == 41) {
-          curr = 42; //enter post-ball
-          evacBallTimer = millis();
-        } else if (curr == 42 && (millis() - evacBallTimer) > 1500 && !ball_present()) {
-          curr = 40; //go wall track
-        } else if (curr == 42) {
-          curr = 42;
-        }
+        curr = 40;
+        // if (curr == 41) {
+        //   curr = 42; //enter post-ball
+        //   evacBallTimer = millis();
+        // } else if (curr == 42 && (millis() - evacBallTimer) > 1500 && !ball_present()) {
+        //   curr = 40; //go wall track
+        // } else if (curr == 42) {
+        //   curr = 42;
+        // }
         break;
 
       case 10: //evac got ball
         if (!in_evac) break;
         see_ball = true;
-        curr = 41;
+        if (curr != 45) curr = 41;
         break;
 
       default:
@@ -328,6 +329,15 @@ void loop()
       case 0: //normal lt
         Robawt.setSteer(rpm, rotation);
 //        digitalWrite(ONBOARDLEDPIN, LOW);
+        // if (front_dist <100){
+        //   curr=12;
+        //   if (l_dist > r_dist){
+        //     turn_dir = -1;  
+        //   }
+        //   else{
+        //     turn_dir = 1;
+        //   }
+        // }
         break;
 
       case 1: //left gs
@@ -629,17 +639,17 @@ void loop()
         if (ball_present()) {
           curr = 45; 
         } else {
-          Robawt.setSteer(25, rotation);
+          Robawt.setSteer(30, rotation);
         }
         break;
 
-      case 42: //post ball
-        claw_halfclose();
-        if (ball_present()) {
-          curr = 45; //enter pickup
-        }
-        Robawt.setSteer(25, 0);
-        break;
+      // case 42: //post ball
+      //   claw_halfclose();
+      //   if (ball_present()) {
+      //     curr = 45; //enter pickup
+      //   }
+      //   Robawt.setSteer(25, 0);
+      //   break;
 
       case 45: //start pickup seq
         claw_close();
@@ -686,11 +696,11 @@ void loop()
     prev_rotation = 0;
     start_L_dist = 0;
 
-    in_evac = false;
+    in_evac = true;
     left135 = false;
     right135 = false;
 
-    // curr = 39; //! force_evac
+    curr = 39; //! force_evac
   }
 }
 #endif
