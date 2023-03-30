@@ -6,8 +6,8 @@
 #define PICOP2 PIN_D3
 #define debug_values 1
 
-const int left_thresh = 200,
-  right_thresh = 100;
+const int left_thresh = 320,
+  right_thresh = 210;
 int left, right, curr = 3, send = 3;
 long startTimer;
 
@@ -43,87 +43,79 @@ void loop()
   
   //* DATA RECEIVED
 
-  if (left > 700 && right > 700) //silver line
-  {
-    if (curr != 0) {
-      startTimer = millis();
-      curr = 0;
+  if (left < left_thresh) {
+    if (right < right_thresh) {
+      send = 0; //double black
+    } else {
+      send = 1; //turn left
     }
-  }
-  else if (left < left_thresh && right > right_thresh) //turn left
-  {
-    if (curr != 1) {
-      startTimer = millis();
-      curr = 1;
+  } else {
+    if (right < right_thresh) {
+      send = 2; //turn right
+    } else {
+      send = 3; //double white
     }
-  }
-  else if (left > left_thresh && right < right_thresh) //turn right
-  {
-    if (curr != 2) {
-      startTimer = millis();
-      curr = 2;
-    }
-  }
-  else //nothing
-  {
-    curr = 3;
   }
 
   //* CURRENT
 
-  switch (curr)
-  {
-  case 0: //silver
-    if (millis() - startTimer > 400) send = 0;
-    else send = 3;
-    #if debug_values
-    Serial.println("SILVER LINE");
-    #endif
-    break;
+  // switch (curr)
+  // {
+  // case 0: //silver
+  //   if (millis() - startTimer > 400) send = 0;
+  //   else send = 3;
+  //   #if debug_values
+  //   Serial.println("SILVER LINE");
+  //   #endif
+  //   break;
 
-  case 1: //left
-    if (millis() - startTimer > 400) send = 1;
-    else send = 3;
-    #if debug_values
-    Serial.println("LEFT TURN");
-    #endif
-    break;
+  // case 1: //left
+  //   if (millis() - startTimer > 400) send = 1;
+  //   else send = 3;
+  //   #if debug_values
+  //   Serial.println("LEFT TURN");
+  //   #endif
+  //   break;
 
-  case 2:
-    if (millis() - startTimer > 400) send = 2;
-    else send = 3;
-    #if debug_values
-    Serial.println("RIGHT TURN");
-    #endif
-    break;
+  // case 2:
+  //   if (millis() - startTimer > 400) send = 2;
+  //   else send = 3;
+  //   #if debug_values
+  //   Serial.println("RIGHT TURN");
+  //   #endif
+  //   break;
 
-  case 3: //nothing
-    send = 3;
-    break;
-  }
+  // case 3: //nothing
+  //   send = 3;
+  //   break;
+  // }
 
   //* SEND
 
   switch (send)
   {
-  case 0: //silver 11
+  case 0: //double black 11
     digitalWrite(PICOP1, HIGH);
     digitalWrite(PICOP2, HIGH);
+    Serial.println("11");
     break;
 
   case 1: //left 01
     digitalWrite(PICOP1, LOW);
     digitalWrite(PICOP2, HIGH);
+    Serial.println("01");
     break;
 
   case 2: //right 10
     digitalWrite(PICOP1, HIGH);
     digitalWrite(PICOP2, LOW);
+    Serial.println("10");
     break;
 
   case 3: //nothing 00
     digitalWrite(PICOP1, LOW);
     digitalWrite(PICOP2, LOW);
+    Serial.println("00");
     break;
   
   default:

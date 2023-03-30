@@ -16,7 +16,7 @@ while True:
         frame = cv2.flip(frame, 0)
         frame = cv2.flip(frame, 1)
     
-    cv2.imshow('frame', frame)
+    cv2.imshow('frame', frame[93:, :])
     timer.update()
     key = cv2.waitKey(1)
     if key == ord('q'):

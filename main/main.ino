@@ -29,7 +29,7 @@
 #define debug_curr 0
 #define debug_passed_vars 0
 #define debug_lidars_while 1
-#define debug_teensy_vars 0
+#define debug_teensy_vars 1
 #define debug_with_led 1
 
 //* OBJECT INITIALISATIONS */
@@ -57,6 +57,8 @@ void ISRRA() {MotorR.readEncA();}
 void ISRRB() {MotorR.readEncB();}
 
 //* CONSTANTS */
+
+double valL, valR;
 
 //~ Pins
 const int TNYPIN1 = 9,
@@ -304,6 +306,23 @@ void loop()
         else Serial.println("it was 6?");
         break;
 
+      // case 7: //no line
+      //   if (curr != 0) break;
+      //   if (left135) {
+      //       // if (curr != 27 && millis() - last135Millis > 1500) {
+      //         start135Millis = millis();
+      //         curr = 27;
+      //       // }
+      //   } else if (right135) {
+      //       // if (curr != 28 && millis() - last135Millis > 1500) {
+      //         start135Millis = millis();
+      //         curr = 28;
+      //       // }
+      //   } else {
+      //     curr = 0;
+      //   }
+      //   break;
+
       //~ Evac
       case 9: //evac no ball
         if (!in_evac) break;
@@ -519,27 +538,21 @@ void loop()
         switch (turning_state)
         {
           case 0:
-          {
             Robawt.setSteer(rpm, -1);
             if (r_dist>150) turning_state ++;
-          }
-          break;
+            break;
 
           case 1:
-          {
             Robawt.setSteer(rpm, -1);
             if (r_dist<150) turning_state ++;
-          }
-          break;
+            break;
 
           case 2:
-          {
             Robawt.setSteer(rpm, 0);
             turning_state = 0;
             curr = 18;
             obs_time_start = millis();
-          }
-          break;
+            break;
         }
         break;
 
@@ -557,34 +570,26 @@ void loop()
         switch (obs_state)
         {
           case 0:
-          {
             Robawt.setSteer (25, 0);
             if (side_dist < 200) obs_state++;
-          }
-           break;
+            break;
             
           case 1:
-          {
             Robawt.setSteer (25, 0);
             if (side_dist > 200) obs_state++;
-          }
-          break;
+            break;
 
           case 2:
-          {
             Robawt.setSteer (25, o_rotation);
             if (side_dist < 200) obs_state++;
-          }
-          break;
+            break;
 
            case 3:
-          {
             Robawt.setSteer (25, o_rotation);
             if (side_dist > 200){
               obs_state = 0;
             }
-          }
-          break;
+            break;
         }
 
         if (see_line && (millis() - obs_time_start) > 6000){
@@ -602,7 +607,7 @@ void loop()
           Robawt.setSteer(0,0);
           curr = 0;
         }
-      
+        break;
 
       //* 135
 
@@ -766,12 +771,15 @@ void teensyEvent()
     right135 = false;
   } else if (!in_evac && !pin1State && pin2State) { //left 01
     left135 = true;
-  } else if (!in_evac && pin1State && !pin2State) { //right 10
-    right135 = true;
-  } else {
-    left135 = false;
     right135 = false;
+  } else if (!in_evac && pin1State && !pin2State) { //right 10
+    left135 = false;
+    right135 = true;
   }
+  // } else {
+  //   // left135 = false;
+  //   // right135 = false;
+  // }
 }
 
 //* LIDAR & MULTIPLEXER FUNCTIONS */
@@ -984,8 +992,13 @@ void loop()
 void loop()
 {
   // Robawt.setSteer(40, 0);
-  double valL = MotorL.setRpm(40);
-  double valR = MotorR.setRpm(40);
+  if (!digitalRead(SWTPIN)) {
+    double valL = MotorL.setRpm(40);
+    double valR = MotorR.setRpm(40);
+  } else {
+    double valL = MotorL.setRpm(0);
+    double valR = MotorR.setRpm(0);
+  }
   Serial.print("Actual rpm: ");
   Serial.print(MotorL.getRpm());
   Serial.print("    ");
