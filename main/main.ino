@@ -234,7 +234,7 @@ void loop()
     //* HANDLING THE INFO RECEIVED */
 
     serialEvent();
-    teensyEvent();
+    // teensyEvent();
 
     if (curr != 39) { //case 39 is transitioning into evac
     switch (task)

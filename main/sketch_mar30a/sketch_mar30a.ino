@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "VL53L1X.h"
-#include "VL53L0X.h" //^ Note the L0X library is blocking --> if have time can rewrite the function
+// #include "VL53L1X.h"
+// #include "VL53L0X.h" //^ Note the L0X library is blocking --> if have time can rewrite the function
 #include "Vroom.h"
-#include <Servo.h>
+// #include <Servo.h>
 
 //* OBJECT INITIALISATIONS */
 Motor MotorR(13, 12, 19, 18); //M2 swapped
@@ -47,8 +47,8 @@ void setup() {
   Serial.println("USB serial initialised");
 
   pinMode(SWTPIN, INPUT_PULLDOWN);
-  pinMode(ONBOARDLEDPIN, OUTPUT);
-  pinMode(LEDPIN, OUTPUT);
+  // pinMode(ONBOARDLEDPIN, OUTPUT);
+  // pinMode(LEDPIN, OUTPUT);
   pinMode(TNYPIN1, INPUT);
   pinMode(TNYPIN2, INPUT);
 
@@ -77,8 +77,7 @@ void loop() {
     {
 
       case 0: //black
-        Robawt.setSteer(0, 0);
-        Robawt.reset();
+        Robawt.setSteer(40, rotation/1.25);
         Serial.println("stop");
         break;
 
@@ -93,7 +92,7 @@ void loop() {
         break;
 
       case 3: //white
-        Robawt.setSteer(40, rotation);
+        Robawt.setSteer(40, rotation/1.25);
         Serial.println("straight");
         break;
     }
@@ -112,13 +111,15 @@ void teensyEvent()
   Serial.print("pin2state: " );
   Serial.println(pin2State);
   if (pin1State && pin2State) { //double black 11
-    curr = 0;
+    if (millis() - start135Millis > 250) curr = 0;
   } else if (!in_evac && !pin1State && pin2State) { //left 01
     curr = 1;
+    start135Millis = millis();
   } else if (!in_evac && pin1State && !pin2State) { //right 10
     curr = 2;
+    start135Millis = millis();
   } else {
-    curr = 3;
+    if (millis() - start135Millis > 250) curr = 3;
   }
 }
 
@@ -126,7 +127,7 @@ void serialEvent()
 {
   while (Serial1.available()) {
     int serialData = Serial1.read();
-    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
+    if (serialData == 255) {serialState = (int)serialData;}
     else {
       switch (serialState) {
         case 255:

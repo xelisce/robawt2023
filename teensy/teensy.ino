@@ -9,9 +9,9 @@
 const int left_thresh = 320,
   right_thresh = 210;
 int left, right, curr = 3, send = 3;
-long startTimer;
+long startTimer; 
 
-//left - white, black: 540, 200 (160)
+//left - white, black: 540 (252 once), 200 (160)
 //right - white, black: 340, 100 (70)
 
 //left - green: 230
