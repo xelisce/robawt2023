@@ -6,13 +6,19 @@
 #define PICOP2 PIN_D3
 #define debug_values 1
 
-const int left_thresh = 15,
-  right_thresh = 8;
+const int left_thresh = 200,
+  right_thresh = 100;
 int left, right, curr = 3, send = 3;
 long startTimer;
 
-//left - white, black: 12, 12
-//right - white, black: 14, 9
+//left - white, black: 540, 200 (160)
+//right - white, black: 340, 100 (70)
+
+//left - green: 230
+//right - green : 120
+
+//left - silver: 320 - 370
+//right - silver: 200 - 260
 
 void setup() {
   pinMode(LTEMT, INPUT);
@@ -37,7 +43,7 @@ void loop()
   
   //* DATA RECEIVED
 
-  if (left > 30 && right > 30) //silver line
+  if (left > 700 && right > 700) //silver line
   {
     if (curr != 0) {
       startTimer = millis();
@@ -68,7 +74,7 @@ void loop()
   switch (curr)
   {
   case 0: //silver
-    if (millis() - startTimer < 1000) send = 0;
+    if (millis() - startTimer > 400) send = 0;
     else send = 3;
     #if debug_values
     Serial.println("SILVER LINE");
@@ -76,7 +82,7 @@ void loop()
     break;
 
   case 1: //left
-    if (millis() - startTimer < 1000) send = 1;
+    if (millis() - startTimer > 400) send = 1;
     else send = 3;
     #if debug_values
     Serial.println("LEFT TURN");
@@ -84,7 +90,7 @@ void loop()
     break;
 
   case 2:
-    if (millis() - startTimer < 1000) send = 2;
+    if (millis() - startTimer > 400) send = 2;
     else send = 3;
     #if debug_values
     Serial.println("RIGHT TURN");
