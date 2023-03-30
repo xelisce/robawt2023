@@ -17,13 +17,20 @@ void ISRRA() {MotorR.readEncA();}
 void ISRRB() {MotorR.readEncB();}
 
 bool in_evac = false;
-int curr = 0;
 
 //~ 135
 bool left135 = false,
   right135 = false;
 long last135Millis, start135Millis;
 
+//~ Movement and logic
+double rotation = 0,
+  rpm = 40;
+int serialState = 0,
+  task = 39, 
+  prev_task = 0,
+  curr = 0;
+  
 //~ Pins
 const int TNYPIN1 = 9,
   TNYPIN2 = 8,
@@ -45,6 +52,13 @@ void setup() {
   pinMode(TNYPIN1, INPUT);
   pinMode(TNYPIN2, INPUT);
 
+  //* PI SERIAL COMMS */
+  Serial1.setRX(RX0PIN);
+  Serial1.setTX(TX0PIN);
+  Serial1.begin(9600); //consider increasing baud
+  while (!Serial1) delay(10); 
+  Serial.println("Pi serial initialised");
+
   //* MOTOR ENCODERS */    
   //^ basically interrupts *every* code to run the encoder code 
   attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
@@ -55,29 +69,31 @@ void setup() {
 
 void loop() {
   teensyEvent();
+  serialEvent();
+  
   if (!digitalRead(SWTPIN))
   {
     switch (curr)
     {
 
-      case 0:
+      case 0: //black
         Robawt.setSteer(0, 0);
         Robawt.reset();
         Serial.println("stop");
         break;
 
-      case 1:
+      case 1: //left
         Robawt.setSteer(40, -1);
         Serial.println("left");
         break;
 
-      case 2:
+      case 2: //right
         Robawt.setSteer(40, 1);
         Serial.println("right");
         break;
 
-      case 3:
-        Robawt.setSteer(40, 0);
+      case 3: //white
+        Robawt.setSteer(40, rotation);
         Serial.println("straight");
         break;
     }
@@ -103,5 +119,20 @@ void teensyEvent()
     curr = 2;
   } else {
     curr = 3;
+  }
+}
+
+void serialEvent()
+{
+  while (Serial1.available()) {
+    int serialData = Serial1.read();
+    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
+    else {
+      switch (serialState) {
+        case 255:
+          rotation = ((double)(serialData)-90)/90;
+          break;
+      }
+    }
   }
 }
