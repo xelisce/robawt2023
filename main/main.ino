@@ -139,6 +139,8 @@ bool left135 = false,
 long last135Millis, start135Millis, 
   start90Millis;
 
+long loopTimeMillis;
+
 void setup() {
 
   pinMode(SWTPIN, INPUT_PULLDOWN);
@@ -193,6 +195,10 @@ void setup() {
 #if !debug_servos && !debug_lidars && !debug_switch && !debug_motors && !debug_pid && !debug_ball && !debug_cube && !debug_teensy_serial
 void loop() 
 {
+
+  Serial.print("Time loop: ");
+  Serial.println(millis() - loopTimeMillis);
+  loopTimeMillis = millis();
   digitalWrite(LEDPIN, HIGH);
 
   if (servos_change) {
@@ -204,16 +210,16 @@ void loop()
 
   //* LIDAR READINGS */
 
-  tcaselect(L_LIDAR);
-  l_dist = l_tof.readRangeContinuousMillimeters();
-  tcaselect(FB_LIDAR);
-  fb_dist = fb_tof.read();
-  tcaselect(FL_LIDAR);
-  fl_dist = fl_tof.readRangeContinuousMillimeters();
-  tcaselect(F_LIDAR);
-  front_dist = front_tof.readRangeContinuousMillimeters() + 45;
-  tcaselect(R_LIDAR);
-  r_dist = r_tof.readRangeContinuousMillimeters();
+  // tcaselect(L_LIDAR);
+  // l_dist = l_tof.readRangeContinuousMillimeters();
+  // tcaselect(FB_LIDAR);
+  // fb_dist = fb_tof.read();
+  // tcaselect(FL_LIDAR);
+  // fl_dist = fl_tof.readRangeContinuousMillimeters();
+  // tcaselect(F_LIDAR);
+  // front_dist = front_tof.readRangeContinuousMillimeters() + 45;
+  // tcaselect(R_LIDAR);
+  // r_dist = r_tof.readRangeContinuousMillimeters();
 
 
 

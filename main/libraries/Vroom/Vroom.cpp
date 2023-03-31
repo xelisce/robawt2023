@@ -46,6 +46,19 @@ double Motor::setRpm(double rpm) //* rev min^-1
     return _neededRpm;
 }
 
+//* NO PID
+// double Motor::setRpm(double rpm) //* rev min^-1
+// {
+//     if (rpm >= 0) {
+//         analogWrite(_pwmPin1, 0);
+//         analogWrite(_pwmPin2, (int)((_neededRpm/210) * 255)); //output
+//     } else {
+//         analogWrite(_pwmPin1, (int)((_neededRpm/210) * 255));
+//         analogWrite(_pwmPin2, 0);
+//     }
+//     return rpm;
+// }
+
 
 
 double Motor::getRpm() 
