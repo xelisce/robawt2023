@@ -27,7 +27,7 @@
 #define debug_teensy_comms 0
 //~ Runs WITH main code
 #define debug_curr 0
-#define debug_passed_vars 0
+#define debug_passed_vars 1
 #define debug_lidars_while 1
 #define debug_teensy_vars 1
 #define debug_with_led 1
@@ -133,10 +133,11 @@ double obst_rotation = 0;
 int turning_state = 0;
 int obs_time_start = 0;
 
-//~ 135
+//~ 135 OR 90
 bool left135 = false,
   right135 = false;
-long last135Millis, start135Millis;
+long last135Millis, start135Millis, 
+  start90Millis;
 
 void setup() {
 
@@ -245,19 +246,21 @@ void loop()
         if (in_evac) break;
 
         if (curr == 1) {
-          if (millis() - startGSMillis > 700) {
+          if (millis() - startGSMillis > 500) {
             curr = 10;
             lostGSMillis = millis();
           }
         } else if (curr == 2){
-          if (millis() - startGSMillis > 700) {
+          if (millis() - startGSMillis > 500) {
             curr = 11;
             lostGSMillis = millis();
           }
         } else if (curr == 3){
-            if (millis() - startGSMillis > 1400) {
+          if (millis() - startGSMillis > 1000) { //! hard code time
             curr = 0;
           }
+        } else if (curr == 25 || curr == 26) {
+          if (millis() - start90Millis > 1000) curr = 0;
         } else if (curr != 10 && curr != 11 && curr != 7 && curr != 8) { 
           // if (left135) {
           //   if (curr != 27 && millis() - last135Millis > 1500) {
@@ -323,8 +326,18 @@ void loop()
       //   }
       //   break;
 
+      case 10: //turn left
+        curr = 25;
+        if (curr != 25) start90Millis = millis();
+        break;
+
+      case 11: //turn right
+        curr = 26;
+        if (curr != 26) start90Millis = millis();
+        break;
+
       //~ Evac
-      case 9: //evac no ball
+      case 15: //evac no ball
         if (!in_evac) break;
         see_ball = false;
         curr = 40;
@@ -338,7 +351,7 @@ void loop()
         // }
         break;
 
-      case 10: //evac got ball
+      case 16: //evac got ball
         if (!in_evac) break;
         see_ball = true;
         if (curr != 45) curr = 41;
@@ -609,6 +622,16 @@ void loop()
         }
         break;
 
+      //* 90
+
+      case 25: //turn left 90
+        Robawt.setSteer(30, -1);
+        break;
+      
+      case 26: //turn right 90
+        Robawt.setSteer(30, 1);
+        break;
+        
       //* 135
 
       case 27: //left135
@@ -739,6 +762,7 @@ void serialEvent()
 {
   while (Serial1.available()) {
     int serialData = Serial1.read();
+    Serial.println(serialData);
     if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {serialState = (int)serialData;}
     else {
       switch (serialState) {

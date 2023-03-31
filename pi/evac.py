@@ -42,8 +42,8 @@ class Task(enum.Enum):
     BEFORE_BLUE = 5  #Turning towards blue #^ TEMPORARY
     BLUE = 6
     BLUEFINAL = 7
-    NOBALL = 9
-    BALL = 10
+    NOBALL = 15
+    BALL = 16
 
 def receive_pico() -> int:
     global ser

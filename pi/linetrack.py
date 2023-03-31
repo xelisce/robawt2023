@@ -34,7 +34,7 @@ def receive_pico(ser) -> int:
         return 0
 
 #* COLOR CALIBRATION
-# l_black = 0
+#l_black = 0
 u_black = 79
 
 l_blue = np.array([96, 170, 80], np.uint8)
@@ -383,7 +383,9 @@ while True:
         rotation = -90
     rotation += 90
 
-    to_pico = [255, rotation] # currently 0 to 5
+    to_pico = [255, rotation,
+               254, rpm,
+                253, curr.value] # currently 0 to 5
                 # 252, see_line] # 0 for false or 1 for true
     ser.write(to_pico)
 

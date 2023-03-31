@@ -45,18 +45,21 @@ gs_minarea = 4000000 #? consider making this scaled by pixels (/255)
 
 set_rpm = 40
 rpm = 40
-kp = 1.3
+kp = 1
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width for i in np.linspace(1., 0, height)]) #1/height is just to save pixels
-x_com_scale = ((1-y_com) ** 0.6)
-x_com *= x_com_scale
+# x_com_scale = ((1-y_com) ** 0.3)
+# x_com *= x_com_scale
 
-# x_com_gap = np.tile(np.linspace(-1., 1., width), (height_org, 1)) #reps is (outside, inside)
-# y_com_gap = np.array([[i] * width for i in np.linspace(1., 0, height_org)]) #1/height is just to save pixels
-# x_com_gap_scale = ((1-y_com_gap) ** 0.6)
-# x_com_gap *= x_com_gap_scale
+#~ Powering x component
+x_com[:, :int(width/2)] *= -1
+x_com = x_com ** 0.1
+x_com[:, :int(width/2)] *= -1
+
+#~ Powering y component
+y_com = y_com ** 0.75
 
 gs_erode_kernel = np.ones((3, 3), np.uint8)
 
@@ -231,9 +234,10 @@ while True:
         black_diff_x = black_end_x-black_start_x
         print("x amount:", black_diff_x)
 
-        if black_start_y > 350 or white_start_y > 350 and black_diff_x < 320:
+        if black_start_y < 350 or white_start_y > 350 and black_diff_x < 320:
             print("LINE GAP")
             mask_black = mask_black_org.copy()
+            mask_black[:, :]
         else:
             mask_black[:white_start_y, :] = 0
         
