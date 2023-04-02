@@ -114,8 +114,7 @@ double Motor::getDist() {return ((double)(_encVal) / 374 * 9 * 3.14159265);} //i
 void Motor::resetPID() {_motorPID.Reset();}
 void Motor::resetEnc() 
 {
-    _pastEncVal = _encVal % 370; //? DOM: Why's do you mod 370 here; actually what do all the values like 374, 370 and 9 even 
-                                 //? represent? im very confused
+    _pastEncVal = _encVal % 374;
     _encVal = 0;
 }
 
@@ -148,4 +147,10 @@ void Vroom::reset()
     _right->resetPID();
     _left->resetEnc();
     _right->resetEnc();
+}
+
+void Vroom::resetPID()
+{
+    _left->resetPID();
+    _right->resetPID();
 }

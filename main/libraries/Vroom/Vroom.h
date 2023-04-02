@@ -35,9 +35,8 @@ class Motor
 
     private:
         int _pwmPin1, _pwmPin2,
-            _encPinA, _encPinB,
-            _encVal, _encDir,
-            _pastEncVal;
+            _encPinA, _encPinB, _encDir;
+        long int _encVal, _pastEncVal;
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _begin, _end,
@@ -53,7 +52,8 @@ class Vroom
     public:
         Vroom(Motor *left, Motor *right);
         void setSteer(double rpm, double rotation), //when speed is negative, robot heading switches
-            reset();
+            reset(),
+            resetPID();
 
     private:
         Motor *_left, *_right;
