@@ -283,48 +283,6 @@ void loop() {
     #endif
 }
 
-//* -------------------------------- SECOND CORE --------------------------------
-/*
-void setup1() 
-{
-    //^ MULTIPLEXER
-    Wire.setSDA(SDAPIN);
-    Wire.setSCL(SCLPIN);
-    Wire.begin();
-    Wire.setClock(400000); 
-
-    //^ LIDARS
-    tcaselect(4);
-    sensor.setTimeout(500);
-    #if debug_lidars
-    while (!sensor.init()) {
-        Serial.print("FRONT: ");
-        Serial.print("at pin ");
-        Serial.print(4);
-        Serial.print(" - ");
-        Serial.println("L0X failed to initialise");
-    }
-    #endif
-    sensor.startContinuous();
-}
-
-void loop1() 
-{
-    #if debug_looptime
-    secondLoopTimeMillis = micros() - secondLoopTimePrevMillis;
-    secondLoopTimePrevMillis = micros();
-    #endif
-
-    tcaselect(4);
-    if(sensor.available()) {
-        front_dist = sensor.readRangeMillimeters();
-    #if debug_lidars
-    // Serial.print("FRONT: ");
-    // Serial.println(front_dist);
-    #endif
-  }
-}
-*/
 //* -------------------------------- USER DEFINED FUNCTIONS --------------------------------
 
 void teensyEvent()
