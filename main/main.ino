@@ -16,6 +16,8 @@
 //^ Runs without normal code
 #define loop_movetime 0
 #define loop_movedistance 0
+#define loop_pickball 1
+#define loop_pickcube 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -122,6 +124,8 @@ int serialState = 0,
 
 //^ Evac
 bool in_evac = false;
+long pickupStateTimer;
+int pickupState = 0;
 
 //* ------------------------------------------- START SETUP -------------------------------------------
 
@@ -194,7 +198,7 @@ void setup()
 
 //* ------------------------------------------- START LOOP -------------------------------------------
 
-#if !loop_movetime && !loop_movedistance
+#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube
 void loop() 
 {
 
@@ -422,7 +426,7 @@ void loop()
 
 //* COMMUNICATIONS
 
-void teensyEvent() //Teensy to pico
+void teensyEvent() //Teensy to pico binary
 {
     int pin1State = digitalRead(TNYPIN1);
     int pin2State = digitalRead(TNYPIN2);
@@ -441,7 +445,7 @@ void teensyEvent() //Teensy to pico
     }
 }
 
-void serialEvent() //Pi to pico
+void serialEvent() //Pi to pico serial
 {
   while (Serial1.available()) 
   {
@@ -473,7 +477,11 @@ void serialEvent() //Pi to pico
   }
 }
 
-void tcaselect(uint8_t i)  //Multiplexer: TCA9548A
+void send_pi(int i) { //Pico to pi serial
+  Serial1.println(i);
+}
+
+void tcaselect(uint8_t i)  //I2C Multiplexer: TCA9548A
 {
   if (i > 0 && i < 7) {
     Wire.beginTransmission(TCAADDR);
@@ -528,6 +536,13 @@ void claw_halfclose() {
   servos_change = true;
 }
 
+//* EVAC FUNCTIONS
+
+bool ball_present() {
+    //+45 for the diff sensors' offset physically
+    return ((lidarl0x_readings[LidarsL0X::FRONT] - lidarl1x_readings[LidarsL1X::FRONT_BOTTOM]) > 30+45 && lidarl1x_readings[LidarsL1X::FRONT_BOTTOM] < 95);
+}
+
 //* ------------------------------------------- DEBUG LOOPS -------------------------------------------
 
 #if loop_movetime
@@ -572,6 +587,91 @@ void loop()
         startDistanceValR = MotorR.getDist();
         Robawt.setSteer(0, 0);
         Robawt.reset();
+    }
+}
+#endif
+
+#if loop_pickball || loop_pickcube
+void loop()
+{
+    if (servos_change) {
+        for (int i = servos_start; i != (servos_stop+1); i++) {
+        servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+        }
+        servos_change = false;
+    }
+
+    if (!digitalRead(SWTPIN)) claw_service_up();
+    else claw_down();
+
+    for (int i = l0x_start; i != (l0x_stop+1); i++) 
+    {
+        tcaselect(lidarl0x_pins[i]);
+        if(lidarsl0x[i].available()) {
+            lidarl0x_readings[i] = lidarsl0x[i].readRangeMillimeters();
+        }
+    }
+    for (int i = l1x_start; i != (l1x_stop+1); i++) 
+    {
+        tcaselect(lidarl1x_pins[i]);
+        if(lidarsl1x[i].dataReady()) {
+            lidarl1x_readings[i] = lidarsl1x[i].read(false);
+        }
+    }
+
+    Serial.print("See ball: ");
+    Serial.println(ball_present());
+
+    if (ball_present() || pickupState != 0) {
+
+        switch (pickupState)
+        {
+            case 0:
+                pickupStateTimer = millis();
+                pickupState ++;
+                break;
+
+            case 1:
+                #if loop_pickcube
+                claw_close_cube();
+                #endif
+                #if loop_pickball
+                claw_down();
+                claw_close();
+                #endif
+                if (millis() - pickupStateTimer > 1000) {
+                    pickupStateTimer = millis();
+                    pickupState ++; }
+                break;
+
+            case 2:
+                claw_close();
+                claw_up();
+                if (millis() - pickupStateTimer > 1000) {
+                    pickupStateTimer = millis();
+                    pickupState ++; }
+                break;
+
+            case 3: 
+                claw_open();
+                claw_up();
+                if (millis() - pickupStateTimer > 1000) {
+                    pickupStateTimer = millis();
+                    pickupState ++; }
+                break;
+
+            case 4:
+                claw_down();
+                claw_open();
+                if (millis() - pickupStateTimer > 1000) {
+                    pickupStateTimer = millis();
+                    pickupState = 0; }
+                break;
+        }
+
+        Serial.println(pickupState);
+    } else {
+        claw_open();
     }
 }
 #endif
