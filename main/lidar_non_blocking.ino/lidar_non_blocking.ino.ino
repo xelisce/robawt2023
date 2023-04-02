@@ -15,6 +15,10 @@ void setup()
   Wire.begin();
 
   sensor.setTimeout(500);
+
+  //to check for measurments in a more efficient manner you can
+  //connect the sensors GPIO0 pin to Arduino, and initialise
+  //it with "sensor.init(myPinNumber)"
   if (!sensor.init())
   {
     Serial.println("Failed to detect and initialize sensor!");
@@ -30,8 +34,11 @@ void setup()
 
 void loop()
 {
-  Serial.print(sensor.readRangeContinuousMillimeters());
-  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  if(sensor.available())
+  {
+       Serial.print(sensor.readRangeMillimeters());
+       if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  }
 
   Serial.println();
 }

@@ -29,7 +29,7 @@ ser = serial.Serial("/dev/serial0", 9600)
 
 #* COLOR CALIBRATION
 # l_black = 0
-u_black = 70
+u_black = 115
 
 l_green = np.array([30, 50, 60], np.uint8)
 u_green = np.array([85, 255, 255], np.uint8)
@@ -64,6 +64,14 @@ x_com[:, :int(width/2)] *= -1
 #~ Powering y component
 # y_com = y_com ** 2
 
+#~ Triangle mask
+peak_triangle_gap = 0
+peak_triangle_width = 60
+triangle_margin = 20
+mask_gap = np.zeros([height, width], dtype="uint8")
+points = np.array([[triangle_margin, 0], [width-triangle_margin, 0], [int(width/2+peak_triangle_width), int(height-peak_triangle_gap)], [int(width/2-peak_triangle_width), int(height-peak_triangle_gap)]])
+cv2.fillConvexPoly(mask_gap, points, 255)
+
 gs_erode_kernel = np.ones((3, 3), np.uint8)
 
 #* LOGIC SETUP
@@ -73,11 +81,14 @@ class Task(enum.Enum):
     RIGHT_GREEN = 2
     DOUBLE_GREEN = 3
     RED = 4
+    TURN_LEFT = 5
+    TURN_RIGHT = 6
     
 
 curr = Task.EMPTY
 red_now = False
 gs_now = False
+lt_gap = True
 
 #* BEGIN OF LINETRACK LOOP CODE
 
@@ -237,22 +248,28 @@ while True:
         black_diff_x = black_end_x-black_start_x
         print("x amount:", black_diff_x)
 
-        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_diff_x < 320:
+        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_diff_x < 360:
                 print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LINE GAP<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                mask_black = mask_black_org.copy()
-                curr = Task.RED
-                # mask_black[:horizon_crop_h, :] = 0 #get out horizon
-        #     # elif black_diff_x > 460:
-        #         # if centre_x-black_start_x > black_end_x-centre_x:
-        #             # curr = Task.TURN_LEFT
-        #             # print("LEFT LEFT LEFT")
-        #         # else:
-        #             # curr = Task.TURN_RIGHT
-        #             # print("RIGHT RIGHT RIGHT")
+                mask_black = cv2.bitwise_and(mask_gap, mask_black_org.copy())
+                # curr = Task.RED
+                mask_black[:horizon_crop_h, :] = 0 #get out horizon
+                powered_y = 1
+            # elif black_diff_x > 360:
+            #     if centre_x-black_start_x > black_end_x-centre_x:
+            #         curr = Task.TURN_LEFT
+            #         print("|||||||||||LEFT LEFT LEFT")
+            #     else:
+            #         curr = Task.TURN_RIGHT
+            #         print("RIGHT RIGHT RIGHT||||||||||||||||||||||")
         else:
             mask_black[:white_start_y, :] = 0
             curr = Task.EMPTY
-        
+
+            #~ Plain line track
+            powered_y =  (height-40)/curr_height if curr_height != 0 else 1
+            powered_y = powered_y ** 0.5
+            print("power:", powered_y) 
+            powered_y = min(2.7, powered_y)
 
         # if curr_height > 5:
         #     x_black_com = x_com[white_start_y:black_start_y, :]
@@ -267,20 +284,14 @@ while True:
         x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
         # cv2.imshow("yframe", y_black)
         # cv2.imshow("xframe", x_black)
+            
 
-        #~ Line gap
-        # print("max black:", np.max(y_black))
-
-        #~ Plain line track
-        powered_y =  (height-40)/curr_height if curr_height != 0 else 1
-        powered_y = powered_y ** 0.5
-        print("power:", powered_y) 
         y_resultant = np.mean(y_black) ** powered_y
         x_resultant = np.mean(x_black)
         # print(y_resultant, x_resultant) #& debug resultant angle
 
         #~ Formatting data for transfer
-        angle = 90 - (math.atan2(y_resultant, x_resultant) * 180/math.pi) if y_resultant != 0 else 0
+        angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
         # print(angle) #& debug angle
         pidangle = angle * kp
         
