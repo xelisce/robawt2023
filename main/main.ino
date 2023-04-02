@@ -39,6 +39,7 @@ Motor MotorL(10, 11, 1, 0); //M1
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X lidarsl0x[4];
 VL53L1X lidarsl1x[1];
+Servo servos[6];
 
 //* MOTOR ENCODERS
 void ISRLA() { MotorL.readEncA(); }
@@ -66,6 +67,18 @@ const int l0x_start = LidarsL0X::FRONT, //first lidar
     l0x_stop = LidarsL0X::RIGHT; //last l0x lidar
 const int l1x_start = LidarsL1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = LidarsL1X::FRONT_BOTTOM; //last l1x lidar
+
+//* SERVOS SETUP
+double servos_angle[6] = {180, 0, 135, 0, 0, 0}; //basic states initialised
+const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
+const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
+bool servos_change = false;
+namespace Servos {
+  enum Servos { ARM, LEFT, RIGHT, SORT, ALIVE, DEAD };
+}
+//^ Debugging servos
+const int servos_start = Servos::ARM,
+    servos_stop = Servos::RIGHT;
 
 //* VARIABLES
 
@@ -166,6 +179,12 @@ void setup()
         lidarsl1x[i].startContinuous(20);
     }
 
+    //^ SERVO INITIALISATIONS
+    for (int i = servos_start; i != (servos_stop+1); i++) {
+        servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+        servos[i].attach(servos_pin[i], 500, 2500); // (pin, min, max)
+    }
+
     //^ MOTOR ENCODERS
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
     attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
@@ -179,8 +198,17 @@ void setup()
 void loop() 
 {
 
+    //* COMMUNICATION UPDATES
     //  teensyEvent();
     serialEvent();
+
+    //* SERVO UPDATES
+    if (servos_change) {
+        for (int i = servos_start; i != (servos_stop+1); i++) {
+        servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+        }
+        servos_change = false;
+    }
 
     //* LIDAR READINGS
     #if debug_looptime
@@ -293,11 +321,11 @@ void loop()
                 break;
 
             case 1: //^ left green
-                Robawt.setSteer(rpm, -0.5);
+                Robawt.setSteer(rpm, -0.6);
                 break;
 
             case 2: //^ right green
-                Robawt.setSteer(rpm, 0.5);
+                Robawt.setSteer(rpm, 0.6);
                 break;
             
             case 3: //^ double green
@@ -392,7 +420,9 @@ void loop()
 
 //* ------------------------------------------- USER DEFINED FUNCTIONS -------------------------------------------
 
-void teensyEvent()
+//* COMMUNICATIONS
+
+void teensyEvent() //Teensy to pico
 {
     int pin1State = digitalRead(TNYPIN1);
     int pin2State = digitalRead(TNYPIN2);
@@ -411,7 +441,7 @@ void teensyEvent()
     }
 }
 
-void serialEvent()
+void serialEvent() //Pi to pico
 {
   while (Serial1.available()) 
   {
@@ -443,7 +473,6 @@ void serialEvent()
   }
 }
 
-
 void tcaselect(uint8_t i)  //Multiplexer: TCA9548A
 {
   if (i > 0 && i < 7) {
@@ -451,6 +480,52 @@ void tcaselect(uint8_t i)  //Multiplexer: TCA9548A
     Wire.write(1 << i);
     Wire.endTransmission();
   }
+}
+
+//* CLAW & SERVO FUNCTIONS
+
+int pwmangle(double angle, double max_angle) //Servo PWM
+{
+  return (int)(angle/max_angle * 2000 + 500);
+}
+
+void claw_open() {
+  servos_angle[Servos::RIGHT] = 135; 
+  servos_angle[Servos::LEFT] = 0;
+  servos_change = true;
+}
+
+void claw_close() { //ball
+  servos_angle[Servos::RIGHT] = 30;
+  servos_angle[Servos::LEFT] = 100;
+  servos_change = true;
+}
+
+void claw_close_cube() {
+  servos_angle[Servos::RIGHT] = 25;
+  servos_angle[Servos::LEFT] = 105;
+  servos_change = true;
+}
+
+void claw_up() {
+  servos_angle[Servos::ARM] = 0;
+  servos_change = true;
+}
+
+void claw_service_up() {
+  servos_angle[Servos::ARM] = 140;
+  servos_change = true;
+}
+
+void claw_down() {
+  servos_angle[Servos::ARM] = 180;
+  servos_change = true;
+}
+
+void claw_halfclose() {
+  servos_angle[Servos::RIGHT] = 80;
+  servos_angle[Servos::LEFT] = 50;
+  servos_change = true;
 }
 
 //* ------------------------------------------- DEBUG LOOPS -------------------------------------------

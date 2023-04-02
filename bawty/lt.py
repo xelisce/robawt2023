@@ -34,7 +34,7 @@ u_black = 115
 #~ Real values
 # l_green = np.array([30, 50, 60], np.uint8)
 # u_green = np.array([85, 255, 255], np.uint8)
-#~ My houe's values
+#~ My house's values
 l_green = np.array([70, 50, 50], np.uint8)
 u_green = np.array([100, 255, 255], np.uint8)
 
@@ -44,7 +44,7 @@ l_red2 = np.array([170, 100, 80], np.uint8)
 u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
 #* CONSTANTS CALIBRATION
-gs_roi_h = 310 #the crop height for gs #! increase after tuning 
+gs_roi_h = 310 #the crop height for gs  
 gs_bksampleoffset = 10 #offset sample above green squares
 gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned
@@ -53,6 +53,7 @@ gs_minarea = 4000 #min pixels
 set_rpm = 40
 rpm = 40
 kp = 1
+rotation = 0
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -87,7 +88,6 @@ class Task(enum.Enum):
     RED = 4
     TURN_LEFT = 5
     TURN_RIGHT = 6
-    
 
 curr = Task.EMPTY
 red_now = False
@@ -116,7 +116,7 @@ while True:
     gs_sum = np.sum(mask_gs)/255
     # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
     # cv2.imshow("green square mask", mask_gs) #& debug green square mask
-    # print("Green sum:", gs_sum) #& debug green min pixels
+    print("Green sum:", gs_sum) #& debug green min pixels
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
@@ -126,7 +126,7 @@ while True:
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = mask_red1 + mask_red2
     red_sum = np.sum(mask_red) / 255
-    print(red_sum) #& debug red min area
+    print("Red sum:", red_sum) #& debug red min area
 
     #* RED LINE 
 
@@ -154,12 +154,12 @@ while True:
         #~ Find y position of green
         green_row = np.amax(mask_gs, axis=1)
         g_indices_v = np.where(green_row==255) #v for vertical
-        # gs_top = g_indices_v[0][0] + gs_roi_h
-        gs_bot = g_indices_v[0][-1] + gs_roi_h
+        # gs_top = g_indices_v[0][0]
+        gs_bot = g_indices_v[0][-1]
         # cv2.imshow("Green bounding box", frame_org[gs_top:, gs_left:gs_right]) #& debug green bounds
 
-        #~ Wait for green to reach last 10 pixels
-        if gs_bot > 470:
+        #~ Wait for green to reach last 5 pixels
+        if gs_bot > 475:
 
             #~ Find x positions of green
             green_col = np.amax(mask_gs, axis=0)
@@ -182,7 +182,7 @@ while True:
                 gs_centre = (gs_left + gs_right) / 2
 
                 #~ Find x position of black
-                gs_bkbeside = mask_black[gs_roi_h:, :]
+                gs_bkbeside = mask_black_org[gs_roi_h:, :]
                 blackM = cv2.moments(gs_bkbeside)
                 cx_black = int(blackM["m10"]/blackM["m00"]) if np.sum(gs_bkbeside) else 0 #theoretically divide by zero error should never happen
                 # cv2.imshow("Black beside green squares", gs_bkbeside) #& debug green type triggered
@@ -190,7 +190,7 @@ while True:
                 # print("Green x-centre:", gs_centre)
 
                 #~ Identify type of green square
-                if cx_black > gs_left and cx_black < gs_right and gs_sum > 2 * gs_minarea:
+                if cx_black > gs_left and cx_black < gs_right and gs_sum > 35000:
                     curr = Task.DOUBLE_GREEN
                     gs_now = True
                 elif cx_black > gs_centre:
