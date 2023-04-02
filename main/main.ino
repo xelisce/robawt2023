@@ -16,8 +16,10 @@
 //^ Runs without normal code
 #define loop_movetime 0
 #define loop_movedistance 0
-#define loop_pickball 1
+#define loop_pickball 0
 #define loop_pickcube 0
+#define loop_depositalive 1
+#define loop_depositdead 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -71,16 +73,16 @@ const int l1x_start = LidarsL1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = LidarsL1X::FRONT_BOTTOM; //last l1x lidar
 
 //* SERVOS SETUP
-double servos_angle[6] = {180, 0, 135, 0, 0, 0}; //basic states initialised
-const double servos_max_angle[6] = {180, 300, 300, 300, 300, 300};
-const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
+double servos_angle[6] = {180, 0, 135, 90, 140, 0}; //basic states initialised
+const double servos_max_angle[6] = {180, 300, 300, 300, 180, 180};
+const int servos_pin[6] = {27, 26, 22, 2, 21, 20};
 bool servos_change = false;
 namespace Servos {
   enum Servos { ARM, LEFT, RIGHT, SORT, ALIVE, DEAD };
 }
 //^ Debugging servos
-const int servos_start = Servos::ARM,
-    servos_stop = Servos::RIGHT;
+const int servos_start = Servos::ARM, //first servo
+    servos_stop = Servos::ALIVE; //last servo
 
 //* VARIABLES
 
@@ -125,7 +127,8 @@ int serialState = 0,
 //^ Evac
 bool in_evac = false;
 long pickupStateTimer;
-int pickupState = 0;
+int pickupState = 0,
+    depositState = 0;
 
 //* ------------------------------------------- START SETUP -------------------------------------------
 
@@ -198,7 +201,7 @@ void setup()
 
 //* ------------------------------------------- START LOOP -------------------------------------------
 
-#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube
+#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube && !loop_depositalive && !loop_depositdead
 void loop() 
 {
 
@@ -536,6 +539,42 @@ void claw_halfclose() {
   servos_change = true;
 }
 
+void alive_up() {
+    servos_angle[Servos::ALIVE] = 40;
+    servos_change = true;
+}
+
+void alive_down() {
+    servos_angle[Servos::ALIVE] = 140;
+    servos_change = true;
+}
+
+void dead_up() { //! dead values untuned
+    servos_angle[Servos::DEAD] = 40;
+    servos_change = true;
+}
+
+void dead_down() {
+    servos_angle[Servos::DEAD] = 140;
+    servos_change = true;
+}
+
+void sort_alive() {
+    servos_angle[Servos::SORT] = 130;
+    servos_change = true;
+}
+
+void sort_neutral() {
+    servos_angle[Servos::SORT] = 90;
+    servos_change = true;
+}
+
+void sort_dead() {
+    servos_angle[Servos::SORT] = 50;
+    servos_change = true;
+}
+
+
 //* EVAC FUNCTIONS
 
 bool ball_present() {
@@ -636,7 +675,7 @@ void loop()
                 claw_close_cube();
                 #endif
                 #if loop_pickball
-                claw_down();
+                // claw_down();
                 claw_close();
                 #endif
                 if (millis() - pickupStateTimer > 1000) {
@@ -645,7 +684,7 @@ void loop()
                 break;
 
             case 2:
-                claw_close();
+                // claw_close();
                 claw_up();
                 if (millis() - pickupStateTimer > 1000) {
                     pickupStateTimer = millis();
@@ -654,7 +693,7 @@ void loop()
 
             case 3: 
                 claw_open();
-                claw_up();
+                // claw_up();
                 if (millis() - pickupStateTimer > 1000) {
                     pickupStateTimer = millis();
                     pickupState ++; }
@@ -662,7 +701,7 @@ void loop()
 
             case 4:
                 claw_down();
-                claw_open();
+                // claw_open();
                 if (millis() - pickupStateTimer > 1000) {
                     pickupStateTimer = millis();
                     pickupState = 0; }
@@ -671,7 +710,40 @@ void loop()
 
         Serial.println(pickupState);
     } else {
+        sort_alive();
         claw_open();
+        claw_down();
+    }
+}
+#endif
+
+#if loop_depositalive || loop_depositdead
+void loop()
+{
+    if (servos_change) {
+        for (int i = servos_start; i != (servos_stop+1); i++) {
+        servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
+        }
+        servos_change = false;
+    }
+
+    if (!digitalRead(SWTPIN)) {
+        #if loop_depositalive
+        alive_up();
+        #endif
+        #if loop_depositdead
+        dead_up();
+        #endif
+        sort_neutral();
+    } else {
+        #if loop_depositalive
+        alive_down();
+        sort_alive();
+        #endif
+        #if loop_depositdead
+        dead_down();
+        sort_dead();
+        #endif
     }
 }
 #endif
