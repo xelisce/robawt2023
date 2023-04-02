@@ -847,7 +847,7 @@ void l0xinit(TwoWire *bus, VL53L0X *sensor, uint8_t i) //Lidar: VL53L0X
     Serial.print(i); 
     Serial.println("L0X failed to initialise");}
   sensor->startContinuous(33);
-  sensor->setBus(bus);
+  // sensor->setBus(bus);
 }
 
 void l1xinit(VL53L1X *sensor, uint8_t i) //Lidar: VL53L1X
