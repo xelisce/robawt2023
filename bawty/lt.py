@@ -206,20 +206,26 @@ while True:
 
     if not gs_now and not red_now:
 
+        #~ Obstacle see line
+        obstacle_line_mask = mask_black_org.copy()
+        obstacle_line_mask[:height-60, :] = 0
+        obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+        see_line = 1 if obstacle_line_pixels > 25000 else 0
+        # print("See line pixels:", obstacle_line_pixels)
+        # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+        #~ Image processing erode-dilate
         curr = Task.EMPTY
-        # mask_gap = mask_black[crop_h_bw_gap:, :]
         mask_uncropped_black = mask_black_org.copy()
         mask_black = mask_black_org.copy()
         mask_black[:horizon_crop_h, :] = 0
 
         black_kernel = np.ones((5, 5), np.uint8)
-        # cv2.imshow("black lt mask", mask_gap)
         mask_black = cv2.erode(mask_black, black_kernel)
         mask_black = cv2.dilate(mask_black, black_kernel)
         # cv2.imshow("black mask", mask_black)
 
         black_kernel = np.ones((5, 5), np.uint8)
-        # cv2.imshow("black lt mask", mask_gap)
         mask_uncropped_black = cv2.erode(mask_uncropped_black, black_kernel)
         mask_uncropped_black = cv2.dilate(mask_uncropped_black, black_kernel)
         # cv2.imshow("black uncropped mask", mask_uncropped_black)
@@ -307,16 +313,15 @@ while True:
 
         # print("rpm:", rpm)
         # # print("rotation:", rotation)
+
+    #* SEND DATA
+
     print("value:", curr)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
-                253, curr.value] # 0 to 200
-                # 253, curr] # 0 to 3 currently
-
-    # print(curr)
-        
-    #* SEND DATA
+                253, curr.value,
+                252, see_line]
 
     # print(to_pico)
     

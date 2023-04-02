@@ -13,12 +13,13 @@
 #define debug_looptime 0
 #define debug_lidars 1
 #define debug_curr 1
+#define debug_distance 1
 //^ Runs without normal code
 #define loop_movetime 0
 #define loop_movedistance 0
 #define loop_pickball 0
 #define loop_pickcube 0
-#define loop_depositalive 1
+#define loop_depositalive 0
 #define loop_depositdead 0
 
 //* ADDRESSES
@@ -123,6 +124,18 @@ int serialState = 0,
     task = 0, 
     prev_task = 0,
     curr = 0;
+
+//^ Obstacle
+int turn_dir,
+    obstState;
+int* sideObstDist;
+double obstDist,
+    obstDistL,
+    obstDistR,
+    obstDistTravelled;
+float o_rotation = 0.5; //obstacle fixed rotation
+long obst_time_start;
+bool see_line = false;
 
 //^ Evac
 bool in_evac = false;
@@ -271,28 +284,30 @@ void loop()
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else if (curr != 100) {
-                    //~ if not on red line
-                    curr = 0; 
-                }
+                } else if (curr < 25 && curr > 28 && curr != 100) {
+                    //~ if not in obstacle or on red line
+                    curr = 0; }
                 break;
 
             case 1: //^ left green
                 if (in_evac) { break; }
-                if (curr == 3) { break; }
+                if (curr == 3) { break; } //~ double green
+                if (curr > 24 && curr < 29) { break; } //~obstacle cases
                 if (curr == 0) { startGSMillis = millis(); }
                 curr = 1;
                 break;
 
             case 2: //^ right green
                 if (in_evac) { break; }
-                if (curr == 3) { break; }
+                if (curr == 3) { break; } //~ double green
+                if (curr > 24 && curr < 29) { break; } //~obstacle cases
                 if (curr == 0) { startGSMillis = millis(); }
                 curr = 2;
                 break;
  
             case 3: //^ double green
                 if (in_evac) { break; }
+                if (curr > 24 && curr < 29) { break; } //~obstacle cases
                 if (curr == 0) { 
                     startGSDistL = MotorL.getDist();
                     startGSDistR = MotorR.getDist(); }
@@ -305,14 +320,14 @@ void loop()
                 curr = 4;
                 break;
 
-            case 5: //^ left 90
+            case 5: //^ left 90 (not in use currently)
                 if (in_evac) { break; }
                 if (curr == 0) { start90Millis = millis(); }
                 if (curr == 6) { break; }
                 curr = 5;
                 break;  
 
-            case 6: //^ right 90
+            case 6: //^ right 90 (not in use currently)
                 if (in_evac) { break; }
                 if (curr == 0) { start90Millis = millis(); }
                 if (curr == 5) { break; }
@@ -323,8 +338,17 @@ void loop()
         //* CURRENT ACTION HANDLED
         switch (curr)
         {
+
+            //* LINETRACK CASES
+
             case 0: //^ empty linetrack
                 Robawt.setSteer(rpm, rotation);
+                //~ Trigger obstacle
+                if (lidarl0x_readings[LidarsL0X::FRONT] < 40) {
+                    curr = 25;
+                    turn_dir = lidarl0x_readings[LidarsL0X::LEFT] > lidarl0x_readings[LidarsL0X::RIGHT] ? -1 : 1;
+                    obstDist = MotorL.getDist();
+                }
                 break;
 
             case 1: //^ left green
@@ -346,14 +370,14 @@ void loop()
                 Robawt.setSteer(30, 0);
                 break;
 
-            case 5: //^ turn left 90
+            case 5: //^ turn left 90 (not in use currently)
                 Robawt.setSteer(rpm, -1);
                 #if debug_led
                 led_on = true;
                 #endif
                 break;
 
-            case 6: //^ turn right 90
+            case 6: //^ turn right 90 (not in use currently)
                 Robawt.setSteer(rpm, 1);
                 #if debug_led
                 led_on = true;
@@ -367,6 +391,83 @@ void loop()
             case 22: //^ post right green
                 Robawt.setSteer(rpm, 0.6);
                 break;
+
+            //* OBSTACLE LOGIC (25 - 28)
+
+            case 25: //^ reversing after detecting obstacle
+                Robawt.setSteer(-40, 0);
+                if (MotorL.getDist() - obstDist < -12) {
+                    obstDistL = MotorL.getDist();
+                    obstDistR = MotorR.getDist();
+                    sideObstDist = turn_dir == 1 ? &lidarl0x_readings[LidarsL0X::LEFT] : &lidarl0x_readings[LidarsL0X::RIGHT];
+                    curr = 26;
+                }
+                break;
+
+            case 26: //^ turning 90 degrees
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist > 300) { obstState ++; }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist < 300) { obstState ++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(rpm, 0);
+                        obstState = 0;
+                        curr = 27;
+                        obst_time_start = millis();
+                        break;
+                }
+                Serial.print("Turn dir: ");
+                Serial.print(turn_dir);
+                Serial.print(" || Lidar reading: ");
+                Serial.println(*sideObstDist);
+                break;
+
+            case 27: //^ going around obstacle
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer (25, 0);
+                        if (*sideObstDist < 200) { obstState++; }
+                        break;
+                        
+                    case 1:
+                        Robawt.setSteer (25, 0);
+                        if (*sideObstDist > 200) { obstState++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer (25, -o_rotation*turn_dir);
+                        if (*sideObstDist < 200) { obstState++; }
+                        break;
+
+                    case 3:
+                        Robawt.setSteer (25, -o_rotation*turn_dir);
+                        if (*sideObstDist > 200) { obstState = 0; }
+                        break;
+                }
+                Serial.print("Obstacle state: ");
+                Serial.println(obstState);
+                //~ Minimum obstacle turn time
+                if (see_line && (millis() - obst_time_start) > 6000){
+                    curr = 28;
+                    obst_time_start = millis();
+                    obstState = 0; }
+                break;
+
+            case 28: //^ turning back to line after obstacle
+                Robawt.setSteer(30, -turn_dir*0.5);
+                curr = 0;
+                break;
+
+            //* EVAC CASES
 
             case 100: //^ red --> stop
                 Robawt.setSteer(0, 0);
@@ -382,6 +483,9 @@ void loop()
         Robawt.setSteer(0, 0);
         Robawt.reset();
         curr = 0;
+
+        claw_down();
+        claw_open();
     }
 
     //* DEBUG PRINTS
@@ -418,6 +522,14 @@ void loop()
     Serial.println();
     #endif
 
+    #if debug_distance
+    Serial.print("Motor L: ");
+    Serial.print(MotorL.getDist());
+    Serial.print(" || Motor R: ");
+    Serial.print(MotorR.getDist());
+    Serial.println();
+    #endif
+
     #if debug_curr
     Serial.print("Curr: ");
     Serial.println(curr);
@@ -449,35 +561,38 @@ void teensyEvent() //Teensy to pico binary
 }
 
 void serialEvent() //Pi to pico serial
-{
-  while (Serial1.available()) 
-  {
-    int serialData = Serial1.read();
-    if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {
-      serialState = (int)serialData;
-      #if debug_serial
-      Serial.print("Serial State: ");
-      Serial.println(serialState);
-      #endif
-    } else {
-      switch (serialState) 
-      {
-        case 255:
-          rotation = ((double)(serialData)-90)/90;
-          break;
-        case 254:
-          rpm = (double)serialData;
-          break;
-        case 253:
-          task = (int)serialData;
-          break;
-      }
-      #if debug_serial
-      Serial.print("Data: ");
-      Serial.println(serialData);
-      #endif
+    {
+    while (Serial1.available()) 
+    {
+        int serialData = Serial1.read();
+        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {
+            serialState = (int)serialData;
+            #if debug_serial
+            Serial.print("Serial State: ");
+            Serial.println(serialState);
+            #endif
+        } else {
+            switch (serialState) 
+            {
+                case 255:
+                    rotation = ((double)(serialData)-90)/90;
+                    break;
+                case 254:
+                    rpm = (double)serialData;
+                    break;
+                case 253:
+                    task = (int)serialData;
+                    break;
+                case 252:
+                    see_line = (bool)serialData;
+                    break;
+            }
+            #if debug_serial
+            Serial.print("Data: ");
+            Serial.println(serialData);
+            #endif
+        }
     }
-  }
 }
 
 void send_pi(int i) { //Pico to pi serial
