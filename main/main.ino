@@ -1,3 +1,4 @@
+//* -------------------------------- PREPROCESSER DIRECTIVES --------------------------------
 #include <Arduino.h>
 #include <Wire.h>
 #include "VL53L1X.h"
@@ -15,6 +16,19 @@
 //* ADDRESSES
 #define TCAADDR 0x70
 
+//* CONSTANT PINS
+#define TNYPIN1 9
+#define TNYPIN2 8
+#define TX0PIN 16
+#define RX0PIN 17
+#define SDAPIN 4
+#define SCLPIN 5
+#define SWTPIN 28
+#define LEDPIN 3
+#define ONBOARDLEDPIN 25
+
+//* -------------------------------- START CODE --------------------------------
+
 //* OBJECT INITIALISATIONS
 Motor MotorR(13, 12, 19, 18); //M2 swapped
 Motor MotorL(10, 11, 1, 0); //M1
@@ -28,22 +42,10 @@ void ISRLB() { MotorL.readEncB(); }
 void ISRRA() { MotorR.readEncA(); }
 void ISRRB() { MotorR.readEncB(); }
 
-//* CONSTANT PINS
-//^ Pico pins
-const int TNYPIN1 = 9,
-    TNYPIN2 = 8,
-    TX0PIN = 16,
-    RX0PIN = 17,
-    SDAPIN = 4,
-    SCLPIN = 5,
-    SWTPIN = 28,
-    LEDPIN = 3,
-    ONBOARDLEDPIN = 25;
-
 //* LIDARS SETUP
 //^ VL53L0X
 int lidarl0x_readings[4] = {0, 0, 0, 0};
-const int lidarl0x_pins[4] = {4, 3, 1, 7};
+const int lidarl0x_pins[4] = {4, 3, 1, 5};
 String lidarl0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
 namespace LidarsL0X {
     enum LidarsL0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
@@ -88,7 +90,7 @@ int serialState = 0,
 //^ Evac
 bool in_evac = false;
 
-//* ---------------- SETUP ----------------
+//* -------------------------------- START SETUP --------------------------------
 
 void setup() 
 {
@@ -152,6 +154,8 @@ void setup()
     attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
     attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
 }
+
+//* -------------------------------- START LOOP --------------------------------
 
 void loop() {
 
@@ -279,7 +283,7 @@ void loop() {
     #endif
 }
 
-//* ---------------- SECOND CORE ----------------
+//* -------------------------------- SECOND CORE --------------------------------
 /*
 void setup1() 
 {
@@ -321,7 +325,7 @@ void loop1()
   }
 }
 */
-//* ---------------- FUNCTIONS ----------------
+//* -------------------------------- USER DEFINED FUNCTIONS --------------------------------
 
 void teensyEvent()
 {
