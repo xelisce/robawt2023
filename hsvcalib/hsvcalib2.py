@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 
-raw = cv2.imread('images/hsvcalibimage2.jpg')
+raw = cv2.imread('bluecubeimages\\hsvcalibimage1.jpg')
 frame_hsv = cv2.cvtColor(raw, cv2.COLOR_BGR2HSV)
 
 cv2.namedWindow("raw frame", cv2.WINDOW_NORMAL)
@@ -17,7 +17,8 @@ l_red2 = np.array([170, 0, 0], np.uint8)
 u_red2 = np.array([180, 0, 0], np.uint8) 
 
 def callback(x):
-    global l_hsv, u_hsv
+    # global l_hsv, u_hsv
+
     #Mask 1
     l_red1[0] = cv2.getTrackbarPos('L1 HUE', 'controls')
     l_red1[1] = cv2.getTrackbarPos('L1 SAT', 'controls')

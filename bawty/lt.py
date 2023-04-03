@@ -35,8 +35,15 @@ u_black = 115
 # l_green = np.array([30, 50, 60], np.uint8)
 # u_green = np.array([85, 255, 255], np.uint8)
 #~ My house's values
-l_green = np.array([70, 50, 50], np.uint8)
-u_green = np.array([100, 255, 255], np.uint8)
+l_green = np.array([70, 90, 80], np.uint8)
+u_green = np.array([96, 255, 255], np.uint8)
+
+#~ Real values
+l_blue = np.array([96, 170, 80], np.uint8)
+u_blue = np.array([106, 245, 191], np.uint8)
+#~ My house's values
+l_blue = np.array([96, 170, 80], np.uint8)
+u_blue = np.array([109, 245, 191], np.uint8)
 
 l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
@@ -50,10 +57,11 @@ gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned
 gs_minarea = 4000 #min pixels
 
-set_rpm = 40
+b_minarea = 6000
+
+rpm_setpt = 40
 rpm = 40
 kp = 1
-rotation = 0
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
@@ -88,11 +96,16 @@ class Task(enum.Enum):
     RED = 4
     TURN_LEFT = 5
     TURN_RIGHT = 6
+    TURN_BLUE = 7
+    BLUE = 8
 
 curr = Task.EMPTY
+rotation = 0
+see_line = 0
+
 red_now = False
 gs_now = False
-lt_gap = True
+blue_now = False
 
 #* BEGIN OF LINETRACK LOOP CODE
 
@@ -128,6 +141,10 @@ while True:
     red_sum = np.sum(mask_red) / 255
     print("Red sum:", red_sum) #& debug red min area
 
+    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
+    blue_sum = np.sum(mask_blue) / 255
+    print("Blue sum:", blue_sum) #& debug blue min area
+
     #* RED LINE 
 
     if red_sum > 60000:
@@ -137,7 +154,7 @@ while True:
         rotation = 0
     elif red_now == True:
         red_now = False
-        rpm = set_rpm
+        rpm = rpm_setpt
         rotation = 0
 
     #* JUST FOUND GREEN SQUARE PREVIOUSLY
@@ -201,10 +218,45 @@ while True:
                     gs_now = True
                 else:
                     print("ERROR: Green found but type indetermined")
+    
+    #* RESCUE KIT
+
+    #~ Rescue kit spotted:
+    if blue_sum >= b_minarea:
+        # print("Blue sum: ", blue_sum) #& debug blue sum
+        blue_now = True
+        if (curr.name != "BLUE"):
+            curr = Task.TURN_BLUE
+
+        #~ Find x and y positions of rescue kit
+        blueM = cv2.moments(mask_blue)
+        # cv2.imshow("blue mask", mask_blue) #& debug blue mask
+        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        finalx = cx_blue - centre_x
+        #finaly = frame_org.shape[0]/2 - cy_blue
+
+        #~ If the block isn't centred
+        if abs(finalx) >= 60: #^ DOM: not refined yet; consider doing abs(...) >= 100
+            if cx_blue < centre_x: #if rescue kit is to the left of the frame's middle
+                rotation = -45 # fixed rotation of the bot
+                rpm = 20
+            elif cx_blue > centre_x: #to the right
+                rotation = 45
+                rpm = 20
+
+        #~ Else if the block is (relatively) centred:
+        else:
+            curr = Task.BLUE
+
+    #~ No longer sees the rescue kit
+    elif blue_now and blue_sum < 2000: 
+        blue_now = False
+        rpm = rpm_setpt
 
     #* LINETRACK
 
-    if not gs_now and not red_now:
+    if not gs_now and not red_now and not blue_now:
 
         #~ Obstacle see line
         obstacle_line_mask = mask_black_org.copy()
@@ -252,12 +304,14 @@ while True:
         black_diff_x = black_end_x-black_start_x
         # print("x amount:", black_diff_x) #& debug width of line
 
+        #~ If line gap (line ending and line width small)
         if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_diff_x < 360:
                 print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LINE GAP<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
                 mask_black = cv2.bitwise_and(mask_gap, mask_black_org.copy())
-                # curr = Task.RED
                 mask_black[:horizon_crop_h, :] = 0 #get out horizon
                 powered_y = 1
+
+            #~ 90 degrees (NOT WORKING)
             # elif black_diff_x > 360:
             #     if centre_x-black_start_x > black_end_x-centre_x:
             #         curr = Task.TURN_LEFT
@@ -265,6 +319,8 @@ while True:
             #     else:
             #         curr = Task.TURN_RIGHT
             #         print("RIGHT RIGHT RIGHT||||||||||||||||||||||")
+       
+        #~ Line continuation
         else:
             mask_black[:white_start_y, :] = 0
             curr = Task.EMPTY
@@ -275,12 +331,7 @@ while True:
             # print("power:", powered_y) #& debug y power
             powered_y = min(2.7, powered_y)
 
-        # if curr_height > 5:
-        #     x_black_com = x_com[white_start_y:black_start_y, :]
-        #     y_black_com = y_com[white_start_y:black_start_y, :]
-        #     mask_black = mask_black[white_start_y:black_start_y, :]
-
-        # cv2.imshow("black", mask_black)
+        # cv2.imshow("black", mask_black) #& debug black mask
         # cv2.imshow("black org", mask_black_org)
 
         #~ Vectorizing the black components
@@ -288,7 +339,6 @@ while True:
         x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
         # cv2.imshow("yframe", y_black)
         # cv2.imshow("xframe", x_black)
-            
 
         y_resultant = np.mean(y_black) ** powered_y
         x_resultant = np.mean(x_black)
@@ -297,18 +347,18 @@ while True:
         #~ Formatting data for transfer
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
         # print(angle) #& debug angle
-        pidangle = angle * kp
+        rotation = angle * kp
         
         # else:
         #     angle = 0
 
-        print("rotation:", pidangle)
+    print("rotation:", rotation)
 
-        if pidangle > 90:
-            pidangle = 90
-        elif pidangle < -90:
-            pidangle = -90
-        rotation = int(pidangle) + 90
+    if rotation > 90:
+        rotation = 90
+    elif rotation < -90:
+        rotation = -90
+    rotation = int(rotation) + 90
         # print(rotation)
 
         # print("rpm:", rpm)
@@ -323,7 +373,7 @@ while True:
                 253, curr.value,
                 252, see_line]
 
-    # print(to_pico)
+    print(to_pico)
     
     ser.write(to_pico)
 

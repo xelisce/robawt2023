@@ -125,6 +125,10 @@ int serialState = 0,
     prev_task = 0,
     curr = 0;
 
+//^ Claw stuffz
+int afterPickupState,
+    pickType;
+
 //^ Obstacle
 int turn_dir,
     obstState;
@@ -132,10 +136,22 @@ int* sideObstDist;
 double obstDist,
     obstDistL,
     obstDistR,
-    obstDistTravelled;
+    obstDistTravelled,
+    obstStartTurnBackDist,
+    obstCurrDist;
 float o_rotation = 0.5; //obstacle fixed rotation
 long obst_time_start;
 bool see_line = false;
+
+//^ Blue cube
+double prev_kit_rotation,
+    kitStartDist,
+    kitBeforeStraightDist,
+    kitDistToReverse = 0,
+    kitStartReverseDist,
+    kitStartTurnBackDist,
+    kitTurnBackDist,
+    kit_dist_to_travel;
 
 //^ Evac
 bool in_evac = false;
@@ -284,15 +300,15 @@ void loop()
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else if (curr < 25 && curr > 28 && curr != 100) {
-                    //~ if not in obstacle or on red line
+                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50) {
+                    //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff
                     curr = 0; }
                 break;
 
             case 1: //^ left green
                 if (in_evac) { break; }
                 if (curr == 3) { break; } //~ double green
-                if (curr > 24 && curr < 29) { break; } //~obstacle cases
+                if (curr > 29 && curr < 34) { break; } //~obstacle cases
                 if (curr == 0) { startGSMillis = millis(); }
                 curr = 1;
                 break;
@@ -300,14 +316,14 @@ void loop()
             case 2: //^ right green
                 if (in_evac) { break; }
                 if (curr == 3) { break; } //~ double green
-                if (curr > 24 && curr < 29) { break; } //~obstacle cases
+                if (curr > 29 && curr < 34) { break; } //~obstacle cases
                 if (curr == 0) { startGSMillis = millis(); }
                 curr = 2;
                 break;
  
             case 3: //^ double green
                 if (in_evac) { break; }
-                if (curr > 24 && curr < 29) { break; } //~obstacle cases
+                if (curr > 29 && curr < 34) { break; } //~obstacle cases
                 if (curr == 0) { 
                     startGSDistL = MotorL.getDist();
                     startGSDistR = MotorR.getDist(); }
@@ -333,6 +349,19 @@ void loop()
                 if (curr == 5) { break; }
                 curr = 6;
                 break;  
+
+            case 7: //^ turning to blue
+                // if (in_evac) { break; }
+                if (curr == 0) { 
+                    prev_kit_rotation = rotation; 
+                    kitStartDist = rotation > 0 ? MotorL.getDist() : MotorR.getDist(); }
+                curr = 7;
+                break;
+
+            case 8: //^ blue centred
+                // if (in_evac) { break; }
+                curr = 8;
+                break;
         }   
 
         //* CURRENT ACTION HANDLED
@@ -342,10 +371,13 @@ void loop()
             //* LINETRACK CASES
 
             case 0: //^ empty linetrack
+                #if debug_led
+                led_on = false;
+                #endif
                 Robawt.setSteer(rpm, rotation);
                 //~ Trigger obstacle
                 if (lidarl0x_readings[LidarsL0X::FRONT] < 40) {
-                    curr = 25;
+                    curr = 30;
                     turn_dir = lidarl0x_readings[LidarsL0X::LEFT] > lidarl0x_readings[LidarsL0X::RIGHT] ? -1 : 1;
                     obstDist = MotorL.getDist();
                 }
@@ -384,6 +416,33 @@ void loop()
                 #endif
                 break;
 
+            case 7: //^ turning to blue cube
+                Robawt.setSteer(rpm, rotation);
+                claw_down();
+                claw_halfclose();
+                kitBeforeStraightDist = prev_kit_rotation > 0 ? MotorL.getDist() : MotorR.getDist();
+                afterPickupState = 23; //go to post cube if cube is ever picked up
+                if (ball_present()) { 
+                    afterPickupState = 23; //go to post cube if cube is ever picked up
+                    pickupState = 0;
+                    pickType = 0;
+                    curr = 50; } //pick up le cube
+                break;
+
+            case 8: //^ blue centred
+                Robawt.setSteer(rpm, 0);
+                // afterPickupState = 23; //go to post cube if cube is ever picked up
+                if (ball_present()) { 
+                    afterPickupState = 23;
+                    pickupState = 0;
+                    pickType = 0;
+                    Robawt.setSteer(0, 0);
+                    Robawt.resetPID();
+                    curr = 50; } //pick up le cube
+                break;
+
+            //* POST CASES
+
             case 21: //^ post left green
                 Robawt.setSteer(rpm, -0.6);
                 break;
@@ -392,19 +451,46 @@ void loop()
                 Robawt.setSteer(rpm, 0.6);
                 break;
 
-            //* OBSTACLE LOGIC (25 - 28)
-
-            case 25: //^ reversing after detecting obstacle
-                Robawt.setSteer(-40, 0);
-                if (MotorL.getDist() - obstDist < -12) {
-                    obstDistL = MotorL.getDist();
-                    obstDistR = MotorR.getDist();
-                    sideObstDist = turn_dir == 1 ? &lidarl0x_readings[LidarsL0X::LEFT] : &lidarl0x_readings[LidarsL0X::RIGHT];
-                    curr = 26;
-                }
+            case 23: //^ post cube initialisation
+                #if debug_led
+                led_on = true;
+                #endif
+                kitStartReverseDist = MotorL.getDist();
+                kitDistToReverse = MotorL.getDist() - kitBeforeStraightDist;
+                curr = 24;
                 break;
 
-            case 26: //^ turning 90 degrees
+            case 24: //^ post cube reversing
+                #if debug_led
+                led_on = true;
+                #endif
+                Robawt.setSteer(-rpm, 0);
+                if (fabs(MotorL.getDist() - kitStartReverseDist) > kitDistToReverse) { 
+                    kit_dist_to_travel = kitBeforeStraightDist - kitStartDist;
+                    kitStartTurnBackDist = prev_kit_rotation > 0 ? MotorL.getDist() : MotorR.getDist();
+                    curr = 25; }
+                break;
+
+            case 25: //^ post cube turning
+                #if debug_led
+                led_on = true;
+                #endif
+                Robawt.setSteer(-rpm, prev_kit_rotation);
+                kitTurnBackDist = prev_kit_rotation > 0 ? abs(MotorL.getDist()-kitStartTurnBackDist) : abs(MotorL.getDist()-kitStartTurnBackDist);
+                if (kitTurnBackDist > kit_dist_to_travel) { curr = 0; }
+                break;
+
+            //* OBSTACLE LOGIC (30 - 33)
+
+            case 30: //^ reversing after detecting obstacle
+                Robawt.setSteer(-40, 0);
+                Serial.println(MotorL.getDist() - obstDist);
+                if (MotorL.getDist() - obstDist < -12) {
+                    sideObstDist = turn_dir == 1 ? &lidarl0x_readings[LidarsL0X::LEFT] : &lidarl0x_readings[LidarsL0X::RIGHT];
+                    curr = 31; }
+                break;
+
+            case 31: //^ turning 90 degrees
                 switch (obstState)
                 {
                     case 0:
@@ -420,7 +506,7 @@ void loop()
                     case 2:
                         Robawt.setSteer(rpm, 0);
                         obstState = 0;
-                        curr = 27;
+                        curr = 32;
                         obst_time_start = millis();
                         break;
                 }
@@ -430,7 +516,7 @@ void loop()
                 Serial.println(*sideObstDist);
                 break;
 
-            case 27: //^ going around obstacle
+            case 32: //^ going around obstacle
                 switch (obstState)
                 {
                     case 0:
@@ -457,17 +543,63 @@ void loop()
                 Serial.println(obstState);
                 //~ Minimum obstacle turn time
                 if (see_line && (millis() - obst_time_start) > 6000){
-                    curr = 28;
+                    curr = 33;
                     obst_time_start = millis();
-                    obstState = 0; }
+                    obstState = 0; 
+                    obstStartTurnBackDist = turn_dir > 0 ? MotorL.getDist() : MotorR.getDist(); }
                 break;
 
-            case 28: //^ turning back to line after obstacle
-                Robawt.setSteer(30, -turn_dir*0.5);
-                curr = 0;
+            case 33: //^ turning back to line after obstacle
+                Robawt.setSteer(30, turn_dir*0.5);
+                obstCurrDist = turn_dir > 0 ? MotorL.getDist() : MotorR.getDist();
+                if (obstCurrDist - obstStartTurnBackDist > 20) { curr = 0; }
                 break;
 
             //* EVAC CASES
+
+            case 50: //^ pickup
+                switch (pickupState)
+                {
+                    case 0:
+                        pickupStateTimer = millis();
+                        pickupState ++;
+                        break;
+
+                    case 1:
+                        if (pickType == 0) { claw_close_cube(); }
+                        else { claw_close(); }
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++; }
+                        break;
+
+                    case 2:
+                        claw_up();
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++; 
+                            Robawt.setSteer(0, 0);
+                            Robawt.resetPID(); }
+                        break;
+
+                    case 3: 
+                        claw_open();
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++; }
+                        break;
+
+                    case 4:
+                        claw_down();
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState = 0; 
+                            curr = afterPickupState; }
+                        break;
+                }
+                Serial.print("Pickup state: ");
+                Serial.println(pickupState);
+                break;
 
             case 100: //^ red --> stop
                 Robawt.setSteer(0, 0);
