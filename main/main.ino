@@ -273,6 +273,11 @@ void loop()
     {
 
         //* TASK FROM PI
+
+        if (curr == 50){ //^ DOM: this is an incredibly dumb guard clause but oh wells (can add other cases here too)
+            curr = curr;
+        }
+        else {
         switch (task) 
         {
             case 0: //^ empty linetrack
@@ -363,6 +368,7 @@ void loop()
                 curr = 8;
                 break;
         }   
+        }
 
         //* CURRENT ACTION HANDLED
         switch (curr)
