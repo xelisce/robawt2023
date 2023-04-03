@@ -30,8 +30,7 @@ class Motor
             getEncVal();
         void resetPID(),
             resetEnc();
-            // resetDist(); 
-        //TODO distance and reset enc vals
+            // resetDist();
 
     private:
         int _pwmPin1, _pwmPin2,

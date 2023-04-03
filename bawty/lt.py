@@ -72,14 +72,15 @@ kp = 1
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width for i in np.linspace(1., 0, height)])
+#^ Glenda's method:
+#~ Powering x component with respect to y
 # x_com_scale = ((1-y_com) ** 0.3)
 # x_com *= x_com_scale
-
+#^ Kenneth's method:
 #~ Powering x component
 x_com[:, :int(width/2)] *= -1
 x_com = x_com ** 1
 x_com[:, :int(width/2)] *= -1
-
 #~ Powering y component
 # y_com = y_com ** 2
 
@@ -292,14 +293,14 @@ while True:
 
         #~ Finding the lowest black and white pixels in UNCROPPED black
         black_row = np.amax(mask_uncropped_black, axis=1)
-        black_indices_v = np.where(black_row > 0) #? why not 255
+        black_indices_v = np.where(black_row == 255)
         black_start_y = black_indices_v[0][-1] if len(black_indices_v[0]) else 0
         black_row[black_start_y:] = 255
         white_indices = np.where(black_row == 0)
         white_start_y = white_indices[0][-1] if len(white_indices[0]) else 0
 
         black_line_height = black_start_y-white_start_y
-        print("black:", black_start_y, "white:", white_start_y)
+        print("black: ", black_start_y, "white:", white_start_y)
 
         #~ Finding left and right index of black
         black_col = np.amax(mask_supercrop_black, axis=0)
@@ -326,6 +327,7 @@ while True:
             #     else:
             #         curr = Task.TURN_RIGHT
             #         print("RIGHT RIGHT RIGHT||||||||||||||||||||||")
+
         #~ Line continuation
         else:
             mask_black[:white_start_y, :] = 0
@@ -336,12 +338,17 @@ while True:
             powered_y = powered_y ** 0.5
             powered_y = min(2.7, powered_y)
 
-
         #~ Vectorizing the black components
-        y_com = y_com ** powered_y #^ powering ycom instead of mean for now
+        #^ Method 1: Powering ycom
+        # y_com = y_com ** powered_y
+        # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+        # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
+        # y_resultant = np.mean(y_black)
+        # x_resultant = np.mean(x_black)
+        #^ Method: Powering the mean
         y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
         x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
-        y_resultant = np.mean(y_black) # |** powered_y
+        y_resultant = np.mean(y_black) ** powered_y
         x_resultant = np.mean(x_black)
         #& debug
         # print("power:", powered_y)

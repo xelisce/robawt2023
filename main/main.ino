@@ -359,7 +359,7 @@ void loop()
                 // if (in_evac) { break; }
                 if (curr == 0) { 
                     prev_kit_rotation = rotation; 
-                    kitStartDist = pickMotorDist(prev_kit_rotation)}
+                    kitStartDist = pickMotorDist(prev_kit_rotation); }
                 curr = 7;
                 break;
 
@@ -491,7 +491,7 @@ void loop()
             case 30: //^ reversing after detecting obstacle
                 Robawt.setSteer(-40, 0);
                 Serial.println(MotorL.getDist() - obstDist);
-                if (MotorL.getDist() - obstDist < -12) {
+                if (fabs(MotorL.getDist() - obstDist) > 12) {
                     sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = 31; }
                 break;
@@ -605,6 +605,8 @@ void loop()
                 }
                 Serial.print("Pickup state: ");
                 Serial.println(pickupState);
+                Robawt.setSteer(0, 0);
+                Robawt.resetPID();
                 break;
 
             case 100: //^ red --> stop
@@ -624,6 +626,7 @@ void loop()
 
         claw_down();
         claw_open();
+        sort_alive();
     }
 
     //* DEBUG PRINTS
@@ -838,8 +841,8 @@ bool ball_present() {
 //* MISC FUNCTIONS
 
 double pickMotorDist(double prev_rotation) { 
-    if (prev_rotation > 0) return MotorL.getDist();
-    else return MotorR.getDist()
+    if (prev_rotation > 0) { return MotorL.getDist(); }
+    else { return MotorR.getDist(); }
 }
 
 //* ------------------------------------------- DEBUG LOOPS -------------------------------------------
