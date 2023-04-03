@@ -54,24 +54,24 @@ void ISRRB() { MotorR.readEncB(); }
 
 //* LIDARS SETUP
 //^ VL53L0X
-int lidarl0x_readings[4] = {0, 0, 0, 0};
-const int lidarl0x_pins[4] = {4, 3, 1, 5};
-String lidarl0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
-namespace LidarsL0X {
-    enum LidarsL0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
+int l0x_readings[4] = {0, 0, 0, 0};
+const int l0x_pins[4] = {4, 3, 1, 5};
+String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
+namespace L0X {
+    enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
 }
 //^ VL53L1X
-int lidarl1x_readings[1] = {0};
-const int lidarl1x_pins[1] = {2};
-String lidarl1x_labels[1] = {"FRONT BOTTOM: "};
-namespace LidarsL1X {
-    enum LidarsL1X { FRONT_BOTTOM };
+int l1x_readings[1] = {0};
+const int l1x_pins[1] = {2};
+String l1x_labels[1] = {"FRONT BOTTOM: "};
+namespace L1X {
+    enum L1X { FRONT_BOTTOM };
 }
 //^ Debugging Lidars
-const int l0x_start = LidarsL0X::FRONT, //first lidar
-    l0x_stop = LidarsL0X::RIGHT; //last l0x lidar
-const int l1x_start = LidarsL1X::FRONT_BOTTOM, //first l1x lidar
-    l1x_stop = LidarsL1X::FRONT_BOTTOM; //last l1x lidar
+const int l0x_start = L0X::FRONT, //first lidar
+    l0x_stop = L0X::RIGHT; //last l0x lidar
+const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
+    l1x_stop = L1X::FRONT_BOTTOM; //last l1x lidar
 
 //* SERVOS SETUP
 double servos_angle[6] = {180, 0, 135, 90, 140, 0}; //basic states initialised
@@ -151,7 +151,7 @@ double prev_kit_rotation,
     kitStartReverseDist,
     kitStartTurnBackDist,
     kitTurnBackDist,
-    kit_dist_to_travel;
+    kit_distToTurn;
 
 //^ Evac
 bool in_evac = false;
@@ -189,12 +189,12 @@ void setup()
     //^ LIDAR INITIALISATIONS
     for (int i = l0x_start; i != (l0x_stop+1); i++) 
     {
-        tcaselect(lidarl0x_pins[i]);
+        tcaselect(l0x_pins[i]);
         lidarsl0x[i].setTimeout(500);
         while (!lidarsl0x[i].init()) {
-            Serial.print(lidarl0x_labels[i]);
+            Serial.print(l0x_labels[i]);
             Serial.print("at pin ");
-            Serial.print(lidarl0x_pins[i]);
+            Serial.print(l0x_pins[i]);
             Serial.print(" - ");
             Serial.println("L0X failed to initialise");
         }
@@ -202,12 +202,12 @@ void setup()
     }
     for (int i = l1x_start; i != (l1x_stop+1); i++) 
     {
-        tcaselect(lidarl1x_pins[i]);
+        tcaselect(l1x_pins[i]);
         lidarsl1x[i].setTimeout(500);
         while (!lidarsl1x[i].init()) {
-            Serial.print(lidarl1x_labels[i]);
+            Serial.print(l1x_labels[i]);
             Serial.print("at pin ");
-            Serial.print(lidarl1x_pins[i]);
+            Serial.print(l1x_pins[i]);
             Serial.print(" - ");
             Serial.println("L1X failed to initialise");
         }
@@ -252,23 +252,23 @@ void loop()
     #endif
     for (int i = l0x_start; i != (l0x_stop+1); i++) 
     {
-        tcaselect(lidarl0x_pins[i]);
+        tcaselect(l0x_pins[i]);
         if(lidarsl0x[i].available()) {
-            lidarl0x_readings[i] = lidarsl0x[i].readRangeMillimeters();
+            l0x_readings[i] = lidarsl0x[i].readRangeMillimeters();
         }
     }
     for (int i = l1x_start; i != (l1x_stop+1); i++) 
     {
-        tcaselect(lidarl1x_pins[i]);
+        tcaselect(l1x_pins[i]);
         if(lidarsl1x[i].dataReady()) {
-            lidarl1x_readings[i] = lidarsl1x[i].read(false);
+            l1x_readings[i] = lidarsl1x[i].read(false);
         }
     }
     #if debug_looptime
     afterLidarLoopTimeMicros = micros();
     #endif
 
-    //* SWITCH ON
+    //* SWITCH IS ON
     if (!digitalRead(SWTPIN))
     {
 
@@ -338,15 +338,15 @@ void loop()
 
             case 5: //^ left 90 (not in use currently)
                 if (in_evac) { break; }
-                if (curr == 0) { start90Millis = millis(); }
                 if (curr == 6) { break; }
+                if (curr == 0) { start90Millis = millis(); }
                 curr = 5;
                 break;  
 
             case 6: //^ right 90 (not in use currently)
                 if (in_evac) { break; }
-                if (curr == 0) { start90Millis = millis(); }
                 if (curr == 5) { break; }
+                if (curr == 0) { start90Millis = millis(); }
                 curr = 6;
                 break;  
 
@@ -354,11 +354,11 @@ void loop()
                 // if (in_evac) { break; }
                 if (curr == 0) { 
                     prev_kit_rotation = rotation; 
-                    kitStartDist = rotation > 0 ? MotorL.getDist() : MotorR.getDist(); }
+                    kitStartDist = pickMotorDist(prev_kit_rotation)}
                 curr = 7;
                 break;
 
-            case 8: //^ blue centred
+            case 8: //^ blue centred 
                 // if (in_evac) { break; }
                 curr = 8;
                 break;
@@ -376,9 +376,9 @@ void loop()
                 #endif
                 Robawt.setSteer(rpm, rotation);
                 //~ Trigger obstacle
-                if (lidarl0x_readings[LidarsL0X::FRONT] < 40) {
+                if (l0x_readings[L0X::FRONT] < 40) {
                     curr = 30;
-                    turn_dir = lidarl0x_readings[LidarsL0X::LEFT] > lidarl0x_readings[LidarsL0X::RIGHT] ? -1 : 1;
+                    turn_dir = l0x_readings[L0X::LEFT] > l0x_readings[L0X::RIGHT] ? -1 : 1;
                     obstDist = MotorL.getDist();
                 }
                 break;
@@ -420,8 +420,7 @@ void loop()
                 Robawt.setSteer(rpm, rotation);
                 claw_down();
                 claw_halfclose();
-                kitBeforeStraightDist = prev_kit_rotation > 0 ? MotorL.getDist() : MotorR.getDist();
-                afterPickupState = 23; //go to post cube if cube is ever picked up
+                kitBeforeStraightDist = pickMotorDist(prev_kit_rotation); // chooses between L or R motor encoder vals based on previous rotation
                 if (ball_present()) { 
                     afterPickupState = 23; //go to post cube if cube is ever picked up
                     pickupState = 0;
@@ -431,14 +430,15 @@ void loop()
 
             case 8: //^ blue centred
                 Robawt.setSteer(rpm, 0);
-                // afterPickupState = 23; //go to post cube if cube is ever picked up
+                claw_down();
+                claw_halfclose();
                 if (ball_present()) { 
                     afterPickupState = 23;
                     pickupState = 0;
                     pickType = 0;
                     Robawt.setSteer(0, 0);
                     Robawt.resetPID();
-                    curr = 50; } //pick up le cube
+                    curr = 50; } 
                 break;
 
             //* POST CASES
@@ -451,12 +451,12 @@ void loop()
                 Robawt.setSteer(rpm, 0.6);
                 break;
 
-            case 23: //^ post cube initialisation
+            case 23: //^ post cube - initialisating vars
                 #if debug_led
                 led_on = true;
                 #endif
-                kitStartReverseDist = MotorL.getDist();
-                kitDistToReverse = MotorL.getDist() - kitBeforeStraightDist;
+                kitStartReverseDist = pickMotorDist(prev_kit_rotation);
+                kitDistToReverse = pickMotorDist(prev_kit_rotation) - kitBeforeStraightDist;
                 curr = 24;
                 break;
 
@@ -465,9 +465,9 @@ void loop()
                 led_on = true;
                 #endif
                 Robawt.setSteer(-rpm, 0);
-                if (fabs(MotorL.getDist() - kitStartReverseDist) > kitDistToReverse) { 
-                    kit_dist_to_travel = kitBeforeStraightDist - kitStartDist;
-                    kitStartTurnBackDist = prev_kit_rotation > 0 ? MotorL.getDist() : MotorR.getDist();
+                if (fabs(pickMotorDist(prev_kit_rotation) - kitStartReverseDist) > kitDistToReverse) { 
+                    kit_distToTurn = kitBeforeStraightDist - kitStartDist;
+                    kitStartTurnBackDist = pickMotorDist(prev_kit_rotation);
                     curr = 25; }
                 break;
 
@@ -476,8 +476,8 @@ void loop()
                 led_on = true;
                 #endif
                 Robawt.setSteer(-rpm, prev_kit_rotation);
-                kitTurnBackDist = prev_kit_rotation > 0 ? abs(MotorL.getDist()-kitStartTurnBackDist) : abs(MotorL.getDist()-kitStartTurnBackDist);
-                if (kitTurnBackDist > kit_dist_to_travel) { curr = 0; }
+                kitTurnBackDist =  abs(pickMotorDist(prev_kit_rotation)-kitStartTurnBackDist);
+                if (kitTurnBackDist > kit_distToTurn) { curr = 0; }
                 break;
 
             //* OBSTACLE LOGIC (30 - 33)
@@ -486,7 +486,7 @@ void loop()
                 Robawt.setSteer(-40, 0);
                 Serial.println(MotorL.getDist() - obstDist);
                 if (MotorL.getDist() - obstDist < -12) {
-                    sideObstDist = turn_dir == 1 ? &lidarl0x_readings[LidarsL0X::LEFT] : &lidarl0x_readings[LidarsL0X::RIGHT];
+                    sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = 31; }
                 break;
 
@@ -546,12 +546,12 @@ void loop()
                     curr = 33;
                     obst_time_start = millis();
                     obstState = 0; 
-                    obstStartTurnBackDist = turn_dir > 0 ? MotorL.getDist() : MotorR.getDist(); }
+                    obstStartTurnBackDist = pickMotorDist(turn_dir); }
                 break;
 
             case 33: //^ turning back to line after obstacle
                 Robawt.setSteer(30, turn_dir*0.5);
-                obstCurrDist = turn_dir > 0 ? MotorL.getDist() : MotorR.getDist();
+                obstCurrDist = pickMotorDist(turn_dir);
                 if (obstCurrDist - obstStartTurnBackDist > 20) { curr = 0; }
                 break;
 
@@ -610,7 +610,7 @@ void loop()
                 break;
         }
 
-    //* SWITCH OFF
+    //* SWITCH IS OFF
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
@@ -624,14 +624,14 @@ void loop()
     
     #if debug_lidars
     for (int i = l0x_start; i != (l0x_stop+1); i++) {
-        Serial.print(lidarl0x_labels[i]);
-        Serial.print(lidarl0x_readings[i]);
+        Serial.print(l0x_labels[i]);
+        Serial.print(l0x_readings[i]);
         // if (lidarsl0x[i].timeoutOccurred()) { Serial.print(" TIMEOUT"); }
         Serial.print(" || ");
     }
     for (int i = l1x_start; i != (l1x_stop+1); i++) {
-        Serial.print(lidarl1x_labels[i]);
-        Serial.print(lidarl1x_readings[i]);
+        Serial.print(l1x_labels[i]);
+        Serial.print(l1x_readings[i]);
         // if (lidarsl1x[i].timeoutOccurred()) { Serial.print(" TIMEOUT"); }
         Serial.print(" || ");
     }
@@ -826,7 +826,14 @@ void sort_dead() {
 
 bool ball_present() {
     //+45 for the diff sensors' offset physically
-    return ((lidarl0x_readings[LidarsL0X::FRONT] - lidarl1x_readings[LidarsL1X::FRONT_BOTTOM]) > 30+45 && lidarl1x_readings[LidarsL1X::FRONT_BOTTOM] < 95);
+    return ((l0x_readings[L0X::FRONT] - l1x_readings[L1X::FRONT_BOTTOM]) > 30+45 && l1x_readings[L1X::FRONT_BOTTOM] < 95);
+}
+
+//* MISC FUNCTIONS
+
+double pickMotorDist(double prev_rotation) { 
+    if (prev_rotation > 0) return MotorL.getDist();
+    else return MotorR.getDist()
 }
 
 //* ------------------------------------------- DEBUG LOOPS -------------------------------------------
@@ -892,16 +899,16 @@ void loop()
 
     for (int i = l0x_start; i != (l0x_stop+1); i++) 
     {
-        tcaselect(lidarl0x_pins[i]);
+        tcaselect(l0x_pins[i]);
         if(lidarsl0x[i].available()) {
-            lidarl0x_readings[i] = lidarsl0x[i].readRangeMillimeters();
+            l0x_readings[i] = lidarsl0x[i].readRangeMillimeters();
         }
     }
     for (int i = l1x_start; i != (l1x_stop+1); i++) 
     {
-        tcaselect(lidarl1x_pins[i]);
+        tcaselect(l1x_pins[i]);
         if(lidarsl1x[i].dataReady()) {
-            lidarl1x_readings[i] = lidarsl1x[i].read(false);
+            l1x_readings[i] = lidarsl1x[i].read(false);
         }
     }
 

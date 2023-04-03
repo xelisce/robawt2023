@@ -14,15 +14,9 @@ lt_frame = lt_stream.read()
 width, height_org = lt_frame.shape[1], lt_frame.shape[0]
 print("Line track camera width:", width, "Camera height:", height_org)
 
-crop_h_bw = 93
-crop_h_bw_gap = 110
-height = height_org
-gap_check_h = 180
-horizon_crop_h = 40
 # cam_x = width/2 #-1 to bias robot to the right
 # cam_y = height - 1
 # print(f"Line track image centred on ({cam_x}, {cam_y})")
-centre_x = int(width/2)
 
 #* SERIAL
 ser = serial.Serial("/dev/serial0", 9600)
@@ -51,21 +45,33 @@ l_red2 = np.array([170, 100, 80], np.uint8)
 u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 
 #* CONSTANTS CALIBRATION
+height = height_org
+centre_x = int(width/2)
+
+#~ Linegap
+crop_h_bw = 93
+crop_h_bw_gap = 110
+gap_check_h = 180
+horizon_crop_h = 40
+
+#~ GS
 gs_roi_h = 310 #the crop height for gs  
 gs_bksampleoffset = 10 #offset sample above green squares
 gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned
 gs_minarea = 4000 #min pixels
 
+#~ RK
 b_minarea = 6000
 
+#~ PID
 rpm_setpt = 40
 rpm = 40
 kp = 1
 
 #* IMAGE PROCESSING
 x_com = np.tile(np.linspace(-1., 1., width), (height, 1)) #reps is (outside, inside)
-y_com = np.array([[i] * width for i in np.linspace(1., 0, height)]) #1/height is just to save pixels
+y_com = np.array([[i] * width for i in np.linspace(1., 0, height)])
 # x_com_scale = ((1-y_com) ** 0.3)
 # x_com *= x_com_scale
 
@@ -107,7 +113,7 @@ red_now = False
 gs_now = False
 blue_now = False
 
-#* BEGIN OF LINETRACK LOOP CODE
+#* BEGIN LINETRACK LOOP ----------------------------------------------------------------------------------------------
 
 while True:
     if lt_stream.stopped:
@@ -142,6 +148,7 @@ while True:
     print("Red sum:", red_sum) #& debug red min area
 
     mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
+    mask_blue[:horizon_crop_h, :] = 0
     blue_sum = np.sum(mask_blue) / 255
     print("Blue sum:", blue_sum) #& debug blue min area
 
@@ -223,22 +230,19 @@ while True:
 
     #~ Rescue kit spotted:
     if blue_sum >= b_minarea:
-        # print("Blue sum: ", blue_sum) #& debug blue sum
         blue_now = True
         if (curr.name != "BLUE"):
             curr = Task.TURN_BLUE
 
         #~ Find x and y positions of rescue kit
         blueM = cv2.moments(mask_blue)
-        # cv2.imshow("blue mask", mask_blue) #& debug blue mask
         cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
         cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
         finalx = cx_blue - centre_x
-        #finaly = frame_org.shape[0]/2 - cy_blue
 
         #~ If the block isn't centred
         if abs(finalx) >= 60: #^ DOM: not refined yet; consider doing abs(...) >= 100
-            if cx_blue < centre_x: #if rescue kit is to the left of the frame's middle
+            if cx_blue < centre_x: #if rescue kit is to the left of the centre of the frame
                 rotation = -45 # fixed rotation of the bot
                 rpm = 20
             elif cx_blue > centre_x: #to the right
@@ -266,91 +270,88 @@ while True:
         # print("See line pixels:", obstacle_line_pixels)
         # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
+
+
         #~ Image processing erode-dilate
         curr = Task.EMPTY
-        mask_uncropped_black = mask_black_org.copy()
-        mask_black = mask_black_org.copy()
-        mask_black[:horizon_crop_h, :] = 0
-
         black_kernel = np.ones((5, 5), np.uint8)
+
+        mask_black = mask_black_org.copy()
         mask_black = cv2.erode(mask_black, black_kernel)
         mask_black = cv2.dilate(mask_black, black_kernel)
+        mask_uncropped_black = mask_black.copy()
+        mask_supercrop_black = mask_black.copy()
+
+        mask_black[:horizon_crop_h, :] = 0
+        mask_supercrop_black[:-gap_check_h, :] = 0
+        #& debug masks
         # cv2.imshow("black mask", mask_black)
-
-        black_kernel = np.ones((5, 5), np.uint8)
-        mask_uncropped_black = cv2.erode(mask_uncropped_black, black_kernel)
-        mask_uncropped_black = cv2.dilate(mask_uncropped_black, black_kernel)
         # cv2.imshow("black uncropped mask", mask_uncropped_black)
+        # cv2.imshow("super cropped mask", mask_supercrop_black)
 
-        #~ Finding the lowest black and white pixels in UNCROPPEd black
+
+        #~ Finding the lowest black and white pixels in UNCROPPED black
         black_row = np.amax(mask_uncropped_black, axis=1)
-        black_indices_v = np.where(black_row > 0)
+        black_indices_v = np.where(black_row > 0) #? why not 255
         black_start_y = black_indices_v[0][-1] if len(black_indices_v[0]) else 0
         black_row[black_start_y:] = 255
         white_indices = np.where(black_row == 0)
         white_start_y = white_indices[0][-1] if len(white_indices[0]) else 0
-        # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
-        curr_height = black_start_y-white_start_y
+
+        black_line_height = black_start_y-white_start_y
         print("black:", black_start_y, "white:", white_start_y)
 
         #~ Finding left and right index of black
-        mask_supercrop_black = mask_black_org.copy()
-        mask_supercrop_black[:-gap_check_h, :] = 0
-        # cv2.imshow("super crop", mask_supercrop_black)
         black_col = np.amax(mask_supercrop_black, axis=0)
         black_indices_h = np.where(black_col == 255)
         black_start_x = black_indices_h[0][0] if len(black_indices_h[0]) else 0
         black_end_x = black_indices_h[0][-1] if len(black_indices_h[0]) else 0
-        black_diff_x = black_end_x-black_start_x
-        # print("x amount:", black_diff_x) #& debug width of line
+        black_line_width = black_end_x-black_start_x
+
+        # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
+        # print("x amount:", black_line_width) #& debug width of line
+
 
         #~ If line gap (line ending and line width small)
-        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_diff_x < 360:
-                print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LINE GAP<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                mask_black = cv2.bitwise_and(mask_gap, mask_black_org.copy())
-                mask_black[:horizon_crop_h, :] = 0 #get out horizon
+        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_line_width < 360:
+                print(">" * 15 + 'LINE GAP' + '<' * 15)
+                mask_black = cv2.bitwise_and(mask_gap, mask_black)
                 powered_y = 1
 
             #~ 90 degrees (NOT WORKING)
-            # elif black_diff_x > 360:
+            # elif black_line_width > 360:
             #     if centre_x-black_start_x > black_end_x-centre_x:
             #         curr = Task.TURN_LEFT
             #         print("|||||||||||LEFT LEFT LEFT")
             #     else:
             #         curr = Task.TURN_RIGHT
             #         print("RIGHT RIGHT RIGHT||||||||||||||||||||||")
-       
         #~ Line continuation
         else:
             mask_black[:white_start_y, :] = 0
             curr = Task.EMPTY
 
             #~ Plain line track
-            powered_y =  (height-40)/curr_height if curr_height != 0 else 1
+            powered_y = (height-40)/black_line_height if black_line_height != 0 else 1
             powered_y = powered_y ** 0.5
-            # print("power:", powered_y) #& debug y power
             powered_y = min(2.7, powered_y)
 
-        # cv2.imshow("black", mask_black) #& debug black mask
-        # cv2.imshow("black org", mask_black_org)
 
         #~ Vectorizing the black components
+        y_com = y_com ** powered_y #^ powering ycom instead of mean for now
         y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
         x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
+        y_resultant = np.mean(y_black) # |** powered_y
+        x_resultant = np.mean(x_black)
+        #& debug
+        # print("power:", powered_y)
         # cv2.imshow("yframe", y_black)
         # cv2.imshow("xframe", x_black)
-
-        y_resultant = np.mean(y_black) ** powered_y
-        x_resultant = np.mean(x_black)
-        # print(y_resultant, x_resultant) #& debug resultant angle
+        # print(y_resultant, x_resultant)
 
         #~ Formatting data for transfer
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
-        # print(angle) #& debug angle
         rotation = angle * kp
-        
-        # else:
-        #     angle = 0
 
     print("rotation:", rotation)
 
