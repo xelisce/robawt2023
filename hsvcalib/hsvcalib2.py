@@ -1,4 +1,11 @@
-# THIS FILE IS TO BE KEPT ON COMPUTER
+
+#^ THIS FILE IS TO BE KEPT ON COMPUTER
+#^ HOW TO USE hsvcalib2.py
+# To be used on images taken with hsvcalib1.py or otherwise
+# Direct the program to the image file on line 13
+# The masked image is after the hsv operation has been done on the original image
+# L2 and U2 HSVs are for masking of the color red, since it occupies two regions on the hue spectrum
+# Press 'q' to quit
 
 import cv2
 import numpy as np
