@@ -123,7 +123,7 @@ double rotation = 0,
 int serialState = 0,
     task = 0, 
     prev_task = 0,
-    curr = 0;
+    curr = 51; //! force evac
 
 //^ Claw stuffz
 int afterPickupState,
@@ -155,9 +155,12 @@ double prev_kit_rotation,
 
 //^ Evac
 bool in_evac = false;
-long pickupStateTimer;
+long pickupStateTimer,
+    startEvacMillis;
 int pickupState = 0,
     depositState = 0;
+double evac_setdist,
+    wall_rot;
 
 //* ------------------------------------------- START SETUP -------------------------------------------
 
@@ -274,12 +277,14 @@ void loop()
 
         //* TASK FROM PI
 
-        if (curr == 50){ //^ DOM: this is an incredibly dumb guard clause but oh wells (can add other cases here too)
+        if (curr == 50 || curr == 51){ 
             curr = curr;
-        }
-        else {
+        } else {
         switch (task) 
         {
+
+            //* LINETRACK HANDLING
+
             case 0: //^ empty linetrack
                 if (in_evac) { break; }
                 if (curr == 1) { 
@@ -325,7 +330,7 @@ void loop()
                 if (curr == 0) { startGSMillis = millis(); }
                 curr = 2;
                 break;
- 
+
             case 3: //^ double green
                 if (in_evac) { break; }
                 if (curr > 29 && curr < 34) { break; } //~obstacle cases
@@ -367,6 +372,17 @@ void loop()
                 // if (in_evac) { break; }
                 curr = 8;
                 break;
+
+            //* EVAC HANDLING
+
+            case 20: //^ no ball --> wall track
+                curr = 60;
+                break;
+
+            case 21: //^ ball
+                curr = 61;
+                break;
+
         }   
         }
 
@@ -609,6 +625,34 @@ void loop()
                 Robawt.resetPID();
                 break;
 
+            case 51: //^ evac initialisation
+                startEvacMillis = millis();
+                curr = 60;
+                in_evac = true;
+                pickType = 1;
+                break;
+
+            case 60: //^ no ball walltrack
+                claw_open();
+                evac_setdist = 140 + (millis() - startEvacMillis)/500;
+                if (evac_setdist > 600) {evac_setdist = 600;}
+                wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
+                Robawt.setSteer(30, wall_rot);
+                if (ball_present()) { 
+                    curr = 50;
+                    afterPickupState = 60; }
+                break;
+
+            case 61: //^ ball track
+                claw_halfclose();
+                Robawt.setSteer(30, rotation);
+                if (ball_present()) { 
+                    curr = 50;
+                    afterPickupState = 60; }
+                break;
+
+            //* STOP
+
             case 100: //^ red --> stop
                 Robawt.setSteer(0, 0);
                 Robawt.reset();
@@ -622,7 +666,7 @@ void loop()
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
-        curr = 0;
+        curr = 51; //! force evac
 
         claw_down();
         claw_open();
