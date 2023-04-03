@@ -33,9 +33,24 @@ param2 = 28
 min_radius = 40
 max_radius = 170
 
+l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
+u_red1 = np.array([15, 255, 255], np.uint8)
+l_red2 = np.array([170, 100, 80], np.uint8) 
+u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
+
+#~ Real values
+# l_green = np.array([30, 50, 60], np.uint8)
+# u_green = np.array([85, 255, 255], np.uint8)
+#~ My house's values
+l_green = np.array([70, 90, 80], np.uint8)
+u_green = np.array([96, 255, 255], np.uint8)
+
 class Task(enum.Enum):
     NOBALL = 20
     BALL = 21
+    DEPOSITALIVE = 22
+    DEPOSITDEAD = 23
+    EMPTYEVAC = 24
 
 def receive_pico() -> int:
     global ser
@@ -83,7 +98,7 @@ while True:
                     "x": x,
                     "y": y,
                     "r": r,
-                })
+                }) #! add standard devaition for sorting (later)
             
         curr = Task.BALL
 
@@ -130,17 +145,80 @@ while True:
 evac_stream.stop()
 cv2.destroyAllWindows()
 
-# #* LOOKING FOR EVAC POINT
+#* LOOKING FOR EVAC POINT *******************************************
 
-# #* IMAGE START
-# evac_stream2 = WebcamStream(stream_id=0)
-# evac_stream2.start()
-# evac_org = evac_stream2.read()
-# width, height_org = evac_org.shape[1], evac_org.shape[0]
-# print("Evac camera width:", width, "Camera height:", height_org)
+#* IMAGE START
+lt_stream = WebcamStream(stream_id=0)
+lt_stream.start()
+frame_org = lt_stream.read()
+width, height_org = frame_org.shape[1], frame_org.shape[0]
+print("Evac camera width:", width, "Camera height:", height_org)
 
-# crop_h_evac = 183
-# # kp_ball = 0.2
-# height = height_org - crop_h_evac
+deposit_now = 1 #deposit alive first
+rpm = 30
+centre_x = width/2
 
-# print("Done")
+# green_erode_kernel = np.ones((3, 3), np.uint8)
+
+print("Done")
+
+while True:
+    frame_org = lt_stream.read()
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_green, u_green)
+    # mask_gs = cv2.erode(mask_gs, green_erode_kernel, iterations=1)
+    # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
+    cv2.imshow("green", mask_green)
+    green_sum = np.sum(mask_green)/255
+
+    mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
+    mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
+    mask_red = mask_red1 + mask_red2
+    cv2.imshow("red", mask_red)
+    red_sum = np.sum(mask_red)/255
+
+    #* Deposit alive
+    if deposit_now == 1:
+        if green_sum > 200:
+            print("GREEN")
+            greenM = cv2.moments(mask_green)
+            cx_green = int(greenM["m10"]/greenM["m00"])
+            rotation = (cx_green-centre_x) / 20 #tune constant for rotating to deposit point
+            curr = Task.DEPOSITALIVE
+        else:
+            rotation = 0
+            curr = Task.EMPTYEVAC
+
+    #* Deposit dead
+    else:
+        if red_sum > 200:
+            print("RED")
+            curr = Task.DEPOSITDEAD
+        else:
+            curr = Task.EMPTYEVAC
+
+    #* DATA
+    if rotation > 90:
+        rotation = 90
+    elif rotation < -90:
+        rotation = -90
+    rotation = int(rotation) + 90
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm,
+                253, curr.value]
+    
+    ser.write(to_pico)
+
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        break
+
+print("Back to linetrack")
+
+lt_stream.stop()
+cv2.destroyAllWindows()

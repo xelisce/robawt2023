@@ -125,10 +125,6 @@ int serialState = 0,
     prev_task = 0,
     curr = 51; //! force evac
 
-//^ Claw stuffz
-int afterPickupState,
-    pickType;
-
 //^ Obstacle
 int turn_dir,
     obstState;
@@ -158,9 +154,22 @@ bool in_evac = false;
 long pickupStateTimer,
     startEvacMillis;
 int pickupState = 0,
-    depositState = 0;
+    OORTurnState;
 double evac_setdist,
-    wall_rot;
+    wall_rot,
+    startTurnOORDistL,
+    startTurnOORDistR,
+    turnOORDist,
+    startReverseOORDist,
+    startStraightOORDist;
+int afterPickupState,
+    pickType;
+
+//^ Deposit
+int depositState = 0,
+    depositType = 1,
+    afterDepositState;
+long depositStateTimer;
 
 //* ------------------------------------------- START SETUP -------------------------------------------
 
@@ -376,10 +385,12 @@ void loop()
             //* EVAC HANDLING
 
             case 20: //^ no ball --> wall track
+                if (curr == 65) { break; }
                 curr = 60;
                 break;
 
             case 21: //^ ball
+                if (curr == 65) { break; }
                 curr = 61;
                 break;
 
@@ -641,6 +652,10 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
+                if (l0x_readings[L0X::FRONT] > 3000 && l0x_readings[L0X::RIGHT] < 200) {
+                    startReverseOORDist = MotorL.getDist();
+                    curr = 65;
+                    OORTurnState = 0; }
                 break;
 
             case 61: //^ ball track
@@ -649,6 +664,85 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
+                break;
+
+            case 65: //^ reverse then turn right when out of range
+                switch (OORTurnState)
+                {
+                    case 0:
+                        Robawt.setSteer(-30, 0);
+                        if (fabs(MotorL.getDist() - startReverseOORDist) < 20) { 
+                            OORTurnState ++; 
+                            startTurnOORDistL = MotorL.getDist();
+                            startTurnOORDistR = MotorR.getDist(); }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(30, 1);
+                        turnOORDist = abs(MotorL.getDist()-startTurnOORDistL) + abs(MotorR.getDist()-startTurnOORDistR);
+                        if (turnOORDist > 35) { 
+                            OORTurnState ++;
+                            startStraightOORDist = MotorL.getDist(); }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(30, 0);
+                        if (fabs(MotorL.getDist() - startStraightOORDist) > 50) {
+                            curr = 60; 
+                            OORTurnState = 0; }
+                        break;
+                }
+                break;
+
+            case 69: //^ centering?? (currently is wall track but change for in between alive and dead)
+                claw_open();
+                evac_setdist = 140 + (millis() - startEvacMillis)/500;
+                if (evac_setdist > 600) {evac_setdist = 600;}
+                wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
+                Robawt.setSteer(30, wall_rot);
+                break;
+
+            case 70: //^ heading to alive zone
+                Robawt.setSteer(rpm, rotation);
+                sort_neutral();
+                if (l1x_readings[L1X::FRONT_BOTTOM] < 50) { 
+                    curr = 80;
+                    depositType = 1;
+                    depositStateTimer = millis();
+                    depositState = 0; }
+                break;
+
+            case 71: //^ reversing from alive zone
+                Robawt.setSteer(rpm, rotation);
+                sort_neutral();
+                if (l1x_readings[L1X::FRONT_BOTTOM] < 50) { 
+                    curr = 80;
+                    depositType = 0;
+                    depositStateTimer = millis();
+                    depositState = 0; }
+                break;
+
+            case 80: //^ deposit (unlinked to code)
+                switch (depositState)
+                {
+                    case 0:
+                        sort_neutral();
+                        if (depositType == 0) { dead_up(); }
+                        else { alive_up(); }
+                        if (millis() - depositStateTimer > 1500) { 
+                            depositStateTimer = millis();
+                            depositState ++; }
+                        break;
+
+                    case 1:
+                        if (depositType == 0) { dead_down(); }
+                        else { alive_down(); }
+                        if (millis() - depositStateTimer > 1000) { 
+                            depositStateTimer = millis();
+                            depositState = 0; 
+                            curr = afterDepositState; }
+                        break;
+                }
                 break;
 
             //* STOP
