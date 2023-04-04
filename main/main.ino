@@ -394,6 +394,20 @@ void loop()
                 curr = 61;
                 break;
 
+            case 22: //^ deposit alive
+                curr = 70;
+                depositType = 1;
+                break;
+
+            case 23: //^ deposit dead
+                curr = 70;
+                depositType = 0;
+                break;
+
+            case 24: //^ finding deposit
+                curr = 69;
+                break;
+
         }   
         }
 
@@ -702,24 +716,25 @@ void loop()
                 Robawt.setSteer(30, wall_rot);
                 break;
 
-            case 70: //^ heading to alive zone
+            case 72: //^ heading to alive zone / dead zone
                 Robawt.setSteer(rpm, rotation);
                 sort_neutral();
                 if (l1x_readings[L1X::FRONT_BOTTOM] < 50) { 
                     curr = 80;
-                    depositType = 1;
+                    afterDepositState = 73;
                     depositStateTimer = millis();
                     depositState = 0; }
                 break;
 
-            case 71: //^ reversing from alive zone
-                Robawt.setSteer(rpm, rotation);
-                sort_neutral();
-                if (l1x_readings[L1X::FRONT_BOTTOM] < 50) { 
-                    curr = 80;
-                    depositType = 0;
-                    depositStateTimer = millis();
-                    depositState = 0; }
+            case 73: //^ post deposit
+                if (depositType == 1) { 
+                    depositType = 0; 
+                    curr = 69; }
+                else { curr = 90; } //^ get out of evac
+                break;
+
+            case 74: //^ reversing from alive zone
+                Robawt.setSteer(-rpm, 0);
                 break;
 
             case 80: //^ deposit (unlinked to code)
@@ -743,6 +758,9 @@ void loop()
                             curr = afterDepositState; }
                         break;
                 }
+                break;
+
+            case 90: //^ get out of evac
                 break;
 
             //* STOP

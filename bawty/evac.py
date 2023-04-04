@@ -42,7 +42,7 @@ u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 # l_green = np.array([30, 50, 60], np.uint8)
 # u_green = np.array([85, 255, 255], np.uint8)
 #~ My house's values
-l_green = np.array([70, 90, 80], np.uint8)
+l_green = np.array([70, 90, 30], np.uint8)
 u_green = np.array([96, 255, 255], np.uint8)
 
 class Task(enum.Enum):
@@ -98,7 +98,7 @@ while True:
                     "x": x,
                     "y": y,
                     "r": r,
-                }) #! add standard devaition for sorting (later)
+                }) #! add standard deviation for sorting (later)
             
         curr = Task.BALL
 
@@ -174,6 +174,7 @@ while True:
     # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
     cv2.imshow("green", mask_green)
     green_sum = np.sum(mask_green)/255
+    print(green_sum)
 
     mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
