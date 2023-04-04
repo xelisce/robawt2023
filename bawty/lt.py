@@ -336,7 +336,7 @@ while True:
             #~ Plain line track
             powered_y = (height-40)/black_line_height if black_line_height != 0 else 1
             powered_y = powered_y ** 0.5
-            powered_y = min(2.7, powered_y)
+            powered_y = min(3.5, powered_y)
 
         #~ Vectorizing the black components
         #^ Method 1: Powering ycom
