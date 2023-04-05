@@ -20,6 +20,8 @@
 #define loop_pickball 0
 #define loop_pickcube 0
 #define loop_deposit 0
+//^ Force events
+#define debug_evac 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -130,8 +132,25 @@ double rotation = 0,
     rpm = 40;
 int serialState = 0,
     task = 0, 
-    prev_task = 0,
-    curr = 51; //! force evac
+    prev_task = 0;
+    #if debug_evac
+    int curr = 51; //! force evac
+    #else 
+    int curr = 0;
+    #endif
+
+//^ Blue cube
+double prev_kit_rotation,
+    kitStartDist,
+    kitBeforeStraightDist,
+    kitDistToReverse = 0,
+    kitStartReverseDist,
+    kitStartTurnBackDist,
+    kitTurnBackDist,
+    kit_distToTurn;
+long endBlueMillis = millis(),
+    pickupKitStateTimer;
+int pickupKitState;
 
 //^ Obstacle
 int turn_dir,
@@ -147,18 +166,15 @@ float o_rotation = 0.5; //obstacle fixed rotation
 long obst_time_start;
 bool see_line = false;
 
-//^ Blue cube
-double prev_kit_rotation,
-    kitStartDist,
-    kitBeforeStraightDist,
-    kitDistToReverse = 0,
-    kitStartReverseDist,
-    kitStartTurnBackDist,
-    kitTurnBackDist,
-    kit_distToTurn;
-long endBlueMillis = millis(),
-    pickupKitStateTimer;
-int pickupKitState;
+//^ Linegap
+int linegapState = 0;
+double linegapStartDist,
+    linegapTurnLeftDist,
+    linegapTurnRightDist,
+    linegapStartReverse;
+float linegap_rotation = 0;
+long linegap_millis;
+bool endLineGap = false;
 
 //^ Evac
 bool in_evac = false;
@@ -336,8 +352,8 @@ void loop()
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50) {
-                    //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff
+                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50 && curr != 10) {
+                    //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping
                     curr = 0; }
                 break;
 
@@ -397,6 +413,14 @@ void loop()
             case 8: //^ blue centred 
                 // if (in_evac) { break; }
                 curr = 8;
+                break;
+
+            case 10: //^ linegap sweeping
+                if (curr = 0){
+                    linegapStartDist = pickMotorDist(-1);
+                    linegapState = 0;
+                }
+                curr = 10;
                 break;
 
             //* EVAC HANDLING
@@ -500,6 +524,73 @@ void loop()
                     Robawt.resetPID();
                     curr = 26; } 
                 break;
+            
+            //* LINEGAP CASE
+
+            case 10: //^ linegap sweeping (considering reversing for like 1cm before sweeping?)
+                Serial.print("linegapState: ");
+                Serial.println(linegapState);
+                Serial.print("Right motor: ");
+                Serial.println(pickMotorDist(-1));
+                Serial.print("LinegapStartDist: ");
+                Serial.println(linegapStartDist);
+                Serial.println((fabs(pickMotorDist(-1) - linegapStartDist)));
+                switch(linegapState){
+
+                    case 0: //^scan left first
+                        Robawt.setSteer(30, -1);
+                        if ((fabs(pickMotorDist(-1) - linegapStartDist) > 40)) { //^ if sees line or bot has turned 90 degs left
+                            linegapTurnLeftDist = pickMotorDist(-1) - linegapStartDist;
+                            linegapStartReverse = pickMotorDist(-1);
+                            linegapState ++;
+                            endLineGap = false; 
+                        }
+                        break;
+
+                    case 1: //^ turn back to original pos
+                        Robawt.setSteer(30, 1);
+                        if (fabs(pickMotorDist(-1) - linegapStartReverse) > linegapTurnLeftDist) { //^ hope this logic works
+                            linegapStartDist = pickMotorDist(1);
+                            linegapState ++;
+                        }
+                        break;
+
+                    case 2: //^ scan right
+                        Robawt.setSteer(0, 0); 
+                        // if ((fabs(pickMotorDist(1) - linegapStartDist) > 40)){ //^ sees line or turned 90degs right
+                        //     linegapTurnRightDist = pickMotorDist(1) - linegapStartDist;
+                        //     linegapStartReverse = pickMotorDist(1);
+                        //     linegapState ++;
+                        //     endLineGap = false;
+                        // }
+                        break;
+
+                    case 3: //^ return to original pos
+                        Robawt.setSteer(30, -1);
+                        if (fabs(pickMotorDist(1) - linegapStartReverse) > linegapTurnRightDist) {
+
+                            if (linegapTurnLeftDist < linegapTurnRightDist) { linegap_rotation = -1; }
+                            else if (linegapTurnLeftDist < linegapTurnRightDist) { linegap_rotation = 1; }
+                            else {
+                                linegap_rotation = 0;
+                                linegap_millis = millis();
+                            } 
+                            linegapState ++;
+                        }
+                        break;
+
+                    case 4: //^ either turn to desired dir, or loop linegap sweep again
+                        Robawt.setSteer(0, linegap_rotation);
+                        // if (see_line){
+                        //     curr = 0;
+                        //     linegapState = 0;
+                        // }
+                        // else if (millis() - linegap_millis > 1000){
+                            // linegapState = 0;
+                        // }
+                        break;
+                }
+                break;
 
             //* POST CASES
 
@@ -589,6 +680,7 @@ void loop()
                 Robawt.setSteer(-40, 0);
                 Serial.println(MotorL.getDist() - obstDist);
                 if (fabs(MotorL.getDist() - obstDist) > 12) {
+                    obstState = 0;
                     sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = 31; }
                 break;
@@ -839,7 +931,12 @@ void loop()
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
+        #if debug_evac
         curr = 51; //! force evac
+        #else 
+        curr = 0;
+        linegapState = 0;
+        #endif
 
         claw_down();
         claw_open();
@@ -923,7 +1020,7 @@ void serialEvent() //Pi to pico serial
     while (Serial1.available()) 
     {
         int serialData = Serial1.read();
-        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252) {
+        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251) {
             serialState = (int)serialData;
             #if debug_serial
             Serial.print("Serial State: ");
@@ -943,6 +1040,9 @@ void serialEvent() //Pi to pico serial
                     break;
                 case 252:
                     see_line = (bool)serialData;
+                    break;
+                case 251:
+                    endLineGap = (bool)serialData;
                     break;
             }
             #if debug_serial
@@ -1073,7 +1173,7 @@ bool wall_present() {
 }
 
 bool OOR_present() {
-    l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200;
+    return (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200);
 }
 
 //* MISC FUNCTIONS

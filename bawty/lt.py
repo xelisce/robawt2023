@@ -105,10 +105,12 @@ class Task(enum.Enum):
     TURN_RIGHT = 6
     TURN_BLUE = 7
     BLUE = 8
+    LINEGAP = 10
 
 curr = Task.EMPTY
 rotation = 0
 see_line = 0
+end_line_gap = 0
 
 red_now = False
 gs_now = False
@@ -136,7 +138,7 @@ while True:
     gs_sum = np.sum(mask_gs)/255
     # cv2.imshow("green square mask", frame_org[gs_roi_h:, :])
     # cv2.imshow("green square mask", mask_gs) #& debug green square mask
-    print("Green sum:", gs_sum) #& debug green min pixels
+    # print("Green sum:", gs_sum) #& debug green min pixels
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
@@ -146,12 +148,12 @@ while True:
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = mask_red1 + mask_red2
     red_sum = np.sum(mask_red) / 255
-    print("Red sum:", red_sum) #& debug red min area
+    # print("Red sum:", red_sum) #& debug red min area
 
     mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
     mask_blue[:horizon_crop_h, :] = 0
     blue_sum = np.sum(mask_blue) / 255
-    print("Blue sum:", blue_sum) #& debug blue min area
+    # print("Blue sum:", blue_sum) #& debug blue min area
 
     #* RED LINE 
 
@@ -267,8 +269,10 @@ while True:
         obstacle_line_mask = mask_black_org.copy()
         obstacle_line_mask[:height-60, :] = 0
         obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
-        see_line = 1 if obstacle_line_pixels > 25000 else 0
-        # print("See line pixels:", obstacle_line_pixels)
+        see_line = 1 if obstacle_line_pixels > 17000 else 0
+        if see_line:
+            print('|'* 5, "SEE LINE", '|' * 5)
+        print("See line pixels:", obstacle_line_pixels)
         # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
 
@@ -287,9 +291,10 @@ while True:
         mask_supercrop_black[:-gap_check_h, :] = 0
         #& debug masks
         # cv2.imshow("black mask", mask_black)
-        # cv2.imshow("black uncropped mask", mask_uncropped_black)
+        cv2.imshow("black uncropped mask", mask_uncropped_black)
         # cv2.imshow("super cropped mask", mask_supercrop_black)
 
+        end_line_gap = 0
 
         #~ Finding the lowest black and white pixels in UNCROPPED black
         black_row = np.amax(mask_uncropped_black, axis=1)
@@ -317,6 +322,8 @@ while True:
         if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_line_width < 360:
                 print(">" * 15 + 'LINE GAP' + '<' * 15)
                 mask_black = cv2.bitwise_and(mask_gap, mask_black)
+                #^ DOM: using obstacle mask for now
+                curr = Task.LINEGAP
                 powered_y = 1
 
             #~ 90 degrees (NOT WORKING)
@@ -338,14 +345,21 @@ while True:
             powered_y = powered_y ** 0.5
             powered_y = min(3.5, powered_y)
 
+        if black_start_y > 400 and white_start_y < 250:
+            print("-------------------------------------end line gap-------------------------------------")
+            end_line_gap = 1
+
         #~ Vectorizing the black components
+        #^ Ancillary: Powering xcom
+        # x_com = x_com ** 1.5
         #^ Method 1: Powering ycom
+        # powered_y = 2
         # y_com = y_com ** powered_y
         # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
         # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
         # y_resultant = np.mean(y_black)
         # x_resultant = np.mean(x_black)
-        #^ Method: Powering the mean
+        #^ Method 2: Powering the mean
         y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
         x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
         y_resultant = np.mean(y_black) ** powered_y
@@ -360,7 +374,7 @@ while True:
         angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
         rotation = angle * kp
 
-    print("rotation:", rotation)
+    # print("rotation:", rotation)
 
     if rotation > 90:
         rotation = 90
@@ -379,9 +393,10 @@ while True:
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
                 253, curr.value,
-                252, see_line]
+                252, see_line,
+                251, end_line_gap]
 
-    print(to_pico)
+    # print(to_pico)
     
     ser.write(to_pico)
 
