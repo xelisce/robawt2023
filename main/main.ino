@@ -156,7 +156,9 @@ double prev_kit_rotation,
     kitStartTurnBackDist,
     kitTurnBackDist,
     kit_distToTurn;
-long endBlueMillis = millis();;
+long endBlueMillis = millis(),
+    pickupKitStateTimer;
+int pickupKitState;
 
 //^ Evac
 bool in_evac = false;
@@ -483,11 +485,9 @@ void loop()
                 claw_down();
                 claw_halfclose();
                 kitBeforeStraightDist = pickMotorDist(prev_kit_rotation); // chooses between L or R motor encoder vals based on previous rotation
-                if (ball_present()) { 
-                    afterPickupState = 23; //go to post cube if cube is ever picked up
-                    pickupState = 0;
-                    pickType = 0;
-                    curr = 50; } //pick up le cube
+                if (ball_present()) {
+                    pickupKitState = 0;
+                    curr = 26; } //pick up le cube
                 break;
 
             case 8: //^ blue centred
@@ -495,12 +495,10 @@ void loop()
                 claw_down();
                 claw_halfclose();
                 if (ball_present()) { 
-                    afterPickupState = 23;
-                    pickupState = 0;
-                    pickType = 0;
+                    pickupKitState = 0;
                     Robawt.setSteer(0, 0);
                     Robawt.resetPID();
-                    curr = 50; } 
+                    curr = 26; } 
                 break;
 
             //* POST CASES
@@ -542,6 +540,47 @@ void loop()
                 if (kitTurnBackDist > kit_distToTurn) { 
                     endBlueMillis = millis();
                     curr = 0; }
+                break;
+
+            case 26: //^ pickup for rescue kit
+                switch (pickupKitState)
+                {
+                    case 0:
+                        pickupKitStateTimer = millis();
+                        pickupKitState ++;
+                        break;
+
+                    case 1:
+                        claw_close_cube();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; }
+                        break;
+
+                    case 2:
+                        claw_up();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; }
+                        break;
+
+                    case 3: 
+                        claw_open();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; }
+                        break;
+
+                    case 4:
+                        claw_down();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState = 0; 
+                            curr = 23; }
+                        break;
+                }
+                Robawt.setSteer(0, 0);
+                Robawt.resetPID();
                 break;
 
             //* OBSTACLE LOGIC (30 - 33)
@@ -630,8 +669,7 @@ void loop()
                         break;
 
                     case 1:
-                        if (pickType == 0) { claw_close_cube(); }
-                        else { claw_close(); }
+                        claw_close();
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
                             pickupState ++; }
@@ -642,15 +680,16 @@ void loop()
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
                             pickupState ++; 
-                            Robawt.setSteer(0, 0);
-                            Robawt.resetPID(); }
+                            Robawt.setSteer(-30, 0); }
                         break;
 
                     case 3: 
                         claw_open();
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
-                            pickupState ++; }
+                            pickupState ++; 
+                            Robawt.setSteer(0, 0);
+                            Robawt.resetPID(); }
                         break;
 
                     case 4:
@@ -658,13 +697,11 @@ void loop()
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
                             pickupState = 0; 
-                            curr = afterPickupState; }
+                            curr = afterPickupState; 
+                            Robawt.setSteer(0, 0);
+                            Robawt.resetPID(); }
                         break;
                 }
-                Serial.print("Pickup state: ");
-                Serial.println(pickupState);
-                Robawt.setSteer(0, 0);
-                Robawt.resetPID();
                 break;
 
             case 51: //^ evac initialisation
@@ -688,7 +725,7 @@ void loop()
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; }
-                // send_pi();
+                
                 break;
 
             case 61: //^ ball track
@@ -697,14 +734,14 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
-                if (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200) {
+                if (OOR_present()) {
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; }
-                // send_pi();
+                if (wall_present)
                 break;
-
-            case 65: //^ reverse then turn right when out of range
+                
+            case 65: //^ reverse then turn right then go straight when out of range
                 switch (OORTurnState)
                 {
                     case 0:
@@ -1033,6 +1070,10 @@ bool ball_present() {
 
 bool wall_present() {
     return (l0x_readings[L0X::FRONT]+45 < 50 && l1x_readings[L1X::FRONT_BOTTOM] < 50);
+}
+
+bool OOR_present() {
+    l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200;
 }
 
 //* MISC FUNCTIONS
