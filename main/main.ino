@@ -69,7 +69,7 @@ namespace L1X {
     enum L1X { FRONT_BOTTOM };
 }
 //^ Debugging Lidars
-const int l0x_start = L0X::FRONT_LEFT, //first lidar
+const int l0x_start = L0X::FRONT, //first lidar
     l0x_stop = L0X::RIGHT; //last l0x lidar
 const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = L1X::FRONT_BOTTOM; //last l1x lidar
@@ -181,9 +181,17 @@ bool in_evac = false;
 long pickupStateTimer,
     startEvacMillis;
 int pickupState = 0,
-    OORTurnState;
+    OORTurnState,
+    wallTurnState,
+    wallGapTurnState;
 double evac_setdist,
     wall_rot,
+    startWallGapDistL,
+    startWallGapDistR,
+    moveWallGapDist,
+    startTurnWallDistL,
+    startTurnWallDistR,
+    turnWallDist,
     startTurnOORDistL,
     startTurnOORDistR,
     turnOORDist,
@@ -639,6 +647,7 @@ void loop()
                     case 0:
                         pickupKitStateTimer = millis();
                         pickupKitState ++;
+                        sort_dead();
                         break;
 
                     case 1:
@@ -812,12 +821,21 @@ void loop()
                 Robawt.setSteer(30, wall_rot);
                 if (ball_present()) { 
                     curr = 50;
+                    pickupState = 0;
                     afterPickupState = 60; }
-                if (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200) {
+                else if (OOR_present()) {
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; }
-                
+                else if (wall_present()) {
+                    startReverseOORDist = MotorL.getDist();
+                    curr = 66;
+                    wallTurnState = 0; }
+                else if (wallgap_present()) { 
+                    curr = 67;
+                    wallGapTurnState = 0;
+                    startWallGapDistL = MotorL.getDist();
+                    startWallGapDistR = MotorR.getDist(); }
                 break;
 
             case 61: //^ ball track
@@ -826,11 +844,14 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
-                if (OOR_present()) {
+                else if (OOR_present()) {
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; }
-                if (wall_present)
+                else if (wall_present()) {
+                    startReverseOORDist = MotorL.getDist();
+                    curr = 66;
+                    wallTurnState = 0; }
                 break;
                 
             case 65: //^ reverse then turn right then go straight when out of range
@@ -858,6 +879,49 @@ void loop()
                             curr = 60; 
                             OORTurnState = 0; }
                         break;
+                }
+                break;
+
+            case 66: //^ turn when stuck on wall
+                switch (wallTurnState)
+                {
+                    case 0:
+                        Robawt.setSteer(-30, 0);
+                        if (fabs(MotorL.getDist() - startReverseOORDist) > 10) { 
+                            wallTurnState ++; 
+                            startTurnWallDistL = MotorL.getDist();
+                            startTurnWallDistR = MotorR.getDist(); }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(30, 1);
+                        turnWallDist = abs(MotorL.getDist()-startTurnWallDistL) + abs(MotorR.getDist()-startTurnWallDistR);
+                        if (turnWallDist > 35) { 
+                            wallTurnState = 0;
+                            curr = 60;  }
+                        break;
+                }
+                Serial.print("Wall turn state: ");
+                Serial.println(wallTurnState);
+                break;
+
+            case 67: //^ turn when gap is on left |____   ___|
+                switch (wallGapTurnState)
+                {
+                    case 0:
+                        Robawt.setSteer(30, 0);
+                        moveWallGapDist = abs(MotorL.getDist()-startWallGapDistL) + abs(MotorR.getDist()-startWallGapDistR);
+                        if (wall_present()) {
+                            startReverseOORDist = MotorL.getDist();
+                            curr = 66;
+                            wallTurnState = 0; }
+                        else if (ball_present()) {
+                            curr = 50;
+                            pickupState = 0; 
+                            afterPickupState = 67; }
+                        else if (moveWallGapDist > 25) { 
+                            curr = 60; 
+                            wallGapTurnState = 0; }
                 }
                 break;
 
@@ -1169,11 +1233,15 @@ bool ball_present() {
 }
 
 bool wall_present() {
-    return (l0x_readings[L0X::FRONT]+45 < 50 && l1x_readings[L1X::FRONT_BOTTOM] < 50);
+    return (l0x_readings[L0X::FRONT]+45 < 90 && l1x_readings[L1X::FRONT_BOTTOM] < 90);
 }
 
 bool OOR_present() {
-    return (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200);
+    return (l0x_readings[L0X::FRONT] > 1680 && l0x_readings[L0X::RIGHT] < 200);
+}
+
+bool wallgap_present() {
+    return (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680);
 }
 
 //* MISC FUNCTIONS
