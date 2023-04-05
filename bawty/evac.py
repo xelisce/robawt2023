@@ -18,6 +18,8 @@ width, height_org = evac_org.shape[1], evac_org.shape[0]
 print("Evac camera width:", width, "Camera height:", height_org)
 
 crop_h_evac = 100
+
+centre_x = width/2
 kp_ball = 1
 
 height = height_org - crop_h_evac
@@ -26,12 +28,12 @@ height = height_org - crop_h_evac
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
 l_sat_thresh = np.array([180, 100, 255], np.uint8)
 
-dp = 1.2
-min_dist = 70
-param1 = 184
-param2 = 28
-min_radius = 40
-max_radius = 170
+dp = 3
+min_dist = 67
+param1 = 128
+param2 = 62
+min_radius = 65
+max_radius = 88
 
 l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
@@ -41,10 +43,11 @@ u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 #~ Real values
 # l_green = np.array([30, 50, 60], np.uint8)
 # u_green = np.array([85, 255, 255], np.uint8)
-#~ My house's values
+#~ My house's values    
 l_green = np.array([70, 90, 30], np.uint8)
 u_green = np.array([96, 255, 255], np.uint8)
 
+variable_crop = 0
 class Task(enum.Enum):
     NOBALL = 20
     BALL = 21
@@ -58,27 +61,34 @@ def receive_pico() -> int:
         received_data = ser.read()
         data_left = ser.inWaiting()
         received_data += ser.read(data_left)
-        return ord(received_data)
-    else:
-        return 0
+        # print(received_data)
+        # print("pico data:", ord(received_data))
+        print("decode:", received_data.decode())
 
 while True:
     if evac_stream.stopped:
         break
 
     pico_task = receive_pico()
-    if pico_task == 2:
-        break #start looking for evac point
+    print("running code")
+    # print("pico data:", pico_task)
+    # if pico_task != 255:
+    #     variable_crop = pico_task 
+    # if pico_task == 2:
+    #     break #start looking for evac point
     
     #* IMAGE SETUP
 
     evac_org = evac_stream.read()
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
+    evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
     evac_max = np.amax(evac_org, axis=2)
     
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
+    evac_gray_mask = cv2.inRange(evac_gray, )
+
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
-    evac_max = evac_max[:height, :]
+    evac_max = evac_max[:height-variable_crop, :]
 
     #* CIRCLE DETECTION
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
@@ -107,17 +117,17 @@ while True:
         for i in circles[0,:]:
             cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
             cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
-        cv2.imshow("ballz", evac_max)
+        # cv2.imshow("ballz", cv2.pyrDown(evac_max))
         
         # print(balls)
-        biggest_ball = max(balls, key=lambda b: b['r'])
-        print("Biggest ball:", biggest_ball)
+        biggest_ball = max(balls, key=lambda b: b['y'])
+        # print("Biggest ball:", biggest_ball)
 
         y_ball = biggest_ball["y"]
-        x_ball = biggest_ball["x"]
-        rotation = math.atan2(x, y) * 180/math.pi if y != 0 else 0
+        x_ball = biggest_ball["x"]-centre_x
+        rotation = math.atan2(x_ball, y_ball) * 180/math.pi if y != 0 else 0
 
-        print("rotation:", rotation)
+        # print("rotation:", rotation)
         rotation *= kp_ball
         # print("task:", curr.value)
     
@@ -156,7 +166,6 @@ print("Evac camera width:", width, "Camera height:", height_org)
 
 deposit_now = 1 #deposit alive first
 rpm = 30
-centre_x = width/2
 
 # green_erode_kernel = np.ones((3, 3), np.uint8)
 

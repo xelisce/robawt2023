@@ -19,8 +19,7 @@
 #define loop_movedistance 0
 #define loop_pickball 0
 #define loop_pickcube 0
-#define loop_depositalive 0
-#define loop_depositdead 0
+#define loop_deposit 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -68,22 +67,31 @@ namespace L1X {
     enum L1X { FRONT_BOTTOM };
 }
 //^ Debugging Lidars
-const int l0x_start = L0X::FRONT, //first lidar
+const int l0x_start = L0X::FRONT_LEFT, //first lidar
     l0x_stop = L0X::RIGHT; //last l0x lidar
 const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = L1X::FRONT_BOTTOM; //last l1x lidar
 
 //* SERVOS SETUP
-double servos_angle[6] = {180, 0, 135, 90, 140, 0}; //basic states initialised
-const double servos_max_angle[6] = {180, 300, 300, 300, 180, 180};
-const int servos_pin[6] = {27, 26, 22, 2, 21, 20};
+double servos_angle[6] = {0, 140, 90, 180, 0, 135}; //basic states initialised
+const double servos_max_angle[6] = {180, 180, 300, 180, 300, 300};
+const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
 namespace Servos {
-  enum Servos { ARM, LEFT, RIGHT, SORT, ALIVE, DEAD };
+    enum Servos { DEAD, ALIVE, SORT, ARM, LEFT, RIGHT };
 }
+
+// double servos_angle[6] = {180, 0, 135, 90, 140, 0}; //basic states initialised
+// const double servos_max_angle[6] = {180, 300, 300, 300, 180, 180};
+// const int servos_pin[6] = {27, 26, 22, 2, 21, 20};
+// bool servos_change = false;
+// namespace Servos {
+//   enum Servos { ARM, LEFT, RIGHT, SORT, ALIVE, DEAD };
+// }
+
 //^ Debugging servos
-const int servos_start = Servos::ARM, //first servo
-    servos_stop = Servos::ALIVE; //last servo
+const int servos_start = Servos::DEAD, //first servo
+    servos_stop = Servos::RIGHT; //last servo
 
 //* VARIABLES
 
@@ -148,6 +156,7 @@ double prev_kit_rotation,
     kitStartTurnBackDist,
     kitTurnBackDist,
     kit_distToTurn;
+long endBlueMillis = millis();;
 
 //^ Evac
 bool in_evac = false;
@@ -164,12 +173,17 @@ double evac_setdist,
     startStraightOORDist;
 int afterPickupState,
     pickType;
+int distFromWallFront,
+    prevDistFromWallFront;
 
 //^ Deposit
 int depositState = 0,
     depositType = 1,
     afterDepositState;
 long depositStateTimer;
+
+//^ Comms
+long lastSerialPiSend;
 
 //* ------------------------------------------- START SETUP -------------------------------------------
 
@@ -242,13 +256,14 @@ void setup()
 
 //* ------------------------------------------- START LOOP -------------------------------------------
 
-#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube && !loop_depositalive && !loop_depositdead
+#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube && !loop_deposit
 void loop() 
 {
 
     //* COMMUNICATION UPDATES
     //  teensyEvent();
     serialEvent();
+    digitalWrite(LEDPIN, HIGH);
 
     //* SERVO UPDATES
     if (servos_change) {
@@ -423,7 +438,7 @@ void loop()
                 #endif
                 Robawt.setSteer(rpm, rotation);
                 //~ Trigger obstacle
-                if (l0x_readings[L0X::FRONT] < 40) {
+                if (l1x_readings[L1X::FRONT_BOTTOM] < 85 && l0x_readings[L0X::FRONT] < 40 && (millis() - endBlueMillis > 2000)) { //avoid triggering obstacle cuz l0x not very accurate
                     curr = 30;
                     turn_dir = l0x_readings[L0X::LEFT] > l0x_readings[L0X::RIGHT] ? -1 : 1;
                     obstDist = MotorL.getDist();
@@ -524,7 +539,9 @@ void loop()
                 #endif
                 Robawt.setSteer(-rpm, prev_kit_rotation);
                 kitTurnBackDist =  abs(pickMotorDist(prev_kit_rotation)-kitStartTurnBackDist);
-                if (kitTurnBackDist > kit_distToTurn) { curr = 0; }
+                if (kitTurnBackDist > kit_distToTurn) { 
+                    endBlueMillis = millis();
+                    curr = 0; }
                 break;
 
             //* OBSTACLE LOGIC (30 - 33)
@@ -597,9 +614,9 @@ void loop()
                 break;
 
             case 33: //^ turning back to line after obstacle
-                Robawt.setSteer(30, turn_dir*0.5);
+                Robawt.setSteer(30, turn_dir*0.7);
                 obstCurrDist = pickMotorDist(turn_dir);
-                if (obstCurrDist - obstStartTurnBackDist > 20) { curr = 0; }
+                if (obstCurrDist - obstStartTurnBackDist > 25) { curr = 0; }
                 break;
 
             //* EVAC CASES
@@ -655,6 +672,7 @@ void loop()
                 curr = 60;
                 in_evac = true;
                 pickType = 1;
+                lastSerialPiSend = millis();
                 break;
 
             case 60: //^ no ball walltrack
@@ -666,10 +684,11 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
-                if (l0x_readings[L0X::FRONT] > 3000 && l0x_readings[L0X::RIGHT] < 200) {
+                if (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200) {
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; }
+                // send_pi();
                 break;
 
             case 61: //^ ball track
@@ -678,6 +697,11 @@ void loop()
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
+                if (l0x_readings[L0X::FRONT] > 1880 && l0x_readings[L0X::RIGHT] < 200) {
+                    startReverseOORDist = MotorL.getDist();
+                    curr = 65;
+                    OORTurnState = 0; }
+                // send_pi();
                 break;
 
             case 65: //^ reverse then turn right when out of range
@@ -685,7 +709,7 @@ void loop()
                 {
                     case 0:
                         Robawt.setSteer(-30, 0);
-                        if (fabs(MotorL.getDist() - startReverseOORDist) < 20) { 
+                        if (fabs(MotorL.getDist() - startReverseOORDist) > 20) { 
                             OORTurnState ++; 
                             startTurnOORDistL = MotorL.getDist();
                             startTurnOORDistR = MotorR.getDist(); }
@@ -701,7 +725,7 @@ void loop()
 
                     case 2:
                         Robawt.setSteer(30, 0);
-                        if (fabs(MotorL.getDist() - startStraightOORDist) > 50) {
+                        if (fabs(MotorL.getDist() - startStraightOORDist) > 4) {
                             curr = 60; 
                             OORTurnState = 0; }
                         break;
@@ -711,7 +735,7 @@ void loop()
             case 69: //^ centering?? (currently is wall track but change for in between alive and dead)
                 claw_open();
                 evac_setdist = 140 + (millis() - startEvacMillis)/500;
-                if (evac_setdist > 600) {evac_setdist = 600;}
+                if (evac_setdist > 650) {evac_setdist = 600;}
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(30, wall_rot);
                 break;
@@ -892,67 +916,80 @@ void serialEvent() //Pi to pico serial
     }
 }
 
-void send_pi(int i) { //Pico to pi serial
-  Serial1.println(i);
+void send_pi() { //Pico to pi serial
+    Serial.println("Enter");
+    Serial.print(distFromWallFront);
+    if (millis() - lastSerialPiSend > 100) {
+        prevDistFromWallFront = distFromWallFront;
+        distFromWallFront = (int)(l0x_readings[L0X::FRONT]/100);
+        if (prevDistFromWallFront < 240 || distFromWallFront < 240) {
+            Serial1.println((int)(255)); //the dist from front wall for camera
+            Serial1.println(distFromWallFront);
+            Serial.println("-------------------------------------------to pi-------------------------------------------");
+        }
+        // Serial1.println(254); //is evac ended
+        // Serial1.println()
+        lastSerialPiSend = millis();
+    }
 }
 
 void tcaselect(uint8_t i)  //I2C Multiplexer: TCA9548A
 {
-  if (i > 0 && i < 7) {
-    Wire.beginTransmission(TCAADDR);
-    Wire.write(1 << i);
-    Wire.endTransmission();
-  }
+    if (i > 0 && i < 7) {
+        Wire.beginTransmission(TCAADDR);
+        Wire.write(1 << i);
+        Wire.endTransmission();
+    }
 }
 
 //* CLAW & SERVO FUNCTIONS
 
 int pwmangle(double angle, double max_angle) //Servo PWM
 {
-  return (int)(angle/max_angle * 2000 + 500);
+    return (int)(angle/max_angle * 2000 + 500);
 }
 
 void claw_open() {
-  servos_angle[Servos::RIGHT] = 135; 
-  servos_angle[Servos::LEFT] = 0;
-  servos_change = true;
+    servos_angle[Servos::RIGHT] = 135; 
+    servos_angle[Servos::LEFT] = 0;
+    servos_change = true;
 }
 
 void claw_close() { //ball
-  servos_angle[Servos::RIGHT] = 30;
-  servos_angle[Servos::LEFT] = 100;
-  servos_change = true;
+    servos_angle[Servos::RIGHT] = 35;
+    servos_angle[Servos::LEFT] = 100;
+    servos_change = true;
 }
 
 void claw_close_cube() {
-  servos_angle[Servos::RIGHT] = 25;
-  servos_angle[Servos::LEFT] = 105;
-  servos_change = true;
-}
-
-void claw_up() {
-  servos_angle[Servos::ARM] = 0;
-  servos_change = true;
-}
-
-void claw_service_up() {
-  servos_angle[Servos::ARM] = 140;
-  servos_change = true;
-}
-
-void claw_down() {
-  servos_angle[Servos::ARM] = 180;
-  servos_change = true;
+    servos_angle[Servos::RIGHT] = 25;
+    servos_angle[Servos::LEFT] = 110;
+    servos_change = true;
 }
 
 void claw_halfclose() {
-  servos_angle[Servos::RIGHT] = 80;
-  servos_angle[Servos::LEFT] = 50;
-  servos_change = true;
+    servos_angle[Servos::RIGHT] = 100;
+    servos_angle[Servos::LEFT] = 35;
+    servos_change = true;
+}
+
+void claw_up() {
+    servos_angle[Servos::ARM] = 0;
+    servos_change = true;
+}
+
+void claw_service_up() {
+    servos_angle[Servos::ARM] = 140;
+    servos_change = true;
+}
+
+void claw_down() {
+    servos_angle[Servos::ARM] = 180;
+    servos_change = true;
 }
 
 void alive_up() {
-    servos_angle[Servos::ALIVE] = 40;
+    servos_angle[Servos::ALIVE] = 80;
     servos_change = true;
 }
 
@@ -962,12 +999,12 @@ void alive_down() {
 }
 
 void dead_up() { //! dead values untuned
-    servos_angle[Servos::DEAD] = 40;
+    servos_angle[Servos::DEAD] = 30;
     servos_change = true;
 }
 
 void dead_down() {
-    servos_angle[Servos::DEAD] = 140;
+    servos_angle[Servos::DEAD] = 0;
     servos_change = true;
 }
 
@@ -991,7 +1028,11 @@ void sort_dead() {
 
 bool ball_present() {
     //+45 for the diff sensors' offset physically
-    return ((l0x_readings[L0X::FRONT] - l1x_readings[L1X::FRONT_BOTTOM]) > 30+45 && l1x_readings[L1X::FRONT_BOTTOM] < 95);
+    return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 85);
+}
+
+bool wall_present() {
+    return (l0x_readings[L0X::FRONT]+45 < 50 && l1x_readings[L1X::FRONT_BOTTOM] < 50);
 }
 
 //* MISC FUNCTIONS
@@ -1136,7 +1177,7 @@ void loop()
 }
 #endif
 
-#if loop_depositalive || loop_depositdead
+#if loop_deposit
 void loop()
 {
     if (servos_change) {
@@ -1147,22 +1188,17 @@ void loop()
     }
 
     if (!digitalRead(SWTPIN)) {
-        #if loop_depositalive
         alive_up();
-        #endif
-        #if loop_depositdead
         dead_up();
-        #endif
         sort_neutral();
     } else {
-        #if loop_depositalive
         alive_down();
-        sort_alive();
-        #endif
-        #if loop_depositdead
         dead_down();
-        sort_dead();
-        #endif
+        claw_open();
     }
 }
+#endif
+
+#if loop_debugsetup
+void loop() {}
 #endif
