@@ -543,12 +543,14 @@ void loop()
                 Serial.print("LinegapStartDist: ");
                 Serial.println(linegapStartDist);
                 Serial.println((fabs(pickMotorDist(-1) - linegapStartDist)));
+                Serial.print("TurnLeftDist: ");
+                Serial.println(linegapStartDist);
                 switch(linegapState){
 
                     case 0: //^scan left first
                         Robawt.setSteer(30, -1);
-                        if ((fabs(pickMotorDist(-1) - linegapStartDist) > 40)) { //^ if sees line or bot has turned 90 degs left
-                            linegapTurnLeftDist = pickMotorDist(-1) - linegapStartDist;
+                        linegapTurnLeftDist = fabs(pickMotorDist(-1) - linegapStartDist);
+                        if ((linegapTurnLeftDist > 40)) { //^ if sees line or bot has turned 90 degs left
                             linegapStartReverse = pickMotorDist(-1);
                             linegapState ++;
                             endLineGap = false; 
@@ -564,13 +566,13 @@ void loop()
                         break;
 
                     case 2: //^ scan right
-                        Robawt.setSteer(0, 0); 
-                        // if ((fabs(pickMotorDist(1) - linegapStartDist) > 40)){ //^ sees line or turned 90degs right
-                        //     linegapTurnRightDist = pickMotorDist(1) - linegapStartDist;
-                        //     linegapStartReverse = pickMotorDist(1);
-                        //     linegapState ++;
-                        //     endLineGap = false;
-                        // }
+                        Robawt.setSteer(30, 1); 
+                        linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
+                        if ((linegapTurnRightDist> 40)){ //^ sees line or turned 90degs right
+                            linegapStartReverse = pickMotorDist(1);
+                            linegapState ++;
+                            endLineGap = false;
+                        }
                         break;
 
                     case 3: //^ return to original pos

@@ -291,7 +291,7 @@ while True:
         mask_supercrop_black[:-gap_check_h, :] = 0
         #& debug masks
         # cv2.imshow("black mask", mask_black)
-        cv2.imshow("black uncropped mask", mask_uncropped_black)
+        # cv2.imshow("black uncropped mask", mask_uncropped_black)
         # cv2.imshow("super cropped mask", mask_supercrop_black)
 
         end_line_gap = 0
