@@ -23,7 +23,7 @@ ser = serial.Serial("/dev/serial0", 9600)
 
 #* COLOR CALIBRATION
 # l_black = 0
-u_black = 115
+u_black = 102
 
 #~ Real values
 # l_green = np.array([30, 50, 60], np.uint8)
@@ -105,7 +105,7 @@ class Task(enum.Enum):
     TURN_RIGHT = 6
     TURN_BLUE = 7
     BLUE = 8
-    LINEGAP = 10
+    LINEGAP = 11
 
 curr = Task.EMPTY
 rotation = 0
@@ -286,6 +286,8 @@ while True:
         mask_black = cv2.dilate(mask_black, black_kernel)
         mask_uncropped_black = mask_black.copy()
         mask_supercrop_black = mask_black.copy()
+        mask_linegap = mask_black.copy()
+        # mask_linegap[]
 
         mask_black[:horizon_crop_h, :] = 0
         mask_supercrop_black[:-gap_check_h, :] = 0
@@ -305,7 +307,7 @@ while True:
         white_start_y = white_indices[0][-1] if len(white_indices[0]) else 0
 
         black_line_height = black_start_y-white_start_y
-        print("black: ", black_start_y, "white:", white_start_y)
+        # print("black: ", black_start_y, "white:", white_start_y)
 
         #~ Finding left and right index of black
         black_col = np.amax(mask_supercrop_black, axis=0)
@@ -315,10 +317,10 @@ while True:
         black_line_width = black_end_x-black_start_x
 
         # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
-        # print("x amount:", black_line_width) #& debug width of line
+        print("x amount:", black_line_width) #& debug width of line
 
 
-        #~ If line gap (line ending and line width small)
+        #~ If line gap (line ending and line width small) 
         if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_line_width < 360:
                 print(">" * 15 + 'LINE GAP' + '<' * 15)
                 mask_black = cv2.bitwise_and(mask_gap, mask_black)
@@ -345,7 +347,7 @@ while True:
             powered_y = powered_y ** 0.5
             powered_y = min(3.5, powered_y)
 
-        if black_start_y > 400 and white_start_y < 250:
+        if black_start_y > 400 and white_start_y < 250 and black_line_width > 60: #TODO: offset mask
             print("-------------------------------------end line gap-------------------------------------")
             end_line_gap = 1
 

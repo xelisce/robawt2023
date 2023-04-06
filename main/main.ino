@@ -11,7 +11,7 @@
 #define debug_serial 0
 #define debug_led 1
 #define debug_looptime 0
-#define debug_lidars 1
+#define debug_lidars 0
 #define debug_curr 1
 #define debug_distance 1
 //^ Runs without normal code
@@ -175,6 +175,7 @@ double linegapStartDist,
 float linegap_rotation = 0;
 long linegap_millis;
 bool endLineGap = false;
+int debugLinetrackOrigCurr = 0;
 
 //^ Evac
 bool in_evac = false;
@@ -327,7 +328,7 @@ void loop()
 
         //* TASK FROM PI
 
-        if (curr == 50 || curr == 51){ 
+        if (curr == 50 || curr == 51 || curr == 11 || (curr >= 23 && curr <= 26)){ //^ if not evac or not in linegap or not in rescuekit
             curr = curr;
         } else {
         switch (task) 
@@ -360,7 +361,7 @@ void loop()
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50 && curr != 10) {
+                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50 && curr != 11) {
                     //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping
                     curr = 0; }
                 break;
@@ -392,7 +393,7 @@ void loop()
             
             case 4: //^ red line --> go
                 if (in_evac) { break; }
-                if (curr = 0) { startRedMillis = millis(); }
+                if (curr == 0) { startRedMillis = millis(); }
                 curr = 4;
                 break;
 
@@ -420,15 +421,23 @@ void loop()
 
             case 8: //^ blue centred 
                 // if (in_evac) { break; }
+                
                 curr = 8;
                 break;
 
-            case 10: //^ linegap sweeping
-                if (curr = 0){
+            case 11: //^ linegap sweeping
+                if (curr == 1 || curr == 2 || curr == 3) { break; }
+                if (curr == 0){
                     linegapStartDist = pickMotorDist(-1);
                     linegapState = 0;
+                    curr = 11;
+                // } else if (curr != 11) {
+                //     linegapStartDist = pickMotorDist(-1);
+                //     linegapState = 0;
+                //     debugLinetrackOrigCurr = curr;
+                //     curr = 11;
                 }
-                curr = 10;
+                // curr = 11;
                 break;
 
             //* EVAC HANDLING
@@ -467,9 +476,6 @@ void loop()
             //* LINETRACK CASES
 
             case 0: //^ empty linetrack
-                #if debug_led
-                led_on = false;
-                #endif
                 Robawt.setSteer(rpm, rotation);
                 //~ Trigger obstacle
                 if (l1x_readings[L1X::FRONT_BOTTOM] < 85 && l0x_readings[L0X::FRONT] < 40 && (millis() - endBlueMillis > 2000)) { //avoid triggering obstacle cuz l0x not very accurate
@@ -535,31 +541,36 @@ void loop()
             
             //* LINEGAP CASE
 
-            case 10: //^ linegap sweeping (considering reversing for like 1cm before sweeping?)
-                Serial.print("linegapState: ");
-                Serial.println(linegapState);
-                Serial.print("Right motor: ");
-                Serial.println(pickMotorDist(-1));
-                Serial.print("LinegapStartDist: ");
-                Serial.println(linegapStartDist);
-                Serial.println((fabs(pickMotorDist(-1) - linegapStartDist)));
-                Serial.print("TurnLeftDist: ");
-                Serial.println(linegapStartDist);
+            case 11: //^ linegap sweeping (considering reversing for like 1cm before sweeping?)
+                // Serial.print("linegapState: ");
+                // Serial.println(linegapState);
+                // Serial.print("Right motor: ");
+                // Serial.println(pickMotorDist(-1));
+                // Serial.print("LinegapStartDist: ");
+                // Serial.println(linegapStartDist);
+                // Serial.println((fabs(pickMotorDist(-1) - linegapStartDist)));
+                // Serial.print("TurnLeftDist: ");
+                // Serial.println(linegapStartDist);
                 switch(linegapState){
-
+                    
                     case 0: //^scan left first
                         Robawt.setSteer(30, -1);
                         linegapTurnLeftDist = fabs(pickMotorDist(-1) - linegapStartDist);
-                        if ((linegapTurnLeftDist > 40)) { //^ if sees line or bot has turned 90 degs left
+                        if (endLineGap) {
+                            linegap_rotation = -1; 
+                            linegapStartReverse = pickMotorDist(-1);
+                            endLineGap = false; 
+                            linegapState++;
+                        }
+                        else if (linegapTurnLeftDist >= 20) { //^ if sees line or bot has turned 90 degs left
                             linegapStartReverse = pickMotorDist(-1);
                             linegapState ++;
-                            endLineGap = false; 
                         }
                         break;
 
                     case 1: //^ turn back to original pos
                         Robawt.setSteer(30, 1);
-                        if (fabs(pickMotorDist(-1) - linegapStartReverse) > linegapTurnLeftDist) { //^ hope this logic works
+                        if (fabs(pickMotorDist(-1) - linegapStartReverse) >= linegapTurnLeftDist) { //^ hope this logic works
                             linegapStartDist = pickMotorDist(1);
                             linegapState ++;
                         }
@@ -568,36 +579,52 @@ void loop()
                     case 2: //^ scan right
                         Robawt.setSteer(30, 1); 
                         linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
-                        if ((linegapTurnRightDist> 40)){ //^ sees line or turned 90degs right
+                        if (endLineGap) {
+                            linegap_rotation = 1;
+                            linegapState = 4;
+                            endLineGap = false;
+                        }
+                        else if (linegapTurnRightDist >= linegapTurnLeftDist){ //^ turns right to match left dist
                             linegapStartReverse = pickMotorDist(1);
                             linegapState ++;
-                            endLineGap = false;
                         }
                         break;
 
                     case 3: //^ return to original pos
                         Robawt.setSteer(30, -1);
                         if (fabs(pickMotorDist(1) - linegapStartReverse) > linegapTurnRightDist) {
-
-                            if (linegapTurnLeftDist < linegapTurnRightDist) { linegap_rotation = -1; }
-                            else if (linegapTurnLeftDist < linegapTurnRightDist) { linegap_rotation = 1; }
-                            else {
-                                linegap_rotation = 0;
-                                linegap_millis = millis();
-                            } 
+                            
+                            // else {
+                            linegap_rotation = 0;
+                            linegap_millis = millis();
+                            // } 
                             linegapState ++;
                         }
                         break;
 
                     case 4: //^ either turn to desired dir, or loop linegap sweep again
-                        Robawt.setSteer(0, linegap_rotation);
-                        // if (see_line){
-                        //     curr = 0;
-                        //     linegapState = 0;
-                        // }
-                        // else if (millis() - linegap_millis > 1000){
+                        if (endLineGap){ 
+                            curr = 0;
+                            linegapState = 0;
+                            endLineGap = false;
+                            linegap_rotation = 0;
+                        }
+                        else if (linegap_rotation == 0) {
+                            Robawt.setSteer(30, rotation);
+                            // curr = 0;
+                            // if (millis() - linegap_millis > 1000){
+                            //     linegapState = 0;
+                            //     linegapStartDist = pickMotorDist(-1);
+                            // }
+                        }   
+                        else if (millis() - linegap_millis > 1000) { //^ not properly written out yet
+                            Robawt.setSteer(-30, 0);
+                            
                             // linegapState = 0;
-                        // }
+                        } else {
+                            Robawt.setSteer(30, linegap_rotation);
+                        }
+                        
                         break;
                 }
                 break;
@@ -1054,6 +1081,11 @@ void loop()
     #if debug_curr
     Serial.print("Curr: ");
     Serial.println(curr);
+    Serial.print("DebugLG: ");
+    Serial.println(debugLinetrackOrigCurr);
+    Serial.print("KitPickupstate: ");
+    Serial.println(pickupKitState);
+
     #endif
 }
 #endif
@@ -1278,7 +1310,7 @@ void loop()
 void loop()
 {
     if (!digitalRead(SWTPIN)) {
-        double distTravelled = abs(MotorL.getDist()-startDistanceValL) + abs(MotorR.getDist()-startDistanceValR);
+        double distTravelled = fabs(MotorL.getDist()-startDistanceValL) + fabs(MotorR.getDist()-startDistanceValR);
         if (distTravelled < 65) {
             Robawt.setSteer(50, 1);
         } else {
