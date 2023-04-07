@@ -37,11 +37,11 @@ double Motor::setRpm(double rpm) //* rev min^-1
     interrupts();
     _motorPID.Compute();
     if (rpm >= 0) {
-        analogWrite(_pwmPin1, 0);
+        digitalWrite(_pwmPin1, LOW);
         analogWrite(_pwmPin2, (int)(_neededRpm)); //output
     } else {
         analogWrite(_pwmPin1, (int)(_neededRpm));
-        analogWrite(_pwmPin2, 0);
+        digitalWrite(_pwmPin2, LOW);
     }
     return _neededRpm;
 }

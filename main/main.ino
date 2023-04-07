@@ -20,8 +20,9 @@
 #define loop_pickball 0
 #define loop_pickcube 0
 #define loop_deposit 0
+#define isthishardwarestop 0
 //^ Force events
-#define debug_evac 0
+#define debug_evac 1
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -178,7 +179,11 @@ bool endLineGap = false;
 int debugLinetrackOrigCurr = 0;
 
 //^ Evac
+#if debug_evac
+bool in_evac = true;
+#else
 bool in_evac = false;
+#endif
 long pickupStateTimer,
     startEvacMillis;
 int pickupState = 0,
@@ -202,12 +207,18 @@ int afterPickupState,
     pickType;
 int distFromWallFront,
     prevDistFromWallFront;
+int ballType;
+double evac_rpm = 40;
 
 //^ Deposit
 int depositState = 0,
     depositType = 1,
     afterDepositState;
 long depositStateTimer;
+double r_k_p = 0.005;
+double s_k_p = 0.0015;
+int diff, f, s_l, s_r;
+double cen_r, cen_s;
 
 //^ Comms
 long lastSerialPiSend;
@@ -283,7 +294,7 @@ void setup()
 
 //* ------------------------------------------- START LOOP -------------------------------------------
 
-#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube && !loop_deposit
+#if !loop_movetime && !loop_movedistance && !loop_pickball && !loop_pickcube && !loop_deposit && !isthishardwarestop
 void loop() 
 {
 
@@ -431,39 +442,35 @@ void loop()
                     linegapStartDist = pickMotorDist(-1);
                     linegapState = 0;
                     curr = 11;
-                // } else if (curr != 11) {
-                //     linegapStartDist = pickMotorDist(-1);
-                //     linegapState = 0;
-                //     debugLinetrackOrigCurr = curr;
-                //     curr = 11;
                 }
-                // curr = 11;
                 break;
 
             //* EVAC HANDLING
 
             case 20: //^ no ball --> wall track
-                if (curr == 65) { break; }
+                if (curr == 65 || curr == 66 || curr == 67 || curr == 69) { break; }
                 curr = 60;
                 break;
 
             case 21: //^ ball
-                if (curr == 65) { break; }
+                if (curr == 65 || curr == 66 || curr == 67 || curr == 69) { break; }
                 curr = 61;
                 break;
 
             case 22: //^ deposit alive
-                curr = 70;
-                depositType = 1;
+                if (curr == 70) {
+                    curr = 72;
+                    depositType = 1; }
                 break;
 
             case 23: //^ deposit dead
-                curr = 70;
-                depositType = 0;
+                if (curr == 70) {
+                    curr = 72;
+                    depositType = 1; }
                 break;
 
             case 24: //^ finding deposit
-                curr = 69;
+                if (curr == 70 || curr == 72) { curr = 70; }
                 break;
 
         }   
@@ -800,21 +807,8 @@ void loop()
 
                     case 1:
                         claw_close();
-                        if (millis() - pickupStateTimer > 1000) {
-                            pickupStateTimer = millis();
-                            pickupState ++; }
-                        break;
-
-                    case 2:
-                        claw_up();
-                        if (millis() - pickupStateTimer > 1000) {
-                            pickupStateTimer = millis();
-                            pickupState ++; 
-                            Robawt.setSteer(-30, 0); }
-                        break;
-
-                    case 3: 
-                        claw_open();
+                        if (ballType == 1) { sort_alive(); }
+                        else if (ballType == 0) { sort_dead(); }
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
                             pickupState ++; 
@@ -822,8 +816,40 @@ void loop()
                             Robawt.resetPID(); }
                         break;
 
-                    case 4:
+                    case 2:
+                        if (ballType == 1) { sort_alive(); }
+                        else if (ballType == 0) { sort_dead(); }
+                        Robawt.setSteer(-30, 0);
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++; }
+                        break;
+                        
+                    case 3:
+                        claw_up();
+                        if (ballType == 1) { sort_alive(); }
+                        else if (ballType == 0) { sort_dead(); }
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++;     
+                            Robawt.setSteer(0, 0);
+                            Robawt.resetPID();}
+                        break;
+
+                    case 4: 
+                        claw_open();
+                        if (ballType == 1) { sort_alive(); }
+                        else if (ballType == 0) { sort_dead(); }
+                        if (millis() - pickupStateTimer > 1000) {
+                            pickupStateTimer = millis();
+                            pickupState ++; 
+                            Robawt.setSteer(0, 0);
+                            Robawt.resetPID(); }
+                        break;
+
+                    case 5:
                         claw_down();
+                        sort_neutral();
                         if (millis() - pickupStateTimer > 1000) {
                             pickupStateTimer = millis();
                             pickupState = 0; 
@@ -847,7 +873,9 @@ void loop()
                 evac_setdist = 140 + (millis() - startEvacMillis)/500;
                 if (evac_setdist > 600) {evac_setdist = 600;}
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
-                Robawt.setSteer(30, wall_rot);
+                Robawt.setSteer(evac_rpm, wall_rot);
+                Serial.print("wall rotation");
+                Serial.println(wall_rot);
                 if (ball_present()) { 
                     curr = 50;
                     pickupState = 0;
@@ -868,8 +896,11 @@ void loop()
                 break;
 
             case 61: //^ ball track
-                claw_halfclose();
-                Robawt.setSteer(30, rotation);
+                #if debug_led
+                led_on = true;
+                #endif
+                if (rotation < 0.5) { claw_halfclose(); }
+                Robawt.setSteer(evac_rpm, rotation);
                 if (ball_present()) { 
                     curr = 50;
                     afterPickupState = 60; }
@@ -938,7 +969,7 @@ void loop()
                 switch (wallGapTurnState)
                 {
                     case 0:
-                        Robawt.setSteer(30, 0);
+                        Robawt.setSteer(30, 0.15);
                         moveWallGapDist = abs(MotorL.getDist()-startWallGapDistL) + abs(MotorR.getDist()-startWallGapDistR);
                         if (wall_present()) {
                             startReverseOORDist = MotorL.getDist();
@@ -954,14 +985,33 @@ void loop()
                 }
                 break;
 
-            case 69: //^ centering?? (currently is wall track but change for in between alive and dead)
-                claw_open();
-                evac_setdist = 140 + (millis() - startEvacMillis)/500;
-                if (evac_setdist > 650) {evac_setdist = 600;}
-                wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
-                Robawt.setSteer(30, wall_rot);
-                break;
+            // case 69: //^ centering
+                // if (front_see_infinity()) { f =  600; }
+                // else { f = l0x_readings[L0X::FRONT]; }
+                // if (right_see_infinity()) { s_r =  600; }
+                // else { s_r = l0x_readings[L0X::RIGHT]; }
+                // if (left_see_infinity()) { s_l =  600; }
+                // else { s_l = l0x_readings[L0X::LEFT]; }
+                // diff = l0x_readings[L0X::RIGHT] - l0x_readings[L0X::LEFT];
+                // cen_r = constrain(diff * r_k_p, -1, 1);
+                // cen_s = constrain(f * s_k_p, 0.001, 1);
+                // if (cen_r > 0) { rotation = pow(cen_r, cen_s); }
+                // else { rotation = -pow(-cen_r, cen_s); }
+                // Robawt.setSteer(60, rotation);
+                // Serial.print("cen_r: ");
+                // Serial.print(cen_r);
+                // Serial.print("  cen_s: ");
+                // Serial.print(cen_s);
+                // Serial.print("  rotation: ");
+                // Serial.println(rotation);
+                // if (fabs(l0x_readings[L0X::RIGHT]) <=  600 && fabs(l0x_readings[L0X::LEFT]) <= 600 && fabs(diff) <= 100 && fabs(f) <= 400) {
+                //     curr = 70; }
+                // break;
 
+            case 70: //^ turning around for the evac
+                Robawt.setSteer(50, 1);
+                break;
+                
             case 72: //^ heading to alive zone / dead zone
                 Robawt.setSteer(rpm, rotation);
                 sort_neutral();
@@ -1007,6 +1057,7 @@ void loop()
                 break;
 
             case 90: //^ get out of evac
+                Robawt.setSteer(0, 0);
                 break;
 
             //* STOP
@@ -1025,7 +1076,7 @@ void loop()
         Robawt.setSteer(0, 0);
         Robawt.reset();
         #if debug_evac
-        curr = 51; //! force evac
+        curr = 69; //! force evac
         #else 
         curr = 0;
         linegapState = 0;
@@ -1142,6 +1193,9 @@ void serialEvent() //Pi to pico serial
                 case 251:
                     endLineGap = (bool)serialData;
                     break;
+                case 250:
+                    if (curr == 61) { ballType = (int)serialData; }
+                    break;
             }
             #if debug_serial
             Serial.print("Data: ");
@@ -1191,8 +1245,8 @@ void claw_open() {
 }
 
 void claw_close() { //ball
-    servos_angle[Servos::RIGHT] = 35;
-    servos_angle[Servos::LEFT] = 100;
+    servos_angle[Servos::RIGHT] = 20;
+    servos_angle[Servos::LEFT] = 115;
     servos_change = true;
 }
 
@@ -1271,11 +1325,24 @@ bool wall_present() {
 }
 
 bool OOR_present() {
-    return (l0x_readings[L0X::FRONT] > 1680 && l0x_readings[L0X::RIGHT] < 200);
+    return ((l0x_readings[L0X::FRONT] > 1680 && (l0x_readings[L0X::RIGHT] < 200 || l0x_readings[L0X::RIGHT] > 1680)) 
+    || (l0x_readings[L0X::FRONT] > 1680 && (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680)));
 }
 
 bool wallgap_present() {
     return (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680);
+}
+
+bool front_see_infinity() {
+    return (l0x_readings[L0X::FRONT] > 1680);
+}
+
+bool left_see_infinity() {
+    return  (l0x_readings[L0X::LEFT] > 1680);
+}
+
+bool right_see_infinity() {
+    return  (l0x_readings[L0X::RIGHT] > 1680);
 }
 
 //* MISC FUNCTIONS
@@ -1444,4 +1511,15 @@ void loop()
 
 #if loop_debugsetup
 void loop() {}
+#endif
+
+#if isthishardwarestop
+void loop() {
+    if (!digitalRead(SWTPIN)) {
+        Robawt.setSteer(30, -0.5); 
+    } else { 
+        Robawt.setSteer(0, 0); 
+        Robawt.resetPID();
+    }
+}
 #endif

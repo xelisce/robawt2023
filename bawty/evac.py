@@ -8,7 +8,7 @@ import math
 #* SERIAL
 ser = serial.Serial("/dev/serial0", 9600)
 
-rpm = 25
+rpm = 30
 
 #* IMAGE START
 evac_stream = WebcamStream(stream_id=2)
@@ -46,6 +46,8 @@ u_red2 = np.array([180, 255, 255], np.uint8) #! 179 or 180?
 #~ My house's values    
 l_green = np.array([70, 90, 30], np.uint8)
 u_green = np.array([96, 255, 255], np.uint8)
+
+ball_type = 1 #1: silver, 0: black
 
 variable_crop = 0
 class Task(enum.Enum):
@@ -85,7 +87,6 @@ while True:
     evac_max = np.amax(evac_org, axis=2)
     
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
-    evac_gray_mask = cv2.inRange(evac_gray, )
 
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:height-variable_crop, :]
@@ -101,13 +102,19 @@ while True:
     circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1=param1, param2=param2, minRadius=min_dist, maxRadius=max_radius)
     balls = []
     if circles is not None:
-        # mask_max = np.zeros(evac_max.shape[:2], dtype=np.uint8)
-        # mask_max = cv2.circle(mask_max, (int(x),int(y)), int(r), 255, -1)
         for x, y, r in circles[0]:
+            mask = np.zeros(evac_org.shape[:2], dtype=np.uint8)
+            mask = cv2.circle(mask, (int(x),int(y)), int(r), 255, -1)
+            # cv2.imshow("ball_circle", mask)
+            ball_mask = cv2.inRange(evac_gray, 0, 40)
+            ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask)
+            # cv2.imshow("ball", ball_mask)
+            black_percent_ball = (np.sum(ball_mask) / 255) / (math.pi * r * r)
             balls.append({
                     "x": x,
                     "y": y,
                     "r": r,
+                    "black": black_percent_ball
                 }) #! add standard deviation for sorting (later)
             
         curr = Task.BALL
@@ -117,18 +124,27 @@ while True:
         for i in circles[0,:]:
             cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
             cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
-        # cv2.imshow("ballz", cv2.pyrDown(evac_max))
+        cv2.imshow("ballz", cv2.pyrDown(evac_max))
         
         # print(balls)
-        biggest_ball = max(balls, key=lambda b: b['y'])
-        # print("Biggest ball:", biggest_ball)
+        closest_ball = max(balls, key=lambda b: b['y'])
+        print("Biggest ball:", closest_ball)
 
-        y_ball = biggest_ball["y"]
-        x_ball = biggest_ball["x"]-centre_x
+        y_ball = closest_ball["y"]
+        x_ball = closest_ball["x"]-centre_x
         rotation = math.atan2(x_ball, y_ball) * 180/math.pi if y != 0 else 0
 
-        # print("rotation:", rotation)
-        rotation *= kp_ball
+        if closest_ball["black"] > 0.1 :
+            ball_type = 1
+        else:
+            ball_type = 0
+
+        
+        if rotation < 0:
+            rotation = -((-rotation/90) ** 0.5) * 90
+        else:
+            rotation = ((rotation/90) ** 0.5) * 90
+        print("rotation:", rotation)
         # print("task:", curr.value)
     
     #* NO BALL
@@ -145,7 +161,8 @@ while True:
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm, # 0 to 200 MAX, but 100 really damn fast alr
-                253, curr.value]
+                253, curr.value,
+                250, ball_type]
     ser.write(to_pico)
 
     key = cv2.waitKey(1)
@@ -183,22 +200,32 @@ while True:
     # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
     cv2.imshow("green", mask_green)
     green_sum = np.sum(mask_green)/255
-    print(green_sum)
+    print("Green sum", green_sum)
 
     mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
     mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = mask_red1 + mask_red2
     cv2.imshow("red", mask_red)
     red_sum = np.sum(mask_red)/255
+    print("Red sum", red_sum)
 
     #* Deposit alive
     if deposit_now == 1:
-        if green_sum > 200:
+
+        #~ Moving to green
+        if 200 < green_sum < 120000:
             print("GREEN")
             greenM = cv2.moments(mask_green)
             cx_green = int(greenM["m10"]/greenM["m00"])
             rotation = (cx_green-centre_x) / 20 #tune constant for rotating to deposit point
             curr = Task.DEPOSITALIVE
+
+        #~ At green
+        elif green_sum > 120000:
+            curr = Task.DEPOSITALIVE
+            deposit_now = 0
+
+        #~ Still finding green
         else:
             rotation = 0
             curr = Task.EMPTYEVAC
@@ -221,6 +248,8 @@ while True:
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm,
                 253, curr.value]
+
+    print(curr)
     
     ser.write(to_pico)
 
