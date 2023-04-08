@@ -25,19 +25,19 @@ ser = serial.Serial("/dev/serial0", 9600)
 # l_black = 0
 u_black = 102
 
-#~ Real values
-# l_green = np.array([30, 50, 60], np.uint8)
-# u_green = np.array([85, 255, 255], np.uint8)
+# ~ Real values
+l_green = np.array([30, 50, 60], np.uint8)
+u_green = np.array([85, 255, 255], np.uint8)
 #~ My house's values
-l_green = np.array([70, 90, 80], np.uint8)
-u_green = np.array([96, 255, 255], np.uint8)
+# l_green = np.array([70, 90, 80], np.uint8)
+# u_green = np.array([96, 255, 255], np.uint8)
 
 #~ Real values
 l_blue = np.array([96, 170, 80], np.uint8)
 u_blue = np.array([106, 245, 191], np.uint8)
 #~ My house's values
-l_blue = np.array([96, 170, 80], np.uint8)
-u_blue = np.array([109, 245, 191], np.uint8)
+# l_blue = np.array([96, 170, 80], np.uint8)
+# u_blue = np.array([109, 245, 191], np.uint8)
 
 l_red1 = np.array([0, 100, 80], np.uint8) #! untuned red values
 u_red1 = np.array([15, 255, 255], np.uint8)
@@ -272,10 +272,8 @@ while True:
         see_line = 1 if obstacle_line_pixels > 17000 else 0
         if see_line:
             print('|'* 5, "SEE LINE", '|' * 5)
-        print("See line pixels:", obstacle_line_pixels)
+        # print("See line pixels:", obstacle_line_pixels)
         # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
-
-
 
         #~ Image processing erode-dilate
         curr = Task.EMPTY
@@ -290,7 +288,8 @@ while True:
         # mask_linegap[]
 
         mask_black[:horizon_crop_h, :] = 0
-        mask_supercrop_black[:-gap_check_h, :] = 0
+        mask_supercrop_black[:-gap_check_h-40, :] = 0
+        mask_supercrop_black[-40:, :] = 0
         #& debug masks
         # cv2.imshow("black mask", mask_black)
         # cv2.imshow("black uncropped mask", mask_uncropped_black)
@@ -307,7 +306,7 @@ while True:
         white_start_y = white_indices[0][-1] if len(white_indices[0]) else 0
 
         black_line_height = black_start_y-white_start_y
-        # print("black: ", black_start_y, "white:", white_start_y)
+        print("black start: ", black_start_y, "white: start", white_start_y)
 
         #~ Finding left and right index of black
         black_col = np.amax(mask_supercrop_black, axis=0)
@@ -317,11 +316,11 @@ while True:
         black_line_width = black_end_x-black_start_x
 
         # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
-        print("x amount:", black_line_width) #& debug width of line
+        print("x width:", black_line_width) #& debug width of line
 
 
         #~ If line gap (line ending and line width small) 
-        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_line_width < 360:
+        if (black_start_y < height-gap_check_h or white_start_y > height-gap_check_h) and black_line_width < 300:
                 print(">" * 15 + 'LINE GAP' + '<' * 15)
                 mask_black = cv2.bitwise_and(mask_gap, mask_black)
                 #^ DOM: using obstacle mask for now
@@ -345,15 +344,18 @@ while True:
             #~ Plain line track
             powered_y = (height-40)/black_line_height if black_line_height != 0 else 1
             powered_y = powered_y ** 0.5
-            powered_y = min(3.5, powered_y)
+            powered_y = min(3.3, powered_y)
 
-        if black_start_y > 400 and white_start_y < 250 and black_line_width > 60: #TODO: offset mask
+        if black_start_y > 200 and white_start_y < 250 and black_line_width > 60: #TODO: offset mask
+            # cv2.imshow("offset black mask", mask_black[200:250, :])
             print("-------------------------------------end line gap-------------------------------------")
             end_line_gap = 1
 
         #~ Vectorizing the black components
         #^ Ancillary: Powering xcom
-        # x_com = x_com ** 1.5
+        # x_com[:, :int(width/2)] *= -1
+        # x_com = x_com ** 1
+        # x_com[:, :int(width/2)] *= -1
         #^ Method 1: Powering ycom
         # powered_y = 2
         # y_com = y_com ** powered_y

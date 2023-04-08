@@ -12,7 +12,7 @@
 #define debug_led 1
 #define debug_looptime 0
 #define debug_lidars 0
-#define debug_curr 0
+#define debug_curr 1
 #define debug_distance 0
 //^ Runs without normal code
 #define loop_movetime 0
@@ -76,7 +76,7 @@ const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = L1X::FRONT_BOTTOM; //last l1x lidar
 
 //* SERVOS SETUP
-double servos_angle[6] = {0, 140, 180, 0, 135, 90}; //basic states initialised
+double servos_angle[6] = {0, 140, 180, 0, 130, 90}; //basic states initialised
 const double servos_max_angle[6] = {180, 180, 180, 300, 300, 300};
 const int servos_pin[6] = {27, 26, 21, 20, 2, 22};
 bool servos_change = false;
@@ -124,6 +124,7 @@ long startGSMillis;
 double startGSDistL, 
     startGSDistR,
     distDoubleGSTravelled;
+int GSState;
 
 //^ Red
 long startRedMillis;
@@ -152,6 +153,7 @@ double prev_kit_rotation,
 long endBlueMillis = millis(),
     pickupKitStateTimer;
 int pickupKitState;
+int afterKitState;
 
 //^ Obstacle
 int turn_dir,
@@ -346,104 +348,106 @@ void loop()
 
         //TODO: clean up the cases here and all the conditions for entering them
 
-        if (curr == 50 || curr == 51 || curr == 11 || (curr >= 23 && curr <= 26)){ //^ if not evac or not in linegap or not in rescuekit
-            curr = curr;
-        } else {
+        // if (curr == 50 || curr == 51 || curr == 11 || (curr >= 23 && curr <= 26)){ //^ if not evac or not in linegap or not in rescuekit
+        //     curr = curr;
+        // } else {
         switch (task) 
         {
 
             //* LINETRACK HANDLING
 
             case 0: //^ empty linetrack
-                if (in_evac) { break; }
-                if (curr == 1) { 
-                    //~ enter post left green mode after minimum turn time
-                    if (millis() - startGSMillis > 200) { 
-                        curr = 21; 
-                        lostGSMillis = millis(); }
-                } else if (curr == 2) {
-                    //~ enter post right green mode after minimum turn time
-                    if (millis() - startGSMillis > 200) { 
-                        curr = 22; 
-                        lostGSMillis = millis(); }
-                } else if (curr == 3) {
+                //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping    
+                if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22) { break; } //^ written by xel
+                // if (curr == 1) { 
+                //     //~ enter post left green mode after minimum turn time
+                //     if (millis() - startGSMillis > 200) { 
+                //         curr = 21; 
+                //         lostGSMillis = millis(); }
+                // } else if (curr == 2) {
+                //     //~ enter post right green mode after minimum turn time
+                //     if (millis() - startGSMillis > 200) { 
+                //         curr = 22; 
+                //         lostGSMillis = millis(); }
+                // } else if (curr == 3) {
+                if (curr == 3) {
                     //~ turn a full 180 deg for double green (dist tuned for 50 rpm, 1 rot)
                     distDoubleGSTravelled = abs(MotorL.getDist()-startGSDistL) + abs(MotorR.getDist()-startGSDistR);
                     if (distDoubleGSTravelled > 65) { curr = 0; }
                 } else if (curr == 4) {
                     //~ drive forward till over red line
                     if (millis() - startRedMillis > 1000) { curr = 100; }
-                } else if (curr == 5 || curr == 6) { 
-                    //~ only return back to linetrack after 90 if speific time has passed
-                    if (millis() - start90Millis > 500) { curr = 0; }
+                // } else if (curr == 5 || curr == 6) { 
+                //     //~ only return back to linetrack after 90 if speific time has passed
+                //     if (millis() - start90Millis > 500) { curr = 0; }
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else if ((curr < 30 || curr > 33) && curr != 100 && (curr < 23 || curr > 25) && curr != 7 && curr != 8 && curr != 50 && curr != 11) {
-                    //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping
+                } else  {
                     curr = 0; }
                 break;
 
             case 1: //^ left green
-                if (in_evac) { break; }
                 if (curr == 3) { break; } //~ double green
                 if (curr > 29 && curr < 34) { break; } //~obstacle cases
-                if (curr == 0) { startGSMillis = millis(); }
-                curr = 1;
+                if (curr == 0) { 
+                    startGSMillis = millis();
+                    curr = 1; 
+                    startGSDistR = pickMotorDist(-1);
+                    GSState = 0; }
                 break;
 
             case 2: //^ right green
-                if (in_evac) { break; }
                 if (curr == 3) { break; } //~ double green
                 if (curr > 29 && curr < 34) { break; } //~obstacle cases
-                if (curr == 0) { startGSMillis = millis(); }
-                curr = 2;
+                if (curr == 0) { 
+                    startGSMillis = millis(); 
+                    curr = 2; 
+                    startGSDistL = pickMotorDist(1); 
+                    GSState = 0; }
                 break;
 
             case 3: //^ double green
-                if (in_evac) { break; }
-                if (curr > 29 && curr < 34) { break; } //~obstacle cases
+                // if (curr > 29 && curr < 34) { break; } //~obstacle cases
                 if (curr == 0) { 
                     startGSDistL = MotorL.getDist();
                     startGSDistR = MotorR.getDist(); }
-                curr = 3;
+                if (0 <= curr <= 2) { curr = 3; }
                 break;
             
             case 4: //^ red line --> go
-                if (in_evac) { break; }
-                if (curr == 0) { startRedMillis = millis(); }
-                curr = 4;
+                if (curr == 0) { startRedMillis = millis(); 
+                    curr = 4;}
                 break;
 
-            case 5: //^ left 90 (not in use currently)
-                if (in_evac) { break; }
-                if (curr == 6) { break; }
-                if (curr == 0) { start90Millis = millis(); }
-                curr = 5;
-                break;  
+            // case 5: //^ left 90 (not in use currently)
+            //     if (in_evac) { break; }
+            //     if (curr == 6) { break; }
+            //     if (curr == 0) { start90Millis = millis(); }
+            //     curr = 5;
+            //     break;  
 
-            case 6: //^ right 90 (not in use currently)
-                if (in_evac) { break; }
-                if (curr == 5) { break; }
-                if (curr == 0) { start90Millis = millis(); }
-                curr = 6;
-                break;  
+            // case 6: //^ right 90 (not in use currently)
+            //     if (in_evac) { break; }
+            //     if (curr == 5) { break; }
+            //     if (curr == 0) { start90Millis = millis(); }
+            //     curr = 6;
+            //     break;  
 
             case 7: //^ turning to blue
-                // if (in_evac) { break; }
-                if (curr == 0) { 
+                if (curr == 0 || (curr == 11 && linegapState == 6)) { 
                     prev_kit_rotation = rotation; 
-                    kitStartDist = pickMotorDist(prev_kit_rotation); }
-                curr = 7;
+                    kitStartDist = pickMotorDist(prev_kit_rotation); 
+                    afterKitState = curr;
+                    curr = 7; }
                 break;
 
             case 8: //^ blue centred 
-                // if (in_evac) { break; }   
-                curr = 8;
+                if (curr == 7) { curr = 8; }
                 break;
 
             case 11: //^ linegap sweeping
-                if (curr == 1 || curr == 2 || curr == 3) { break; }
+                // if (curr == 1 || curr == 2 || curr == 3) { break; }
                 if (curr == 0){
                     linegapStartDist = pickMotorDist(-1);
                     linegapState = 0;
@@ -484,7 +488,7 @@ void loop()
                 break;
 
         }   
-        }
+        // }
 
         #if debug_curr
         Serial.print("Curr: ");
@@ -516,12 +520,56 @@ void loop()
 
             case 1: //^ left green
                 send_pi(0);
-                Robawt.setSteer(rpm, -0.6);
+                #if debug_led
+                led_on = true;
+                #endif
+                // Robawt.setSteer(rpm, -0.6);
+                switch (GSState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, 0);
+                        if (fabs(pickMotorDist(-1) - startGSDistR) > 5) {
+                            GSState++;
+                            startGSDistR = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(rpm, -0.6);
+                        if (fabs(pickMotorDist(-1) - startGSDistR) > 20) {
+                            curr = 0;
+                            GSState = 0;
+                            startGSDistR = pickMotorDist(-1);
+                        }
+                        break;
+                }
                 break;
 
             case 2: //^ right green
                 send_pi(0);
-                Robawt.setSteer(rpm, 0.6);
+                #if debug_led
+                led_on = true;
+                #endif
+                // Robawt.setSteer(rpm, 0.6);
+                switch (GSState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, 0);
+                        if (fabs(pickMotorDist(1) - startGSDistL) > 5) {
+                            GSState++;
+                            startGSDistL = pickMotorDist(1);
+                        }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(rpm, 0.6);
+                        if (fabs(pickMotorDist(1) - startGSDistL) > 20) {
+                            curr = 0;
+                            GSState = 0;
+                            startGSDistL = pickMotorDist(1);
+                        }
+                        break;
+                }
                 break;
             
             case 3: //^ double green
@@ -537,21 +585,21 @@ void loop()
                 Robawt.setSteer(30, 0);
                 break;
 
-            case 5: //^ turn left 90 (not in use currently)
-                send_pi(0);
-                Robawt.setSteer(rpm, -1);
-                #if debug_led
-                led_on = true;
-                #endif
-                break;
+            // case 5: //^ turn left 90 (not in use currently)
+            //     send_pi(0);
+            //     Robawt.setSteer(rpm, -1);
+            //     #if debug_led
+            //     led_on = true;
+            //     #endif
+            //     break;
 
-            case 6: //^ turn right 90 (not in use currently)
-                send_pi(0);
-                Robawt.setSteer(rpm, 1);
-                #if debug_led
-                led_on = true;
-                #endif
-                break;
+            // case 6: //^ turn right 90 (not in use currently)
+            //     send_pi(0);
+            //     Robawt.setSteer(rpm, 1);
+            //     #if debug_led
+            //     led_on = true;
+            //     #endif
+            //     break;
 
             case 7: //^ turning to blue cube
                 send_pi(0);
@@ -588,6 +636,9 @@ void loop()
                 Serial.print(linegapTurnLeftDist);
                 Serial.print("|| LinegapTurnRightDist: ");
                 Serial.println(linegapTurnRightDist);
+                Serial.print("|| LinegapRotation: ");
+                Serial.println(linegap_rotation);
+                if (linegapState == 6) {Serial.print("|| TimeElapsed: "); Serial.println(millis() - linegap_millis);}
                 switch(linegapState){
                     
                     case 0: //^scan left first
@@ -599,15 +650,16 @@ void loop()
                             endLineGap = false; 
                             linegapState++;
                         }
-                        else if (linegapTurnLeftDist >= 20) { //^ if sees line or bot has turned 90 degs left
+                        else if (linegapTurnLeftDist >= 19) { //^ if bot has turned 90 degs left
                             linegapStartReverse = pickMotorDist(-1);
+                            // linegap_rotation = 0;
                             linegapState ++;
                         }
                         break;
 
                     case 1: //^ turn back to original pos
                         Robawt.setSteer(30, 1);
-                        if (fabs(pickMotorDist(-1) - linegapStartReverse) >= linegapTurnLeftDist) { //^ hope this logic works
+                        if (fabs(pickMotorDist(-1) - linegapStartReverse) >= linegapTurnLeftDist) {
                             linegapStartDist = pickMotorDist(1);
                             linegapState ++;
                         }
@@ -618,8 +670,9 @@ void loop()
                         linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
                         if (endLineGap) {
                             linegap_rotation = 1;
-                            linegapState = 6;
+                            linegap_millis = millis();
                             endLineGap = false;
+                            linegapState = 6;
                         }
                         else if (linegapTurnRightDist >= linegapTurnLeftDist){ //^ turns right to match left dist
                             linegapStartReverse = pickMotorDist(1);
@@ -631,22 +684,22 @@ void loop()
                         Robawt.setSteer(30, -1);
                         if (fabs(pickMotorDist(1) - linegapStartReverse) > linegapTurnRightDist) {
                             if (linegap_rotation == -1) { 
+                                linegap_millis = millis();
                                 linegapState = 6;
                             } else {
                                 linegap_rotation = 0;
                                 linegapState ++;
                                 linegapSilverDist = pickMotorDist(-1);
                             }
-                            linegap_millis = millis();
                         }
                         
                         break;
 
                     case 4: //^ actual gap or silver tape?
-                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 4) {
+                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 4) { //^ move back a few cm to expand FOV
                             Robawt.setSteer(0, 0);
                             if (silverStrip) {
-                                curr = 51;
+                                curr = 51; //^ jump to evac
                             } else {
                                 endLineGap = false;
                                 linegapSilverDist = pickMotorDist(-1);
@@ -657,10 +710,11 @@ void loop()
                         }
                         break;
 
-                    case 5:
+                    case 5: //^ move back to ~original pos
                         Robawt.setSteer(30, 0);
-                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 7) {
+                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 7) { 
                             endLineGap = false;
+                            linegap_millis = millis();
                             linegapState ++;
                         }
                         break;
@@ -673,12 +727,13 @@ void loop()
                             linegap_rotation = 0;
                         } else if (linegap_rotation == 0) {
                             Robawt.setSteer(rpm, rotation);
-                        } else if (millis() - linegap_millis > 1000) {
+                        } else if (millis() - linegap_millis > 2000) {
                             Robawt.setSteer(-30, 0);
+                            Serial.println("REVERSING 倒车， 倒车");
                         } else {
                             Robawt.setSteer(30, linegap_rotation);
                         }
-                    break; 
+                        break; 
 
                         /*
                         if (endLineGap){ 
@@ -689,16 +744,9 @@ void loop()
                         }
                         else if (linegap_rotation == 0) {
                             Robawt.setSteer(30, rotation);
-                            // curr = 0;
-                            // if (millis() - linegap_millis > 1000){
-                            //     linegapState = 0;
-                            //     linegapStartDist = pickMotorDist(-1);
-                            // }
                         }   
-                        else if (millis() - linegap_millis > 1000) { //^ not properly written out yet
+                        else if (millis() - linegap_millis > 1000) { 
                             Robawt.setSteer(-30, 0);
-                            
-                            // linegapState = 0;
                         } else {
                             Robawt.setSteer(30, linegap_rotation);
                         }
@@ -750,7 +798,7 @@ void loop()
                 kitTurnBackDist =  abs(pickMotorDist(prev_kit_rotation)-kitStartTurnBackDist);
                 if (kitTurnBackDist > kit_distToTurn) { 
                     endBlueMillis = millis();
-                    curr = 0; }
+                    curr = afterKitState; }
                 break;
 
             case 26: //^ pickup for rescue kit
@@ -802,7 +850,7 @@ void loop()
                 send_pi(0);
                 Robawt.setSteer(-40, 0);
                 Serial.println(MotorL.getDist() - obstDist);
-                if (fabs(MotorL.getDist() - obstDist) > 12) {
+                if (fabs(MotorL.getDist() - obstDist) > 7) {
                     obstState = 0;
                     sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = 31; }
@@ -840,29 +888,29 @@ void loop()
                 switch (obstState)
                 {
                     case 0:
-                        Robawt.setSteer (25, 0);
-                        if (*sideObstDist < 200) { obstState++; }
+                        Robawt.setSteer (40, 0);
+                        if (*sideObstDist < 150) { obstState++; }
                         break;
                         
                     case 1:
-                        Robawt.setSteer (25, 0);
-                        if (*sideObstDist > 200) { obstState++; }
+                        Robawt.setSteer (40, 0);
+                        if (*sideObstDist > 150) { obstState++; }
                         break;
 
                     case 2:
-                        Robawt.setSteer (25, -o_rotation*turn_dir);
-                        if (*sideObstDist < 200) { obstState++; }
+                        Robawt.setSteer (40, -o_rotation*turn_dir);
+                        if (*sideObstDist < 150) { obstState++; }
                         break;
 
                     case 3:
-                        Robawt.setSteer (25, -o_rotation*turn_dir);
-                        if (*sideObstDist > 200) { obstState = 0; }
+                        Robawt.setSteer (40, -o_rotation*turn_dir);
+                        if (*sideObstDist > 150) { obstState = 0; }
                         break;
                 }
                 Serial.print("Obstacle state: ");
                 Serial.println(obstState);
                 //~ Minimum obstacle turn time
-                if (see_line && (millis() - obst_time_start) > 6000){
+                if (see_line && (millis() - obst_time_start) > 1500){
                     curr = 33;
                     obst_time_start = millis();
                     obstState = 0; 
@@ -1381,25 +1429,25 @@ int pwmangle(double angle, double max_angle) //Servo PWM
 }
 
 void claw_open() {
-    servos_angle[Servos::RIGHT] = 135; 
+    servos_angle[Servos::RIGHT] = 130; 
     servos_angle[Servos::LEFT] = 0;
     servos_change = true;
 }
 
 void claw_close() { //ball
-    servos_angle[Servos::RIGHT] = 20;
+    servos_angle[Servos::RIGHT] = 15;
     servos_angle[Servos::LEFT] = 115;
     servos_change = true;
 }
 
 void claw_close_cube() {
-    servos_angle[Servos::RIGHT] = 25;
-    servos_angle[Servos::LEFT] = 110;
+    servos_angle[Servos::RIGHT] = 15;
+    servos_angle[Servos::LEFT] = 115;
     servos_change = true;
 }
 
 void claw_halfclose() {
-    servos_angle[Servos::RIGHT] = 100;
+    servos_angle[Servos::RIGHT] = 95;
     servos_angle[Servos::LEFT] = 35;
     servos_change = true;
 }
