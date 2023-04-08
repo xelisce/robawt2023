@@ -11,8 +11,8 @@
 #define debug_serial 0
 #define debug_led 1
 #define debug_looptime 0
-#define debug_lidars 1
-#define debug_curr 1
+#define debug_lidars 0
+#define debug_curr 0
 #define debug_distance 0
 //^ Runs without normal code
 #define loop_movetime 0
@@ -22,7 +22,7 @@
 #define loop_deposit 0
 #define isthishardwarestop 0
 //^ Force events
-#define debug_evac 1
+#define debug_evac 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -94,7 +94,7 @@ namespace Servos {
 
 //^ Debugging servos
 const int servos_start = Servos::DEAD, //first servo
-    servos_stop = Servos::RIGHT; //last servo
+    servos_stop = Servos::SORT; //last servo
 
 //* VARIABLES
 
@@ -172,7 +172,8 @@ int linegapState = 0;
 double linegapStartDist,
     linegapTurnLeftDist,
     linegapTurnRightDist,
-    linegapStartReverse;
+    linegapStartReverse,
+    linegapSilverDist;
 float linegap_rotation = 0;
 long linegap_millis;
 bool endLineGap = false;
@@ -211,6 +212,7 @@ int distFromWallFront,
     prevDistFromWallFront;
 int ballType;
 double evac_rpm = 40;
+bool silverStrip = false;
 
 //^ Deposit
 int depositState = 0,
@@ -578,15 +580,14 @@ void loop()
 
             case 11: //^ linegap sweeping (considering reversing for like 1cm before sweeping?)
                 send_pi(0);
-                // Serial.print("linegapState: ");
-                // Serial.println(linegapState);
-                // Serial.print("Right motor: ");
-                // Serial.println(pickMotorDist(-1));
-                // Serial.print("LinegapStartDist: ");
-                // Serial.println(linegapStartDist);
-                // Serial.println((fabs(pickMotorDist(-1) - linegapStartDist)));
-                // Serial.print("TurnLeftDist: ");
-                // Serial.println(linegapStartDist);
+                Serial.print("linegapState: ");
+                Serial.print(linegapState);
+                Serial.print("|| LinegapStartDist: ");
+                Serial.print(linegapStartDist);
+                Serial.print("|| LinegapTurnLeftDist: ");
+                Serial.print(linegapTurnLeftDist);
+                Serial.print("|| LinegapTurnRightDist: ");
+                Serial.println(linegapTurnRightDist);
                 switch(linegapState){
                     
                     case 0: //^scan left first
@@ -617,7 +618,7 @@ void loop()
                         linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
                         if (endLineGap) {
                             linegap_rotation = 1;
-                            linegapState = 4;
+                            linegapState = 6;
                             endLineGap = false;
                         }
                         else if (linegapTurnRightDist >= linegapTurnLeftDist){ //^ turns right to match left dist
@@ -629,16 +630,57 @@ void loop()
                     case 3: //^ return to original pos
                         Robawt.setSteer(30, -1);
                         if (fabs(pickMotorDist(1) - linegapStartReverse) > linegapTurnRightDist) {
-                            
-                            // else {
-                            linegap_rotation = 0;
+                            if (linegap_rotation == -1) { 
+                                linegapState = 6;
+                            } else {
+                                linegap_rotation = 0;
+                                linegapState ++;
+                                linegapSilverDist = pickMotorDist(-1);
+                            }
                             linegap_millis = millis();
-                            // } 
-                            linegapState ++;
+                        }
+                        
+                        break;
+
+                    case 4: //^ actual gap or silver tape?
+                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 4) {
+                            Robawt.setSteer(0, 0);
+                            if (silverStrip) {
+                                curr = 51;
+                            } else {
+                                endLineGap = false;
+                                linegapSilverDist = pickMotorDist(-1);
+                                linegapState ++;
+                            }
+                        } else {
+                            Robawt.setSteer(-30, 0);
                         }
                         break;
 
-                    case 4: //^ either turn to desired dir, or loop linegap sweep again
+                    case 5:
+                        Robawt.setSteer(30, 0);
+                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 7) {
+                            endLineGap = false;
+                            linegapState ++;
+                        }
+                        break;
+                     
+                    case 6: //^ turn to the desired direction
+                        if (endLineGap){ 
+                            curr = 0;
+                            linegapState = 0;
+                            endLineGap = false;
+                            linegap_rotation = 0;
+                        } else if (linegap_rotation == 0) {
+                            Robawt.setSteer(rpm, rotation);
+                        } else if (millis() - linegap_millis > 1000) {
+                            Robawt.setSteer(-30, 0);
+                        } else {
+                            Robawt.setSteer(30, linegap_rotation);
+                        }
+                    break; 
+
+                        /*
                         if (endLineGap){ 
                             curr = 0;
                             linegapState = 0;
@@ -660,8 +702,8 @@ void loop()
                         } else {
                             Robawt.setSteer(30, linegap_rotation);
                         }
-                        
-                        break;
+                        */
+                        // break; 
                 }
                 break;
 
@@ -1185,8 +1227,10 @@ void loop()
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
+        
         #if debug_evac
         curr = 51; //! force evac
+        depositType = 1;
         #else 
         curr = 0;
         linegapState = 0;
@@ -1194,8 +1238,8 @@ void loop()
 
         claw_down();
         claw_open();
-        sort_alive();
-        send_pi(10);
+        sort_neutral();
+        send_pi(5);
     }
 
     //* DEBUG PRINTS
@@ -1272,7 +1316,7 @@ void serialEvent() //Pi to pico serial
     while (Serial1.available()) 
     {
         int serialData = Serial1.read();
-        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251) {
+        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251 || serialData == 250 || serialData == 249) {
             serialState = (int)serialData;
             #if debug_serial
             Serial.print("Serial State: ");
@@ -1300,6 +1344,9 @@ void serialEvent() //Pi to pico serial
                     // if (curr == 61) { 
                         ballType = (int)serialData; 
                         // }
+                    break;
+                case 249:
+                    silverStrip = (bool)serialData;
                     break;
             }
             #if debug_serial
@@ -1393,18 +1440,18 @@ void dead_down() {
 }
 
 void sort_alive() {
-    // servos_angle[Servos::SORT] = 130;
-    // servos_change = true;
+    servos_angle[Servos::SORT] = 130;
+    servos_change = true;
 }
 
 void sort_neutral() {
-    // servos_angle[Servos::SORT] = 90;
-    // servos_change = true;
+    servos_angle[Servos::SORT] = 90;
+    servos_change = true;
 }
 
 void sort_dead() {
-    // servos_angle[Servos::SORT] = 50;
-    // servos_change = true;
+    servos_angle[Servos::SORT] = 50;
+    servos_change = true;
 }
 
 
@@ -1420,8 +1467,8 @@ bool wall_present() {
 }
 
 bool OOR_present() {
-    return ((l0x_readings[L0X::FRONT] > 1680 && (l0x_readings[L0X::RIGHT] < 200 || l0x_readings[L0X::RIGHT] > 1680)) //if right and front sees out
-    || (l0x_readings[L0X::FRONT] > 1680 && (l0x_readings[L0X::LEFT] > 1680 || (l0x_readings[L0X::FRONT_LEFT] > 1680 && l0x_readings[L0X::LEFT] > 180)))); //if left and front sees out
+    return ((front_see_infinity() && (l0x_readings[L0X::RIGHT] < 200 || right_see_infinity())) //if front sees out, and right either sees wall or OOR
+    || (front_see_infinity() && (left_see_infinity() || (frontLeft_see_infinity() && l0x_readings[L0X::LEFT] > 180)))); //if left and front sees out
 }
 
 bool wallgap_present() {
@@ -1438,6 +1485,10 @@ bool left_see_infinity() {
 
 bool right_see_infinity() {
     return  (l0x_readings[L0X::RIGHT] > 1680);
+}
+
+bool frontLeft_see_infinity() {
+    return (l0x_readings[L0X::FRONT_LEFT] > 1680);
 }
 
 //* MISC FUNCTIONS

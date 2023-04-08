@@ -200,8 +200,8 @@ def task_1_ball():
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_evac, # 0 to 200 MAX, but 100 really damn fast alr
-                253, curr.value]
-    #TODO: add back ball type to send to pico (removed cuz encountered serial comm problem - task was reading as the ball type)
+                253, curr.value,
+                250, ball_type]
     
     print(to_pico)
 
@@ -318,7 +318,7 @@ def task_3_depositdead():
                 253, curr.value]
     ser.write(to_pico)
 
-#* RESPOND TO PICO
+#* ------------------------ RESPOND TO PICO ----------------------------------
 
 while True:
     if top_stream.stopped or bot_stream.stopped:
