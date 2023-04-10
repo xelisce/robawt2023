@@ -62,6 +62,8 @@ crop_h_bw = 93
 crop_h_bw_gap = 110
 gap_check_h = 180
 horizon_crop_h = 40
+crop_bh_silver = 100 #top camera
+crop_th_silver = 180
 
 #~ RK
 b_minarea = 6000
@@ -133,10 +135,15 @@ u_blue = np.array([106, 245, 191], np.uint8)
 # l_blue = np.array([96, 170, 80], np.uint8)
 # u_blue = np.array([109, 245, 191], np.uint8)
 
-l_red1lt = np.array([0, 100, 80], np.uint8) #! untuned red values
-u_red1lt = np.array([15, 255, 255], np.uint8)
+l_red1lt = np.array([0, 100, 80], np.uint8)
+u_red1lt = np.array([20, 255, 255], np.uint8)
 l_red2lt = np.array([170, 100, 80], np.uint8) 
-u_red2lt = np.array([180, 255, 255], np.uint8) #! 179 or 180?
+u_red2lt = np.array([180, 255, 255], np.uint8)
+
+l_red1silver = np.array([0, 20, 165], np.uint8) 
+u_red1silver = np.array([15, 255, 255], np.uint8)
+l_red2silver = np.array([170, 20, 165], np.uint8) 
+u_red2silver = np.array([180, 255, 255], np.uint8) 
 
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
@@ -151,6 +158,7 @@ class Task(enum.Enum):
     TURN_BLUE = 7
     BLUE = 8
     LINEGAP = 11
+    # SILVER = 12
     #~ Evac
     NOBALL = 20
     BALL = 21
@@ -163,7 +171,9 @@ class Task(enum.Enum):
 rotation = 0
 curr = Task.EMPTY
 rpm_lt = rpm_setptlt
+see_line = 0
 ball_type = 1
+silver_line = 0
 
 red_now = False
 gs_now = False
@@ -182,7 +192,7 @@ def receive_pico() -> str:
         cleanstring = received_data.split(b'\x00',1)
         if len(cleanstring):
             pico_data = cleanstring[0].decode()
-            if len(pico_data[0]):
+            if len(pico_data) and len(pico_data[0]):
                 print("decode:", pico_data[0])
                 return pico_data[0]
             else:
@@ -192,24 +202,55 @@ def receive_pico() -> str:
     else:
         return -1 #no info
     
-def see_entry(gray, thresh, green, min_std_dev, min_mask_sum, t_crop, b_crop) -> bool:
-	"""Ensure that max(thresh) = 255!"""
-	not_green = cv2.bitwise_not(green)
-	not_black = cv2.bitwise_not(thresh)
-	st_mask = cv2.bitwise_and(not_black, not_green)
+# def see_entry(gray, thresh, green, min_std_dev, min_mask_sum, t_crop, b_crop) -> bool:
+#     """Ensure that max(thresh) = 255!"""
+#     not_green = cv2.bitwise_not(green)
+#     not_black = cv2.bitwise_not(thresh)
+#     st_mask = cv2.bitwise_and(not_black, not_green)
 
-	st_mask_c = st_mask[t_crop:(st_mask.shape[0] - b_crop), :]
-	gray_c = gray[t_crop:(gray.shape[0] - b_crop), :]
+#     st_mask_c = st_mask[t_crop:(st_mask.shape[0] - b_crop), :]
+#     gray_c = gray[t_crop:(gray.shape[0] - b_crop), :]
 
-	_, std = cv2.meanStdDev(gray_c ,mask = st_mask_c)
-	print(std, np.sum(st_mask))
-	return (std[0][0] > min_std_dev and np.sum(st_mask_c) > min_mask_sum)
-    
+#     cv2.imshow("st_mask_c", st_mask_c)
+#     cv2.imshow("gray_c", gray_c)
+
+#     _, std = cv2.meanStdDev(gray_c ,mask = st_mask_c)
+#     print(std, np.sum(st_mask))
+#     return (std[0][0] > min_std_dev and np.sum(st_mask_c) > min_mask_sum)
+
+def debug_silvertape():
+    frame_org = top_stream.read()
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    #~ Old method standard deviation
+    # mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+    # t, thresh = cv2.threshold(frame_gray, u_black_lineforltfromevac, 255 ,cv2.THRESH_BINARY_INV)
+    # st = see_entry(frame_gray, thresh, mask_green, 43, 15000000, 150, 120)
+    # print(st)
+
+    mask_red1 = cv2.inRange(frame_hsv, l_red1silver, u_red1silver)
+    mask_red2 = cv2.inRange(frame_hsv, l_red2silver, u_red2silver)
+    mask_red = mask_red1 + mask_red2
+    mask_red[-crop_bh_silver:, :] = 0
+    mask_red[:crop_th_silver, :] = 0
+    red_sum = np.sum(mask_red) / 255
+    cv2.imshow("red mask", mask_red)
+    cv2.imshow("original", frame_org)
+
+    print(red_sum)
+
+    if 500 < red_sum < 1500:
+        print("silver")
+
+
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
 def task0_lt():
-    global rotation, rpm_lt, curr, red_now, gs_now, blue_now
+    global rotation, rpm_lt, curr, red_now, gs_now, blue_now, silver_line, end_line_gap
 
     frame_org = bot_stream.read()
     frame_org = cv2.flip(frame_org, 0)
@@ -352,15 +393,26 @@ def task0_lt():
 
     if not gs_now and not red_now and not blue_now:
 
-        #~ Obstacle see line
-        obstacle_line_mask = mask_black_org.copy()
-        obstacle_line_mask[:height_lt-60, :] = 0
-        obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
-        see_line = 1 if obstacle_line_pixels > 17000 else 0
-        if see_line:
-            print('|'* 5, "SEE LINE", '|' * 5)
-        # print("See line pixels:", obstacle_line_pixels)
-        # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+        #~ Silver line
+        frame_top_org = top_stream.read()
+        # frame_top_org = cv2.flip(frame_top_org, 0)
+        # frame_top_org = cv2.flip(frame_top_org, 1)
+        frame_top_hsv = cv2.cvtColor(frame_top_org, cv2.COLOR_BGR2HSV)
+
+        mask_top_red1 = cv2.inRange(frame_top_hsv, l_red1silver, u_red1silver)
+        mask_top_red2 = cv2.inRange(frame_top_hsv, l_red2silver, u_red2silver)
+        mask_top_red = mask_top_red1 + mask_top_red2
+        mask_top_red[-crop_bh_silver:, :] = 0
+        mask_top_red[:crop_th_silver, :] = 0
+        red_top_sum = np.sum(mask_top_red) / 255
+        # cv2.imshow("red mask", mask_top_red) #& debug silver line
+        # cv2.imshow("original", frame_top_org[crop_th_silver:top_stream_height_org-crop_bh_silver, :])
+
+        if 500 < red_top_sum < 1500:
+            print('|'* 15, "silver", '|'* 15)
+            silver_line = 1
+        else:
+            silver_line = 0
 
         #~ Image processing erode-dilate
         curr = Task.EMPTY
@@ -404,7 +456,6 @@ def task0_lt():
 
         # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
         print("x width:", black_line_width) #& debug width of line
-
 
         #~ If line gap (line ending and line width small) 
         if (black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 300:
@@ -484,8 +535,8 @@ def task0_lt():
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
                 253, curr.value,
-                252, see_line,
-                251, end_line_gap]
+                251, end_line_gap,
+                249, silver_line]
 
     # print(to_pico)
     
@@ -706,10 +757,13 @@ def task4_backtolt():
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
 
-    mask_black = mask_black_org.copy()
+    mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+
+    mask_black = mask_black_org.copy() - mask_green
     mask_black[:-crop_h_evactolt, :] = 0
     cv2.imshow("black mask", mask_black)
     black_sum = np.sum(mask_black) / 255
@@ -719,8 +773,10 @@ def task4_backtolt():
         black_indices_x = np.where(black_col == 255)
         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
         black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
+        black_width = black_end_x - black_start_x
+        print(black_width)
 
-        if (black_end_x - black_start_x) > 200: #! tune this value too
+        if (black_width) > 400: #! tune this value too
             curr = Task.EMPTY
 
             blackM = cv2.moments(mask_black)
@@ -747,12 +803,90 @@ def task4_backtolt():
 
 #* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
 
-# def task5_leftlookright():
+def task5_leftlookright():
+    global curr, rotation, rpm_lt, see_line
+
+    frame_org = bot_stream.read()
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+
+    if obstacle_line_pixels > 10000:
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        # obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("end x", obs_line_end_x)
+        if obs_line_end_x > 610:
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
 
 #* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
 
-# def task6_rightlookleft():
+def task6_rightlookleft():
+    global curr, rotation, rpm_lt, see_line
 
+    frame_org = bot_stream.read()
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+
+    if obstacle_line_pixels > 10000:
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        # obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("start x", obs_line_start_x)
+        if obs_line_start_x < 70:
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
 
 
 #* ------------------------ RESPOND TO PICO ----------------------------------
@@ -765,7 +899,12 @@ while True:
     if received_task != -1:
         pico_task = int(received_task)
 
-    if pico_task == 0:
+    # task4_backtolt()
+    # debug_silvertape()
+    # task5_leftlookright()
+    
+
+    if pico_task == 0 or pico_task == 9:
         print("Linetrack")
         task0_lt()
     elif pico_task == 1:
@@ -782,10 +921,10 @@ while True:
         task4_backtolt()
     elif pico_task == 5:
         print("Obstacle turning left, looking at right of camera for line")
-        # task5_leftlookright()
+        task5_leftlookright()
     elif pico_task == 6:
         print("Obstacle turning right, looking at left of camera for line")
-        # task6_rightlookleft()
+        task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
     else:

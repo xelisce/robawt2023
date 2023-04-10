@@ -23,7 +23,7 @@
 #define isthishardwarestop 0
 //^ Force events
 #define debug_evac 0
-#define debug_evac_exit 1
+#define debug_evac_exit 0
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -180,7 +180,8 @@ double linegapStartDist,
     linegapStartReverse,
     linegapSilverDist;
 float linegap_rotation = 0;
-long linegap_millis;
+long linegap_millis,
+    linegapSilverMillis;
 bool endLineGap = false;
 int debugLinetrackOrigCurr = 0;
 
@@ -210,7 +211,8 @@ double evac_setdist,
     startTurnOORDistR,
     turnOORDist,
     startReverseOORDist,
-    startStraightOORDist;
+    startStraightOORDist,
+    startTurnEvacToLtDist;
 int afterPickupState,
     afterTurnEvacState = 60,
     pickType;
@@ -248,6 +250,8 @@ void setup()
     pinMode(LEDPIN, OUTPUT);
     pinMode(TNYPIN1, INPUT);
     pinMode(TNYPIN2, INPUT);
+
+    digitalWrite(LEDPIN, LOW);
 
     //^ PI SERIAL COMMS
     Serial1.setRX(RX0PIN);
@@ -313,7 +317,7 @@ void loop()
     //* COMMUNICATION UPDATES
     //  teensyEvent();
     serialEvent();
-    digitalWrite(LEDPIN, HIGH);
+    // digitalWrite(LEDPIN, HIGH);
 
     //* SERVO UPDATES
     if (servos_change) {
@@ -363,8 +367,8 @@ void loop()
 
             case 0: //^ empty linetrack
                 //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping or not finding line after evac
-                //~ break if curr is not 3, 4, 21 or 22 or 92
-                if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22 && curr != 91) { break; } //^ written by xel
+                //~ break if curr is not 3, 4, 21 or 22 or above 90
+                if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22 && curr <= 90) { break; } //^ written by xel
                 // if (curr == 1) { 
                 //     //~ enter post left green mode after minimum turn time
                 //     if (millis() - startGSMillis > 200) { 
@@ -391,7 +395,7 @@ void loop()
                     if (millis() - lostGSMillis > 300) { curr = 0; }
                 // } else  { //~ should never happen???
                 //     curr = 0; 
-                } else if(curr == 91) {
+                } else if (curr > 90) {
                     foundLine = true;
                 }
                 break;
@@ -464,6 +468,10 @@ void loop()
                 }
                 break;
 
+            // case 12: //^ silver seen
+            //     if (curr == 11 && linegapState == 4) { silverStrip = true; }
+            //     break;
+
             //* EVAC HANDLING
 
             case 20: //^ no ball --> wall track
@@ -496,6 +504,10 @@ void loop()
                 curr = 71;
                 break;
 
+            case 25:
+                foundLine = false;
+                break;
+
         }   
         // }
 
@@ -524,6 +536,7 @@ void loop()
                     curr = 30;
                     turn_dir = l0x_readings[L0X::LEFT] > l0x_readings[L0X::RIGHT] ? -1 : 1;
                     obstDist = MotorL.getDist();
+                    see_line = false;
                 }
                 break;
 
@@ -699,33 +712,47 @@ void loop()
                                 linegap_rotation = 0;
                                 linegapState ++;
                                 linegapSilverDist = pickMotorDist(-1);
+                                linegapSilverMillis = millis();
                             }
                         }
                         
                         break;
 
                     case 4: //^ actual gap or silver tape?
-                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 4) { //^ move back a few cm to expand FOV
-                            Robawt.setSteer(0, 0);
-                            if (silverStrip) {
-                                curr = 51; //^ jump to evac
-                            } else {
-                                endLineGap = false;
-                                linegapSilverDist = pickMotorDist(-1);
-                                linegapState ++;
-                            }
-                        } else {
-                            Robawt.setSteer(-30, 0);
+                        digitalWrite(LEDPIN, HIGH);
+                        //~ Moving back
+                        // if (fabs(pickMotorDist(-1) - linegapSilverDist) > 4) { //^ move back a few cm to expand FOV
+                        //     Robawt.setSteer(0, 0);
+                        //     endLineGap = false;
+                        //     linegapSilverDist = pickMotorDist(-1);
+                        //     linegapState ++;
+                        //     digitalWrite(LEDPIN, LOW);
+                        // } else {
+                        //     Robawt.setSteer(-30, 0);
+                        // }
+                        //~ Wait
+                        Robawt.setSteer(0, 0);
+                        if (millis() - linegapSilverMillis > 1000) {
+                            endLineGap = false;
+                            linegapSilverDist = pickMotorDist(-1);
+                            linegapState ++;
+                            digitalWrite(LEDPIN, LOW);
                         }
+                        if (silverStrip) { curr = 51; } //^ jump to evac
                         break;
 
-                    case 5: //^ move back to ~original pos
-                        Robawt.setSteer(30, 0);
-                        if (fabs(pickMotorDist(-1) - linegapSilverDist) > 7) { 
-                            endLineGap = false;
-                            linegap_millis = millis();
-                            linegapState ++;
-                        }
+                    case 5: //^ move back to original pos
+                        //~ Moving back forwards
+                        // Robawt.setSteer(30, 0);
+                        // if (fabs(pickMotorDist(-1) - linegapSilverDist) > 7) { 
+                        //     endLineGap = false;
+                        //     linegap_millis = millis();
+                        //     linegapState ++;
+                        // }
+                        //~ Wait
+                        linegapState ++ ;
+                        linegap_millis = millis();
+                        endLineGap = false;
                         break;
                      
                     case 6: //^ turn to the desired direction
@@ -859,7 +886,7 @@ void loop()
                 send_pi(0);
                 Robawt.setSteer(-40, 0);
                 Serial.println(MotorL.getDist() - obstDist);
-                if (fabs(MotorL.getDist() - obstDist) > 7) {
+                if (fabs(MotorL.getDist() - obstDist) > 7.5) {
                     obstState = 0;
                     sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = 31; }
@@ -894,7 +921,8 @@ void loop()
                 break;
 
             case 32: //^ going around obstacle
-                send_pi(0);
+                if (turn_dir == 1) { send_pi(6); }
+                else { send_pi(5); }
                 switch (obstState)
                 {
                     case 0:
@@ -920,7 +948,7 @@ void loop()
                 Serial.print("Obstacle state: ");
                 Serial.println(obstState);
                 //~ Minimum obstacle turn time
-                if (see_line && (millis() - obst_time_start) > 1500){
+                if (see_line && (millis() - obst_time_start) > 200){
                     curr = 33;
                     obst_time_start = millis();
                     obstState = 0; 
@@ -1281,15 +1309,22 @@ void loop()
                 #endif
                 // evac_setdist = 140 + (millis() - startEvacMillis)/10; //constant changed to speed up process
                 // if (evac_setdist > 600) {evac_setdist = 600;}
-                evac_setdist = 600;
+                evac_setdist = 200;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(evac_rpm, wall_rot);
-                if (front_see_infinity()) {
-                    curr = 91; }
-                // if (ball_present()) {
-                //     curr = 50;
-                //     pickupState = 0;
-                //     afterPickupState = 71;
+                if (front_see_infinity() && frontLeft_see_infinity()) {
+                    curr = 93; 
+                } else if (front_see_infinity()) {
+                    curr = 91;
+                } else if (frontLeft_see_infinity()) {
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                    curr = 92;
+                }
+                if (ball_present()) {
+                    curr = 50;
+                    pickupState = 0;
+                    afterPickupState = 90;
+                }
                 // } else if (OOR_present()) {
                 //     startReverseOORDist = MotorL.getDist();
                 //     curr = 65;
@@ -1308,15 +1343,31 @@ void loop()
                 //     afterTurnEvacState = 71; }
                 break;
 
-            case 91: //^ checking if line
+            case 91: //^ checking if line if facing OOR
+            //TODO: add timeout for this case
                 send_pi(4);
                 Robawt.setSteer(40, 0);
                 if (OOR_present && foundLine) { 
                     startTurnEvacToLtMillis = millis();
-                    curr = 92; }
+                    curr = 96; }
                 break;
 
-            case 92: //^ turn to line
+            case 92: //^ checking if line when left is OOR
+                send_pi(4);
+                if (pickMotorDist(-1) - startTurnEvacToLtDist < 35) {
+                    Robawt.setSteer(40, -0.5);
+                } else {
+                    Robawt.setSteer(40, 0);
+                }
+                if (OOR_present && foundLine) { 
+                    startTurnEvacToLtMillis = millis();
+                    curr = 96; }
+                break;
+
+            case 93:
+                break;
+
+            case 96: //^ turn to line
                 send_pi(4);
                 Robawt.setSteer(rpm, rotation);
                 if (millis() - startTurnEvacToLtMillis > 1000) { curr = 0; }
@@ -1344,9 +1395,11 @@ void loop()
         depositType = 1;
         #elif debug_evac_exit
         curr = 90;
+        foundLine = false;
         #else
         curr = 0;
         linegapState = 0;
+        obstState = 0;
         #endif
 
         claw_down();
