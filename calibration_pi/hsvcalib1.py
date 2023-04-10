@@ -13,15 +13,31 @@ import cv2
 cam_stream = WebcamStream(stream_id=0)
 cam_stream.start()
 i = 0
+cam_type = 0
 
 
 while True:
+
+    if cv2.waitKey(1) == ord('0') and cam_type != 0:
+        cam_stream.stop()
+        cam_stream = WebcamStream(stream_id=0)
+        cam_stream.start()
+        cam_type = 0
+
+    if cv2.waitKey(1) == ord('1') and cam_type != 1:
+        cam_stream.stop()
+        cam_stream = WebcamStream(stream_id=2)
+        cam_stream.start()
+        cam_type = 1
+
     if cam_stream.stopped == True:
         break
-    else:
+    elif cam_type == 0:
         frame = cam_stream.read()
         frame = cv2.flip(frame, 0)
         frame = cv2.flip(frame, 1)
+    else:
+        frame = cam_stream.read()
 
     cv2.imshow('frame', frame)
     key = cv2.waitKey(1)

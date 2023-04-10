@@ -282,9 +282,10 @@ while True:
         mask_black = mask_black_org.copy()
         mask_black = cv2.erode(mask_black, black_kernel)
         mask_black = cv2.dilate(mask_black, black_kernel)
+
         mask_uncropped_black = mask_black.copy()
         mask_supercrop_black = mask_black.copy()
-        mask_linegap = mask_black.copy()
+        # mask_linegap = mask_black.copy()
         # mask_linegap[]
 
         mask_black[:horizon_crop_h, :] = 0

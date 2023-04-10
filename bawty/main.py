@@ -93,20 +93,19 @@ max_radius = 88
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
 l_sat_thresh = np.array([180, 100, 255], np.uint8)
 
-#~ Real values (probably for red line)
+#~ Real values (probably for red line) (not currently used just for reference)
 # l_red1 = np.array([0, 100, 80], np.uint8)
 # u_red1 = np.array([15, 255, 255], np.uint8)
 # l_red2 = np.array([170, 100, 80], np.uint8) 
 # u_red2 = np.array([180, 255, 255], np.uint8)
+# l_green = np.array([30, 50, 60], np.uint8)
+# u_green = np.array([85, 255, 255], np.uint8)
+
 #~ My house's values (day for evac red)
 l_red1evac = np.array([0, 90, 20], np.uint8)
 u_red1evac = np.array([15, 255, 255], np.uint8)
 l_red2evac = np.array([170, 90, 20], np.uint8) 
 u_red2evac = np.array([180, 255, 255], np.uint8)
-
-#~ Real values
-# l_green = np.array([30, 50, 60], np.uint8)
-# u_green = np.array([85, 255, 255], np.uint8)
 #~ My house's values (day) 
 # l_green = np.array([70, 90, 30], np.uint8)
 # u_green = np.array([96, 255, 255], np.uint8)
@@ -140,6 +139,8 @@ u_red1lt = np.array([20, 255, 255], np.uint8)
 l_red2lt = np.array([170, 100, 80], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
+
+#~ i assume this is for silver with redLED?
 l_red1silver = np.array([0, 20, 165], np.uint8) 
 u_red1silver = np.array([15, 255, 255], np.uint8)
 l_red2silver = np.array([170, 20, 165], np.uint8) 
@@ -322,6 +323,7 @@ def task0_lt():
             gs_left = g_indices_h[0][0]
             gs_right = g_indices_h[0][-1]
             # print("left:", gs_left, "right:", gs_right)
+            print("width of greensquare: ", gs_right - gs_left)
 
             #~ Test if below or above line
             gs_bkabove = mask_black_org[gs_roi_h - gs_bksampleoffset - gs_bksampleh : gs_roi_h - gs_bksampleoffset, gs_left : gs_right]
@@ -330,6 +332,7 @@ def task0_lt():
             # cv2.imshow("black area above green square", gs_bkabove) 
             # cv2.imshow("black area above green in orig frame", frame_org[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right])
             
+
             #~ GREEM SQUARE FOUND
             if gs_bkpct > gs_minbkpct:
 
@@ -345,7 +348,7 @@ def task0_lt():
                 # print("Green x-centre:", gs_centre)
 
                 #~ Identify type of green square
-                if cx_black > gs_left and cx_black < gs_right and gs_sum > 35000:
+                if cx_black > gs_left and cx_black < gs_right and gs_sum > 35000: #and (gs_right-gs_left):
                     curr = Task.DOUBLE_GREEN
                     gs_now = True
                 elif cx_black > gs_centre:
@@ -423,12 +426,12 @@ def task0_lt():
         mask_black = cv2.dilate(mask_black, black_kernel)
         mask_uncropped_black = mask_black.copy()
         mask_supercrop_black = mask_black.copy()
-        mask_linegap = mask_black.copy()
+        mask_linegap = mask_black.copy() #? not actually used
         # mask_linegap[]
 
         mask_black[:horizon_crop_h, :] = 0
         mask_supercrop_black[:-gap_check_h-40, :] = 0
-        mask_supercrop_black[-40:, :] = 0
+        mask_supercrop_black[-40:, :] = 0 #? what's the purpose of doing this? oh nvm thats q smart actually idk what im sayn nvm
         #& debug masks
         # cv2.imshow("black mask", mask_black)
         # cv2.imshow("black uncropped mask", mask_uncropped_black)
@@ -447,6 +450,15 @@ def task0_lt():
         black_line_height = black_start_y-white_start_y
         print("black start: ", black_start_y, "white: start", white_start_y)
 
+        #~ Finding next line segment
+        black_row[white_start_y:] = 0
+        black_indices_v2 = np.where(black_row == 255)
+        black_second_start_y = black_indices_v2[0][-1] if len(black_indices_v2[0]) else 0
+        black_row[black_second_start_y:] = 255
+        white_indices_v2 = np.where(black_row == 0)
+        white_second_start_y = white_indices_v2[0][-1] if len(white_indices_v2[0]) else 0
+        print("2nd black: ", black_second_start_y, "2nd white:", white_second_start_y) #& debug height of second line
+
         #~ Finding left and right index of black
         black_col = np.amax(mask_supercrop_black, axis=0)
         black_indices_h = np.where(black_col == 255)
@@ -458,11 +470,11 @@ def task0_lt():
         print("x width:", black_line_width) #& debug width of line
 
         #~ If line gap (line ending and line width small) 
-        if (black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 300:
+        if ((black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 300): #or (black_second_start_y > 150 and white_second_start_y < 150):
+                if black_second_start_y < 200 or black_start_y < 200:
+                    curr = Task.LINEGAP
                 print(">" * 15 + 'LINE GAP' + '<' * 15)
                 mask_black = cv2.bitwise_and(mask_gap, mask_black)
-                #^ DOM: using obstacle mask for now
-                curr = Task.LINEGAP
                 powered_y = 1
 
             #~ 90 degrees (NOT WORKING)
@@ -482,11 +494,12 @@ def task0_lt():
             #~ Plain line track
             powered_y = (height_lt-40)/black_line_height if black_line_height != 0 else 1
             powered_y = powered_y ** 0.5
-            powered_y = min(3.3, powered_y)
+            powered_y = min(3.5, powered_y)
 
-        if black_start_y > 200 and white_start_y < 250 and black_line_width > 60: #TODO: offset mask
+        if (black_start_y > 200 and white_start_y < 250 and black_line_width > 60) or (black_second_start_y > 150 and white_second_start_y < 150): #TODO: offset mask
             # cv2.imshow("offset black mask", mask_black[200:250, :])
             print("-------------------------------------end line gap-------------------------------------")
+            curr = Task.EMPTY
             end_line_gap = 1
 
         #~ Vectorizing the black components

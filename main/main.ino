@@ -557,7 +557,7 @@ void loop()
                         break;
 
                     case 1:
-                        Robawt.setSteer(rpm, -0.6);
+                        Robawt.setSteer(rpm, -0.7);
                         if (fabs(pickMotorDist(-1) - startGSDistR) > 20) {
                             curr = 0;
                             GSState = 0;
@@ -584,7 +584,7 @@ void loop()
                         break;
 
                     case 1:
-                        Robawt.setSteer(rpm, 0.6);
+                        Robawt.setSteer(rpm, 0.7);
                         if (fabs(pickMotorDist(1) - startGSDistL) > 20) {
                             curr = 0;
                             GSState = 0;
@@ -1036,6 +1036,11 @@ void loop()
                 pickType = 1;
                 lastSerialPiSend = millis();
                 break;
+
+            // case 52: //^ rescue kit first forward
+            //     if ((millis - startEvacMillis) < 2000) {
+            //         Robawt.setSteer(40, 0);
+            //     break;
 
             case 60: //^ no ball walltrack
                 send_pi(1);
@@ -1559,8 +1564,8 @@ void claw_close() { //ball
 }
 
 void claw_close_cube() {
-    servos_angle[Servos::RIGHT] = 15;
-    servos_angle[Servos::LEFT] = 115;
+    servos_angle[Servos::RIGHT] = 10;
+    servos_angle[Servos::LEFT] = 120;
     servos_change = true;
 }
 

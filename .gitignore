@@ -9,4 +9,6 @@
 /pi/tookwithcomcam.jpg
 /pi/keeponcom.ipynb
 .vscode/c_cpp_properties.json
+.vscode/tasks.json
+.vscode/arduino.json
 .gitignore
