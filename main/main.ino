@@ -1037,10 +1037,17 @@ void loop()
                 lastSerialPiSend = millis();
                 break;
 
-            // case 52: //^ rescue kit first forward
-            //     if ((millis - startEvacMillis) < 2000) {
-            //         Robawt.setSteer(40, 0);
-            //     break;
+            case 52: //^ rescue kit first forward
+                Robawt.setSteer(40, 0);
+                if ((millis() - startEvacMillis) > 2000) {
+                    curr = 53;
+                    startEvacMillis = millis();
+                }
+                break;
+
+            case 53: //^ rescue kit centering
+                // Robawt.setSteer();
+                break;
 
             case 60: //^ no ball walltrack
                 send_pi(1);
@@ -1307,7 +1314,7 @@ void loop()
                 }
                 break;
 
-            case 90: //^ get out of evac by centering and scanning
+            case 90: //^ get out of evac by wall tracking and scanning
                 send_pi(4);
                 #if debug_led
                 led_on = true;
@@ -1317,11 +1324,11 @@ void loop()
                 evac_setdist = 200;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(evac_rpm, wall_rot);
-                if (front_see_infinity() && frontLeft_see_infinity()) {
-                    curr = 93; 
+                if (front_see_infinity() && left_see_infinity()) {
+                    curr = 91; //! change to 45 deg
                 } else if (front_see_infinity()) {
                     curr = 91;
-                } else if (frontLeft_see_infinity()) {
+                } else if (left_see_infinity()) {
                     startTurnEvacToLtDist = pickMotorDist(-1);
                     curr = 92;
                 }
@@ -1359,12 +1366,15 @@ void loop()
 
             case 92: //^ checking if line when left is OOR
                 send_pi(4);
-                if (pickMotorDist(-1) - startTurnEvacToLtDist < 35) {
+                if (pickMotorDist(-1) - startTurnEvacToLtDist < 10) {
+                    Robawt.setSteer(40, 0);
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                } else if (pickMotorDist( -1) - startTurnEvacToLtDist < 35) {
                     Robawt.setSteer(40, -0.5);
                 } else {
                     Robawt.setSteer(40, 0);
                 }
-                if (OOR_present && foundLine) { 
+                if (OOR_present() && foundLine) { 
                     startTurnEvacToLtMillis = millis();
                     curr = 96; }
                 break;

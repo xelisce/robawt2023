@@ -489,12 +489,13 @@ def task0_lt():
         #~ Line continuation
         else:
             mask_black[:white_start_y, :] = 0
+            # cv2.imshow("continuous", mask_black)
             curr = Task.EMPTY
 
             #~ Plain line track
             powered_y = (height_lt-40)/black_line_height if black_line_height != 0 else 1
             powered_y = powered_y ** 0.5
-            powered_y = min(3.5, powered_y)
+            powered_y = min(4, powered_y)
 
         if (black_start_y > 200 and white_start_y < 250 and black_line_width > 60) or (black_second_start_y > 150 and white_second_start_y < 150): #TODO: offset mask
             # cv2.imshow("offset black mask", mask_black[200:250, :])
@@ -664,7 +665,7 @@ def task_2_depositalive():
     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
     # mask_gs = cv2.erode(mask_gs, green_erode_kernel, iterations=1)
     # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
-    cv2.imshow("green", mask_green)
+    # cv2.imshow("green", mask_green)
     green_sum = np.sum(mask_green)/255
     print("Green sum", green_sum)
 
@@ -720,7 +721,7 @@ def task_3_depositdead():
     mask_red1 = cv2.inRange(frame_hsv, l_red1evac, u_red1evac)
     mask_red2 = cv2.inRange(frame_hsv, l_red2evac, u_red2evac)
     mask_red = mask_red1 + mask_red2
-    cv2.imshow("red", mask_red)
+    # cv2.imshow("red", mask_red)
     red_sum = np.sum(mask_red)/255
     print("Red sum", red_sum)
 
@@ -778,7 +779,7 @@ def task4_backtolt():
 
     mask_black = mask_black_org.copy() - mask_green
     mask_black[:-crop_h_evactolt, :] = 0
-    cv2.imshow("black mask", mask_black)
+    # cv2.imshow("black mask", mask_black)
     black_sum = np.sum(mask_black) / 255
 
     if black_sum > 20: #! tune this value
