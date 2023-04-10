@@ -11,7 +11,7 @@
 #define debug_serial 0
 #define debug_led 1
 #define debug_looptime 0
-#define debug_lidars 0
+#define debug_lidars 1
 #define debug_curr 1
 #define debug_distance 0
 //^ Runs without normal code
@@ -23,6 +23,7 @@
 #define isthishardwarestop 0
 //^ Force events
 #define debug_evac 0
+#define debug_evac_exit 1
 
 //* ADDRESSES
 #define TCAADDR 0x70
@@ -135,11 +136,13 @@ double rotation = 0,
 int serialState = 0,
     task = 0, 
     prev_task = 0;
-    #if debug_evac
-    int curr = 51; //! force evac
-    #else 
-    int curr = 0;
-    #endif
+#if debug_evac
+int curr = 51; //! force evac
+#elif debug_evac_exit
+int curr = 90;
+#else
+int curr = 0;
+#endif
 
 //^ Blue cube
 double prev_kit_rotation,
@@ -189,7 +192,8 @@ bool in_evac = false;
 #endif
 long pickupStateTimer,
     startEvacMillis, 
-    evac_settime;
+    evac_settime,
+    startTurnEvacToLtMillis;
 int pickupState = 0,
     OORTurnState,
     wallTurnState,
@@ -215,6 +219,7 @@ int distFromWallFront,
 int ballType;
 double evac_rpm = 40;
 bool silverStrip = false;
+bool foundLine = false;
 
 //^ Deposit
 int depositState = 0,
@@ -357,8 +362,9 @@ void loop()
             //* LINETRACK HANDLING
 
             case 0: //^ empty linetrack
-                //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping    
-                if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22) { break; } //^ written by xel
+                //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping or not finding line after evac
+                //~ break if curr is not 3, 4, 21 or 22 or 92
+                if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22 && curr != 91) { break; } //^ written by xel
                 // if (curr == 1) { 
                 //     //~ enter post left green mode after minimum turn time
                 //     if (millis() - startGSMillis > 200) { 
@@ -383,8 +389,11 @@ void loop()
                 } else if (curr == 21 || curr == 22) {
                     //~ post green continue to rotate
                     if (millis() - lostGSMillis > 300) { curr = 0; }
-                } else  {
-                    curr = 0; }
+                // } else  { //~ should never happen???
+                //     curr = 0; 
+                } else if(curr == 91) {
+                    foundLine = true;
+                }
                 break;
 
             case 1: //^ left green
@@ -459,13 +468,13 @@ void loop()
 
             case 20: //^ no ball --> wall track
                 if (curr != 60 && curr != 61) { break; }
-                if (millis() - startEvacMillis > 60000) { curr = 71; } //finished evac
+                if (millis() - startEvacMillis > 240000) { curr = 71; } //finished evac
                 else { curr = 60; }
                 break;
 
             case 21: //^ ball
                 if (curr != 60 && curr != 61) { break; }
-                if (millis() - startEvacMillis > 60000) { curr = 71; } //finished evac
+                if (millis() - startEvacMillis > 240000) { curr = 71; } //finished evac
                 else { curr = 61; }
                 // curr = 61;
                 break;
@@ -857,7 +866,8 @@ void loop()
                 break;
 
             case 31: //^ turning 90 degrees
-                send_pi(0);
+                if (turn_dir == 1) { send_pi(6); }
+                else { send_pi(5); }
                 switch (obstState)
                 {
                     case 0:
@@ -1163,7 +1173,7 @@ void loop()
             //     break;
 
             case 71: //^ centering for deposit
-            //TODO: if the ball gets stuck when navigating to deposit
+            //TODO: check if the ball gets stuck when navigating to deposit code works
                 if (depositType == 1) { send_pi(2); }
                 else { send_pi(3); }
                 #if debug_led
@@ -1174,7 +1184,11 @@ void loop()
                 evac_setdist = 600;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(evac_rpm, wall_rot);
-                if (OOR_present()) {
+                if (ball_present()) {
+                    curr = 50;
+                    pickupState = 0;
+                    afterPickupState = 71;
+                } else if (OOR_present()) {
                     startReverseOORDist = MotorL.getDist();
                     curr = 65;
                     OORTurnState = 0; 
@@ -1214,7 +1228,8 @@ void loop()
                     send_pi(3); 
                     startReverseDistAfterDepL = pickMotorDist(1); }
                 else { curr = 75; 
-                    send_pi(4); } // get out of evac
+                    send_pi(4); 
+                    startReverseDistAfterDepL = pickMotorDist(1); } // get out of evac
                 break;
 
             case 74: //^ reversing from alive zone
@@ -1227,8 +1242,11 @@ void loop()
                 break;
 
             case 75: //^ after dead zone
-                Robawt.setSteer(0, 0);
-                //TODO: reverse and wall track out of evac zone
+                send_pi(4);
+                Robawt.setSteer(-40, 0);
+                if (fabs(pickMotorDist(1) - startReverseDistAfterDepL) > 60) {
+                    curr = 90;
+                }
                 break;
 
             case 80: //^ deposit
@@ -1256,13 +1274,58 @@ void loop()
                 }
                 break;
 
-            // case 90: //^ get out of evac (unused for now)
-            //     Robawt.setSteer(0, 0);
-            //     break;
+            case 90: //^ get out of evac by centering and scanning
+                send_pi(4);
+                #if debug_led
+                led_on = true;
+                #endif
+                // evac_setdist = 140 + (millis() - startEvacMillis)/10; //constant changed to speed up process
+                // if (evac_setdist > 600) {evac_setdist = 600;}
+                evac_setdist = 600;
+                wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
+                Robawt.setSteer(evac_rpm, wall_rot);
+                if (front_see_infinity()) {
+                    curr = 91; }
+                // if (ball_present()) {
+                //     curr = 50;
+                //     pickupState = 0;
+                //     afterPickupState = 71;
+                // } else if (OOR_present()) {
+                //     startReverseOORDist = MotorL.getDist();
+                //     curr = 65;
+                //     OORTurnState = 0; 
+                //     afterTurnEvacState = 71; }
+                // else if (wall_present()) {
+                //     startReverseOORDist = MotorL.getDist();
+                //     curr = 66;
+                //     wallTurnState = 0; 
+                //     afterTurnEvacState = 71; }
+                // else if (wallgap_present()) { 
+                //     curr = 67;
+                //     wallGapTurnState = 0;
+                //     startWallGapDistL = MotorL.getDist();
+                //     startWallGapDistR = MotorR.getDist(); 
+                //     afterTurnEvacState = 71; }
+                break;
+
+            case 91: //^ checking if line
+                send_pi(4);
+                Robawt.setSteer(40, 0);
+                if (OOR_present && foundLine) { 
+                    startTurnEvacToLtMillis = millis();
+                    curr = 92; }
+                break;
+
+            case 92: //^ turn to line
+                send_pi(4);
+                Robawt.setSteer(rpm, rotation);
+                if (millis() - startTurnEvacToLtMillis > 1000) { curr = 0; }
+                break;
 
             //* STOP
 
             case 100: //^ red --> stop
+                send_pi(0);
                 Robawt.setSteer(0, 0);
                 Robawt.reset();
                 #if debug_led
@@ -1279,7 +1342,9 @@ void loop()
         #if debug_evac
         curr = 51; //! force evac
         depositType = 1;
-        #else 
+        #elif debug_evac_exit
+        curr = 90;
+        #else
         curr = 0;
         linegapState = 0;
         #endif
@@ -1287,7 +1352,7 @@ void loop()
         claw_down();
         claw_open();
         sort_neutral();
-        send_pi(5);
+        send_pi(9);
     }
 
     //* DEBUG PRINTS

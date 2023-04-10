@@ -32,7 +32,6 @@ centre_x_topcam = top_stream_width/2
 
 kp_ball = 1
 rpm_evac = 30 #not actually used
-# u_black = 55
 
 #* HOUGH CIRCLE PARAMETERS
 dp = 3
@@ -66,6 +65,10 @@ u_red2 = np.array([180, 255, 255], np.uint8)
 #~ My house's values (night)
 l_green = np.array([55, 171, 5], np.uint8)
 u_green = np.array([96, 255, 255], np.uint8)
+
+u_blackforball = 40
+u_black_lineforltfromevac = 70
+crop_h_evactolt = 180
 
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
@@ -143,7 +146,7 @@ def task_1_ball():
             mask = np.zeros(evac_org.shape[:2], dtype=np.uint8)
             mask = cv2.circle(mask, (int(x),int(y)), int(r), 255, -1)
             # cv2.imshow("ball_circle", mask)
-            ball_mask = cv2.inRange(evac_gray, 0, 40)
+            ball_mask = cv2.inRange(evac_gray, 0, u_blackforball)
             ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask)
             # cv2.imshow("ball", ball_mask)
             black_percent_ball = (np.sum(ball_mask) / 255) / (math.pi * r * r)
@@ -216,7 +219,7 @@ def task_2_depositalive():
     frame_org = bot_stream.read()
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
-    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
     mask_green = cv2.inRange(frame_hsv, l_green, u_green)
@@ -272,7 +275,7 @@ def task_3_depositdead():
     frame_org = bot_stream.read()
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
-    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
     mask_red1 = cv2.inRange(frame_hsv, l_red1, u_red1)
@@ -318,6 +321,36 @@ def task_3_depositdead():
                 253, curr.value]
     ser.write(to_pico)
 
+
+#* MAIN FUNCTION ------------------------ EVAC FIND DEAD DEPOSIT POINT ----------------------------------
+
+# def task4_backtolt():
+    
+#     frame_org = bot_stream.read()
+#     frame_org = cv2.flip(frame_org, 0)
+#     frame_org = cv2.flip(frame_org, 1)
+#     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+
+#     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
+
+#     mask_black = mask_black_org.copy()
+#     mask_black[:-crop_h_evactolt, :] = 0
+
+#     black_sum = np.sum(mask_black) / 255
+
+#     if black_sum > 20: #tune this value
+
+
+#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
+
+# def task5_leftlookright():
+
+#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
+
+# def task6_rightlookleft():
+
+
+
 #* ------------------------ RESPOND TO PICO ----------------------------------
 
 while True:
@@ -326,19 +359,28 @@ while True:
 
     received_task = receive_pico()
     if received_task != -1:
-        pico_task = received_task
+        pico_task = int(received_task)
 
-    if int(pico_task) == 0:
+    if pico_task == 0:
         print("Linetrack")
-    elif int(pico_task) == 1:
+    elif pico_task == 1:
         print("Evac looking for ball")
         task_1_ball()
-    elif int(pico_task) == 2:
+    elif pico_task == 2:
         print("Evac looking for alive deposit")
         task_2_depositalive()
-    elif int(pico_task) == 3:
+    elif pico_task == 3:
         print("Evac looking for dead deposit")
         task_3_depositdead()
+    elif pico_task == 4:
+        print("Looking for linetrack")
+        # task4_backtolt()
+    elif pico_task == 5:
+        print("Obstacle turning left, looking at right of camera for line")
+    elif pico_task == 6:
+        print("Obstacle turning right, looking at left of camera for line")
+    elif pico_task == 9:
+        print("Switch off")
     else:
         print("Pico task:", pico_task)
 
