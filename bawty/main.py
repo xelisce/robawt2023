@@ -185,6 +185,7 @@ blue_now = False
 pico_task = 0
 
 #* FUNCTIONS
+
 def receive_pico() -> str:
     if(ser.in_waiting > 0):
         received_data = ser.read()
@@ -204,22 +205,6 @@ def receive_pico() -> str:
             return -1 #\x00 is the only byte
     else:
         return -1 #no info
-    
-# def see_entry(gray, thresh, green, min_std_dev, min_mask_sum, t_crop, b_crop) -> bool:
-#     """Ensure that max(thresh) = 255!"""
-#     not_green = cv2.bitwise_not(green)
-#     not_black = cv2.bitwise_not(thresh)
-#     st_mask = cv2.bitwise_and(not_black, not_green)
-
-#     st_mask_c = st_mask[t_crop:(st_mask.shape[0] - b_crop), :]
-#     gray_c = gray[t_crop:(gray.shape[0] - b_crop), :]
-
-#     cv2.imshow("st_mask_c", st_mask_c)
-#     cv2.imshow("gray_c", gray_c)
-
-#     _, std = cv2.meanStdDev(gray_c ,mask = st_mask_c)
-#     print(std, np.sum(st_mask))
-#     return (std[0][0] > min_std_dev and np.sum(st_mask_c) > min_mask_sum)
 
 def debug_silvertape():
     frame_org = top_stream.read()
@@ -247,8 +232,6 @@ def debug_silvertape():
 
     if 500 < red_sum < 1500:
         print("silver")
-
-
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -558,7 +541,6 @@ def task0_lt():
     
     ser.write(to_pico)
 
-
 #* MAIN FUNCTION ------------------------ EVAC FIND BALL ----------------------------------
 
 def task_1_ball():
@@ -707,7 +689,6 @@ def task_2_depositalive():
                 253, curr.value]
     ser.write(to_pico)
 
-
 #* MAIN FUNCTION ------------------------ EVAC FIND DEAD DEPOSIT POINT ----------------------------------
 
 def task_3_depositdead():
@@ -763,58 +744,7 @@ def task_3_depositdead():
                 253, curr.value]
     ser.write(to_pico)
 
-
 #* MAIN FUNCTION ------------------------ EVAC FIND DEAD DEPOSIT POINT ----------------------------------
-
-# def task4_backtolt():
-#     global rotation, curr
-
-#     frame_org = bot_stream.read()
-#     frame_org = cv2.flip(frame_org, 0)
-#     frame_org = cv2.flip(frame_org, 1)
-#     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
-#     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
-
-#     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
-
-#     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
-
-#     mask_black = mask_black_org.copy() - mask_green
-#     mask_black[:-crop_h_evactolt, :] = 0
-#     # cv2.imshow("black mask", mask_black)
-#     black_sum = np.sum(mask_black) / 255
-
-#     if black_sum > 20: #! tune this value
-#         black_col = np.amax(mask_black, axis=0)
-#         black_indices_x = np.where(black_col == 255)
-#         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
-#         black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
-#         black_width = black_end_x - black_start_x
-#         print(black_width)
-
-#         if (black_width) > 400: #! tune this value too
-#             curr = Task.EMPTY
-
-#             blackM = cv2.moments(mask_black)
-#             cx_black = int(blackM["m10"]/blackM["m00"])
-#             rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
-
-#         else:
-#             curr = Task.FINDINGLINE
-#     else:
-#         curr = Task.FINDINGLINE
-
-#     #* DATA
-#     if rotation > 90:
-#         rotation = 90
-#     elif rotation < -90:
-#         rotation = -90
-#     rotation = int(rotation) + 90
-
-#     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
-#                 254, rpm_evac,
-#                 253, curr.value]
-#     ser.write(to_pico)
         
 def task4_backtolt():
     global rotation, curr
@@ -842,7 +772,7 @@ def task4_backtolt():
         black_width = black_end_x - black_start_x
         print("black width", black_width)
 
-        if (black_width) > 460: #! tune this value too
+        if (black_width) > 470: #! tune this value too
             # curr = Task.EMPTY
 
             blackM = cv2.moments(mask_black)
@@ -1002,3 +932,73 @@ while True:
 top_stream.stop()
 bot_stream.stop()
 cv2.destroyAllWindows()
+
+#* ------------------------ UNUSED FUNCTIONS ----------------------------------
+
+# def task4OLDOLDOLD_backtolt():
+#     global rotation, curr
+
+#     frame_org = bot_stream.read()
+#     frame_org = cv2.flip(frame_org, 0)
+#     frame_org = cv2.flip(frame_org, 1)
+#     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+#     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+#     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
+
+#     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+
+#     mask_black = mask_black_org.copy() - mask_green
+#     mask_black[:-crop_h_evactolt, :] = 0
+#     # cv2.imshow("black mask", mask_black)
+#     black_sum = np.sum(mask_black) / 255
+
+#     if black_sum > 20: #! tune this value
+#         black_col = np.amax(mask_black, axis=0)
+#         black_indices_x = np.where(black_col == 255)
+#         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
+#         black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
+#         black_width = black_end_x - black_start_x
+#         print(black_width)
+
+#         if (black_width) > 400: #! tune this value too
+#             curr = Task.EMPTY
+
+#             blackM = cv2.moments(mask_black)
+#             cx_black = int(blackM["m10"]/blackM["m00"])
+#             rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
+
+#         else:
+#             curr = Task.FINDINGLINE
+#     else:
+#         curr = Task.FINDINGLINE
+
+#     #* DATA
+#     if rotation > 90:
+#         rotation = 90
+#     elif rotation < -90:
+#         rotation = -90
+#     rotation = int(rotation) + 90
+
+#     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+#                 254, rpm_evac,
+#                 253, curr.value]
+#     ser.write(to_pico)
+
+
+
+# def see_entry(gray, thresh, green, min_std_dev, min_mask_sum, t_crop, b_crop) -> bool:
+#     """Ensure that max(thresh) = 255!"""
+#     not_green = cv2.bitwise_not(green)
+#     not_black = cv2.bitwise_not(thresh)
+#     st_mask = cv2.bitwise_and(not_black, not_green)
+
+#     st_mask_c = st_mask[t_crop:(st_mask.shape[0] - b_crop), :]
+#     gray_c = gray[t_crop:(gray.shape[0] - b_crop), :]
+
+#     cv2.imshow("st_mask_c", st_mask_c)
+#     cv2.imshow("gray_c", gray_c)
+
+#     _, std = cv2.meanStdDev(gray_c ,mask = st_mask_c)
+#     print(std, np.sum(st_mask))
+#     return (std[0][0] > min_std_dev and np.sum(st_mask_c) > min_mask_sum)
