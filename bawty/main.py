@@ -115,7 +115,9 @@ u_greenevac = np.array([96, 255, 255], np.uint8)
 
 u_blackforball = 40
 u_black_lineforltfromevac = 70
-crop_h_evactolt = 180
+# crop_h_evactolt = 180
+crop_bh_evactolt = 100 #with top cam
+crop_th_evactolt = 100 #with top cam
 
 #* IMAGE PROCESSING THRESHOLDS FOR LINETRACK
 u_black = 102
@@ -238,8 +240,8 @@ def debug_silvertape():
     mask_red[-crop_bh_silver:, :] = 0
     mask_red[:crop_th_silver, :] = 0
     red_sum = np.sum(mask_red) / 255
-    cv2.imshow("red mask", mask_red)
-    cv2.imshow("original", frame_org)
+    # cv2.imshow("red mask", mask_red)
+    # cv2.imshow("original", frame_org)
 
     print(red_sum)
 
@@ -764,12 +766,60 @@ def task_3_depositdead():
 
 #* MAIN FUNCTION ------------------------ EVAC FIND DEAD DEPOSIT POINT ----------------------------------
 
+# def task4_backtolt():
+#     global rotation, curr
+
+#     frame_org = bot_stream.read()
+#     frame_org = cv2.flip(frame_org, 0)
+#     frame_org = cv2.flip(frame_org, 1)
+#     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+#     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+#     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
+
+#     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+
+#     mask_black = mask_black_org.copy() - mask_green
+#     mask_black[:-crop_h_evactolt, :] = 0
+#     # cv2.imshow("black mask", mask_black)
+#     black_sum = np.sum(mask_black) / 255
+
+#     if black_sum > 20: #! tune this value
+#         black_col = np.amax(mask_black, axis=0)
+#         black_indices_x = np.where(black_col == 255)
+#         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
+#         black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
+#         black_width = black_end_x - black_start_x
+#         print(black_width)
+
+#         if (black_width) > 400: #! tune this value too
+#             curr = Task.EMPTY
+
+#             blackM = cv2.moments(mask_black)
+#             cx_black = int(blackM["m10"]/blackM["m00"])
+#             rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
+
+#         else:
+#             curr = Task.FINDINGLINE
+#     else:
+#         curr = Task.FINDINGLINE
+
+#     #* DATA
+#     if rotation > 90:
+#         rotation = 90
+#     elif rotation < -90:
+#         rotation = -90
+#     rotation = int(rotation) + 90
+
+#     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+#                 254, rpm_evac,
+#                 253, curr.value]
+#     ser.write(to_pico)
+        
 def task4_backtolt():
     global rotation, curr
 
-    frame_org = bot_stream.read()
-    frame_org = cv2.flip(frame_org, 0)
-    frame_org = cv2.flip(frame_org, 1)
+    frame_org = top_stream.read()
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -778,20 +828,22 @@ def task4_backtolt():
     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
 
     mask_black = mask_black_org.copy() - mask_green
-    mask_black[:-crop_h_evactolt, :] = 0
+    mask_black[-crop_bh_evactolt:, :] = 0
+    mask_black[:crop_th_evactolt, :] = 0
     # cv2.imshow("black mask", mask_black)
     black_sum = np.sum(mask_black) / 255
+    print("black sum", black_sum)
 
-    if black_sum > 20: #! tune this value
+    if black_sum > 23000: #! tune this value
         black_col = np.amax(mask_black, axis=0)
         black_indices_x = np.where(black_col == 255)
         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
         black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
         black_width = black_end_x - black_start_x
-        print(black_width)
+        print("black width", black_width)
 
-        if (black_width) > 400: #! tune this value too
-            curr = Task.EMPTY
+        if (black_width) > 460: #! tune this value too
+            # curr = Task.EMPTY
 
             blackM = cv2.moments(mask_black)
             cx_black = int(blackM["m10"]/blackM["m00"])
@@ -813,7 +865,6 @@ def task4_backtolt():
                 254, rpm_evac,
                 253, curr.value]
     ser.write(to_pico)
-        
 
 #* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
 
@@ -918,7 +969,7 @@ while True:
     # task5_leftlookright()
     
 
-    if pico_task == 0 or pico_task == 9:
+    if pico_task == 0:
         print("Linetrack")
         task0_lt()
     elif pico_task == 1:
