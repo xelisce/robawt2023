@@ -122,11 +122,11 @@ crop_bh_evactolt = 120 #with top cam
 crop_th_evactolt = 100 #with top cam
 
 #* IMAGE PROCESSING THRESHOLDS FOR LINETRACK
-u_black = 102
-
+u_black = 80 #^ DOM: prev value: 102
+2
 # ~ Real values
-l_greenlt = np.array([30, 50, 60], np.uint8)
-u_greenlt = np.array([85, 255, 255], np.uint8)
+l_greenlt = np.array([60, 115, 100], np.uint8) #alternate values: 50,50,90
+u_greenlt = np.array([80, 255, 255], np.uint8)
 #~ My house's values
 # l_green = np.array([70, 90, 80], np.uint8)
 # u_green = np.array([96, 255, 255], np.uint8)
@@ -179,6 +179,7 @@ rpm_lt = rpm_setptlt
 see_line = 0
 ball_type = 1
 silver_line = 0
+end_line_gap = 0
 
 red_now = False
 gs_now = False
@@ -270,7 +271,7 @@ def task0_lt():
     mask_blue[:horizon_crop_h, :] = 0
     blue_sum = np.sum(mask_blue) / 255
     # print("Blue sum:", blue_sum) #& debug blue min area
-
+    print("green sum:", gs_sum)
     #* RED LINE 
 
     if red_sum > 60000:
@@ -319,6 +320,7 @@ def task0_lt():
             # cv2.imshow("black area above green square", gs_bkabove) 
             # cv2.imshow("black area above green in orig frame", frame_org[gs_top - gs_bksampleoffset - gs_bksampleh : gs_top - gs_bksampleoffset, gs_left : gs_right])
             
+            print("green sum:", gs_sum)
 
             #~ GREEM SQUARE FOUND
             if gs_bkpct > gs_minbkpct:
@@ -334,6 +336,7 @@ def task0_lt():
                 # print("Black x-centre:", cx_black)
                 # print("Green x-centre:", gs_centre)
 
+                print("green sum:", gs_sum)
                 #~ Identify type of green square
                 if cx_black > gs_left and cx_black < gs_right and gs_sum > 35000: #and (gs_right-gs_left):
                     curr = Task.DOUBLE_GREEN
@@ -417,7 +420,7 @@ def task0_lt():
 
         mask_black[:horizon_crop_h, :] = 0
         mask_supercrop_black[:-gap_check_h-40, :] = 0
-        mask_supercrop_black[-40:, :] = 0 #? what's the purpose of doing this? oh nvm thats q smart actually idk what im sayn nvm
+        mask_supercrop_black[-40:, :] = 0 
         #& debug masks
         # cv2.imshow("black mask", mask_black)
         # cv2.imshow("black uncropped mask", mask_uncropped_black)
@@ -452,11 +455,10 @@ def task0_lt():
         black_end_x = black_indices_h[0][-1] if len(black_indices_h[0]) else 0
         black_line_width = black_end_x-black_start_x
 
-        # mask_black = mask_black[white_start_y:black_start_y, :] #& debug continous line
         print("x width:", black_line_width) #& debug width of line
 
         #~ If line gap (line ending and line width small) 
-        if ((black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 300): #or (black_second_start_y > 150 and white_second_start_y < 150):
+        if ((black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 320): #or (black_second_start_y > 150 and white_second_start_y < 150):
                 if black_second_start_y < 200 or black_start_y < 200:
                     curr = Task.LINEGAP
                 print(">" * 15 + 'LINE GAP' + '<' * 15)
@@ -925,7 +927,7 @@ while True:
         task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
-        task4_backtolt()
+        task0_lt()
     else:
         print("Pico task unknown:", pico_task)
 
