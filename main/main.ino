@@ -13,7 +13,7 @@
 #define debug_looptime 0
 #define debug_lidars 1
 #define debug_curr 1
-#define debug_distance 0
+#define debug_distance 1
 //^ Runs without normal code
 #define loop_movetime 0
 #define loop_movedistance 0
@@ -57,7 +57,7 @@ void ISRRB() { MotorR.readEncB(); }
 
 //* LIDARS SETUP
 //^ VL53L0X
-int l0x_readings[4] = {0, 0, 0, 0};
+int l0x_readings[4] = {200, 0, 0, 0};
 const int l0x_pins[4] = {4, 3, 1, 5};
 String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
 namespace L0X {
@@ -71,8 +71,8 @@ namespace L1X {
     enum L1X { FRONT_BOTTOM };
 }
 //^ Debugging Lidars
-const int l0x_start = L0X::FRONT_LEFT, //first lidar
-    l0x_stop = L0X::RIGHT; //last l0x lidar
+const int l0x_start = L0X::RIGHT, //first lidar
+    l0x_stop = L0X::LEFT; //last l0x lidar
 const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
     l1x_stop = L1X::FRONT_BOTTOM; //last l1x lidar
 
@@ -199,8 +199,10 @@ int pickupState = 0,
     OORTurnState,
     wallTurnState,
     wallGapTurnState,
-    postRescueKitState;
+    postRescueKitState,
+    enterEvacState = 0;
 double evac_setdist,
+    evac_startdist,
     wall_rot,
     startWallGapDistL,
     startWallGapDistR,
@@ -222,7 +224,8 @@ int afterPickupState,
     evacExitState = 0;
 int distFromWallFront,
     prevDistFromWallFront,
-    evacExitFrontVal;
+    evacExitFrontVal,
+    frontLeftForDepositVal;
 int ballType;
 double evac_rpm = 40,
     evac_exit_rpm = 50;
@@ -374,6 +377,9 @@ void loop()
             case 0: //^ empty linetrack
                 //~ if not in obstacle or on red line or not post blue or not current blue or not picking up stuff or not linegap-sweeping or not finding line after evac
                 //~ break if curr is not 3, 4, 21 or 22 or above 90
+                if (curr == 0 && silverStrip) { 
+                    curr = 51; 
+                    enterEvacState = 0;} //^ jump to evac
                 if ((curr <= 2 || curr >= 5) && curr != 21 && curr != 22 && curr <= 90) { break; } //^ written by xel
                 // if (curr == 1) { 
                 //     //~ enter post left green mode after minimum turn time
@@ -391,7 +397,7 @@ void loop()
                     distDoubleGSTravelled = abs(MotorL.getDist()-startGSDistL) + abs(MotorR.getDist()-startGSDistR);
                     if (distDoubleGSTravelled > 65) { curr = 0; }
                 } else if (curr == 4) {
-                    //~ drive forward till over red line
+                    //~ drive forward till oaver red line
                     if (millis() - startRedMillis > 1000) { curr = 100; }
                 // } else if (curr == 5 || curr == 6) { 
                 //     //~ only return back to linetrack after 90 if speific time has passed
@@ -469,7 +475,7 @@ void loop()
                 // if (curr == 1 || curr == 2 || curr == 3) { break; }
                 if (curr == 0){
                     linegapStartDist = pickMotorDist(-1);
-                    linegapState = 0;
+                    linegapState = -2;
                     curr = 11;
                 }
                 break;
@@ -668,7 +674,22 @@ void loop()
                 Serial.println(linegap_rotation);
                 if (linegapState == 6) {Serial.print("|| TimeElapsed: "); Serial.println(millis() - linegap_millis);}
                 switch(linegapState){
-                    
+                    case -2:
+                        Robawt.setSteer(0, 0); 
+                        Robawt.resetPID();
+                        linegap_millis = millis();
+                        linegapState++;
+                        break;
+
+                    case -1:
+                        Robawt.setSteer(0, 0);
+                        Robawt.resetPID();
+                        if (millis() - linegap_millis > 1000) {
+                            linegapState++;
+                            linegapStartDist = pickMotorDist(-1);
+                        }
+                        break;
+
                     case 0: //^scan left first
                         Robawt.setSteer(30, -1);
                         linegapTurnLeftDist = fabs(pickMotorDist(-1) - linegapStartDist);
@@ -682,6 +703,7 @@ void loop()
                             linegapStartReverse = pickMotorDist(-1);
                             // linegap_rotation = 0;
                             linegapState ++;
+                            Robawt.resetPID();
                         }
                         break;
 
@@ -690,12 +712,17 @@ void loop()
                         if (fabs(pickMotorDist(-1) - linegapStartReverse) >= linegapTurnLeftDist) {
                             linegapStartDist = pickMotorDist(1);
                             linegapState ++;
+                            linegap_millis = millis();
+                            Robawt.resetPID();
                         }
                         break;
 
                     case 2: //^ scan right
-                        Robawt.setSteer(30, 1); 
+                         
                         linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
+                        if (millis() - linegap_millis < 1000) 
+                        { Robawt.setSteer(0, 0); Robawt.resetPID(); }
+                        else { Robawt.setSteer(30, 1); }
                         if (endLineGap) {
                             linegap_rotation = 1;
                             linegap_millis = millis();
@@ -705,18 +732,23 @@ void loop()
                         else if (linegapTurnRightDist >= linegapTurnLeftDist){ //^ turns right to match left dist
                             linegapStartReverse = pickMotorDist(1);
                             linegapState ++;
+                            linegap_millis = millis();
                         }
+                        
                         break;
 
                     case 3: //^ return to original pos
-                        Robawt.setSteer(30, -1);
-                        if (fabs(pickMotorDist(1) - linegapStartReverse) > linegapTurnRightDist) {
+                        if (millis() - linegap_millis < 1000)
+                        { Robawt.setSteer(0, 0); Robawt.resetPID(); }
+                        else{ Robawt.setSteer(30, -1);}
+                        if (fabs(pickMotorDist(1) - linegapStartReverse) >= linegapTurnRightDist) {
                             if (linegap_rotation == -1) { 
                                 linegap_millis = millis();
                                 linegapState = 6;
                             } else {
                                 linegap_rotation = 0;
                                 linegapState ++;
+                                
                                 linegapSilverDist = pickMotorDist(-1);
                                 linegapSilverMillis = millis();
                             }
@@ -736,15 +768,15 @@ void loop()
                         // } else {
                         //     Robawt.setSteer(-30, 0);
                         // }
-                        //~ Wait
+                        //~ Wait 1s
                         Robawt.setSteer(0, 0);
+                        Robawt.resetPID();
                         if (millis() - linegapSilverMillis > 1000) {
                             endLineGap = false;
                             linegapSilverDist = pickMotorDist(-1);
                             linegapState ++;
                             digitalWrite(LEDPIN, LOW);
                         }
-                        if (silverStrip) { curr = 51; } //^ jump to evac
                         break;
 
                     case 5: //^ move back to original pos
@@ -764,7 +796,7 @@ void loop()
                     case 6: //^ turn to the desired direction
                         if (endLineGap){ 
                             curr = 0;
-                            linegapState = 0;
+                            linegapState = -2;
                             endLineGap = false;
                             linegap_rotation = 0;
                         } else if (linegap_rotation == 0) {
@@ -1036,11 +1068,64 @@ void loop()
 
             case 51: //^ evac initialisation
                 send_pi(1);
-                startEvacMillis = millis();
-                curr = 60;
-                in_evac = true;
-                pickType = 1;
                 lastSerialPiSend = millis();
+                switch (enterEvacState) {
+                    case 0: // initialise
+                        // startEvacMillis = millis();
+                        in_evac = true;
+                        pickType = 1;
+                        enterEvacState++;
+                        evac_startdist = pickMotorDist(-1);
+                        break;
+
+                    case 1: // move forward
+                        Robawt.setSteer(40, 0);
+                        if (fabs(pickMotorDist(-1) - evac_startdist) > 36) {
+                            evac_startdist = pickMotorDist(-1);
+                            enterEvacState++;
+                        }
+                        break;
+
+                    case 2: // turn left 90
+                        Robawt.setSteer(40, -1);
+                        if (fabs(pickMotorDist(-1) - evac_startdist > 16.5)) {
+                            evac_startdist = pickMotorDist(-1);
+                            enterEvacState++;
+                        }
+                        break;
+                        
+                    case 3:  //go past wall, but for shorter amt of time
+                        Robawt.setSteer(evac_rpm, 0);
+                        if (l0x_readings[L0X::FRONT] < 50) {  //wall right in front
+                            enterEvacState ++;
+                            evac_startdist = pickMotorDist(-1);
+                        } else if (fabs(pickMotorDist(-1) - evac_startdist) > 42) { //otherwise move this short amount
+                            curr = 60;
+                            enterEvacState = 0;
+                            startEvacMillis = millis();
+                            evac_startdist = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 4: //wall in front of it, need reverse and turn 90
+                        Robawt.setSteer(-evac_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - evac_startdist) > 10) {
+                            enterEvacState ++;
+                            evac_startdist = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 5: //turning 90 right from wall in front of it
+                        Robawt.setSteer(evac_rpm, 1);
+                        if (fabs(pickMotorDist(-1) - evac_startdist) > 18) {
+                            curr = 90;
+                            enterEvacState = 0;
+                            startEvacMillis = millis();
+                            evac_startdist = pickMotorDist(-1);
+                        }
+                        break;
+
+                }
                 break;
 
             case 52: //^ rescue kit first forward
@@ -1218,6 +1303,7 @@ void loop()
                 led_on = true;
                 #endif
                 evac_setdist = 600;
+                if (frontLeft_see_infinity()) { frontLeftForDepositVal = 750; }
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(evac_rpm, wall_rot);
                 if (ball_present()) {
@@ -1615,7 +1701,7 @@ void loop()
     //* SWITCH IS OFF
     } else {
         Robawt.setSteer(0, 0);
-        Robawt.reset();
+        // Robawt.reset();
         
         #if debug_evac
         curr = 51; //! force evac
@@ -1675,6 +1761,11 @@ void loop()
     Serial.print(MotorL.getDist());
     Serial.print(" || Motor R: ");
     Serial.print(MotorR.getDist());
+    Serial.println();
+    Serial.print("Motor L Enc: ");
+    Serial.print(MotorL.getEncVal());
+    Serial.print(" || Motor R Enc: ");
+    Serial.print(MotorR.getEncVal());
     Serial.println();
     #endif
 

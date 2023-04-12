@@ -58,11 +58,12 @@ gs_bksampleh = 40
 gs_minbkpct = 0.35 #! to be tuned
 gs_minarea = 4000 #min pixels
 gs_erode_kernel = np.ones((3, 3), np.uint8)
+redsilver_kernel = np.ones((7,7), np.uint8)
 
 #~ Linegap
 crop_h_bw = 93
 crop_h_bw_gap = 110
-gap_check_h = 180
+gap_check_h = 170
 horizon_crop_h = 40
 crop_bh_silver = 100 #top camera
 crop_th_silver = 180
@@ -265,7 +266,7 @@ def task0_lt():
     mask_red2 = cv2.inRange(frame_hsv, l_red2lt, u_red2lt)
     mask_red = mask_red1 + mask_red2
     red_sum = np.sum(mask_red) / 255
-    # print("Red sum:", red_sum) #& debug red min area
+    print("Red sum:", red_sum) #& debug red min area
 
     mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue) 
     mask_blue[:horizon_crop_h, :] = 0
@@ -395,20 +396,26 @@ def task0_lt():
         mask_top_red1 = cv2.inRange(frame_top_hsv, l_red1silver, u_red1silver)
         mask_top_red2 = cv2.inRange(frame_top_hsv, l_red2silver, u_red2silver)
         mask_top_red = mask_top_red1 + mask_top_red2
+        # cv2.imshow("before erode dilate", mask_top_red)
+        mask_top_red = cv2.dilate(mask_top_red, redsilver_kernel)
+        mask_top_red = cv2.erode(mask_top_red, redsilver_kernel)
         mask_top_red[-crop_bh_silver:, :] = 0
         mask_top_red[:crop_th_silver, :] = 0
         red_top_sum = np.sum(mask_top_red) / 255
         # cv2.imshow("red mask", mask_top_red) #& debug silver line
+        print("red top sum", red_top_sum)
         # cv2.imshow("original", frame_top_org[crop_th_silver:top_stream_height_org-crop_bh_silver, :])
 
-        if 500 < red_top_sum < 1500:
-            print('|'* 15, "silver", '|'* 15)
+        if 1000 < red_top_sum < 7000 and red_sum < 16000:
+            print('|'* 30, "silver", '|'* 30)
             silver_line = 1
         else:
             silver_line = 0
 
         #~ Image processing erode-dilate
         curr = Task.EMPTY
+
+        mask_black_org = mask_black_org - mask_top_red
 
         mask_black = mask_black_org.copy()
         mask_black = cv2.erode(mask_black, black_kernel)
