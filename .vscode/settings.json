@@ -16,6 +16,7 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "stack": "cpp",
-        "cstdlib": "cpp"
+        "cstdlib": "cpp",
+        "cmath": "cpp"
     }
 }
