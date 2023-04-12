@@ -32,6 +32,7 @@ while True:
 
     if cam_stream.stopped == True:
         break
+    
     elif cam_type == 0:
         frame = cam_stream.read()
         frame = cv2.flip(frame, 0)

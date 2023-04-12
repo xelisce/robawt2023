@@ -214,7 +214,8 @@ double evac_setdist,
     startReverseOORDist,
     startStraightOORDist,
     startTurnEvacToLtDist,
-    postRescueKitTurnDist;
+    postRescueKitTurnDist,
+    turnedEvacExitDist;
 int afterPickupState,
     afterTurnEvacState = 60,
     pickType,
@@ -222,7 +223,8 @@ int afterPickupState,
 int distFromWallFront,
     prevDistFromWallFront;
 int ballType;
-double evac_rpm = 40;
+double evac_rpm = 40,
+    evac_exit_rpm = 50;
 bool silverStrip = false;
 bool foundLine = false;
 
@@ -1317,15 +1319,15 @@ void loop()
                 #endif
                 evac_setdist = 200;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
-                Robawt.setSteer(evac_rpm, wall_rot);
-                if (frontLeft_see_infinity() && front_see_infinity()) {
+                Robawt.setSteer(evac_exit_rpm, wall_rot);
+                if (frontLeft_see_out() && front_see_out()) {
                     curr = 91;
                     evacExitState = 0;
-                    // startTurnEvacToLtDist = pickMotorDist(-1);
-                } else if (frontLeft_see_infinity()) {
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                } else if (frontLeft_see_out()) {
                     curr = 93;
                     evacExitState = 0;
-                } else if (left_see_infinity()) {
+                } else if (left_see_out()) {
                     startTurnEvacToLtDist = pickMotorDist(-1);
                     curr = 92;
                     evacExitState = 0;
@@ -1337,29 +1339,43 @@ void loop()
                 }
                 break;
 
-            case 91: //^ checking if line if facing OOR
+            case 91: //^ checking if line if facing OOR on left or front
                 send_pi(4);
                 Serial.print("Evac exit state: ");
                 Serial.println(evacExitState);
                 switch (evacExitState)
                 {
                     case 0:
-                        Robawt.setSteer(40, 0);
-                        if (l0x_readings[L0X::RIGHT] < 150 || right_see_infinity() || left_see_out()) { //when hit the entrance
+                        // Robawt.setSteer(-evac_exit_rpm, 0);
+                        // if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 5) {
                             evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        // }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(evac_exit_rpm, 0);
+                        if (right_see_wall()) { //this is if frontis infinity
+                            evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        }
+                        else if (left_see_out()) { //when right never trigger, meaning left is infinity
+                            curr = 92;
+                            evacExitState = 0;
                             startTurnEvacToLtDist = pickMotorDist(-1);
                         }
                         break;
 
-                    case 1:
-                        Robawt.setSteer(-40, 0);
-                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 4) {
+                    case 2:
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 8) {
                             evacExitState ++;
                             startTurnEvacToLtDist = pickMotorDist(-1);
                             startTurnEvacToLtMillis = millis();
                         }
+                        break;
 
-                    case 2:
+                    case 3:
                         Robawt.setSteer(0, 0);
                         if (millis() - startTurnEvacToLtMillis > 1500) {
                             evacExitState = 0;
@@ -1369,16 +1385,20 @@ void loop()
                         }
                         break;
                 }
-                if (OOR_present && foundLine) { 
+                if (front_see_out() && foundLine) { 
                     startTurnEvacToLtMillis = millis();
                     curr = 96; }
                 break;
 
             case 92: //^ checking if line when left is OOR
                 send_pi(4);
+                Serial.print("Turned: ");
+                Serial.println(turnedEvacExitDist);
+                Serial.print("Evac state: ");
+                Serial.println(evacExitState);
                 switch (evacExitState) {
                     case 0:
-                        Robawt.setSteer(40, 0);
+                        Robawt.setSteer(evac_exit_rpm, 0);
                         if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 4) {
                             evacExitState ++;
                             startTurnEvacToLtDist = pickMotorDist(-1);
@@ -1386,8 +1406,14 @@ void loop()
                         break;
 
                     case 1:
-                        Robawt.setSteer(40, -0.5);
-                        if (fabs(pickMotorDist( -1) - startTurnEvacToLtDist) > 35) {
+                        Robawt.setSteer(evac_exit_rpm, -0.5);
+                        // if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 40) {
+                        //     evacExitState ++;
+                        //     startTurnEvacToLtDist = pickMotorDist(-1);
+                        //     startTurnEvacToLtMillis = millis();
+                        // }
+                        if (right_see_wall()) {
+                            turnedEvacExitDist = fabs(pickMotorDist(-1) - startTurnEvacToLtDist);
                             evacExitState ++;
                             startTurnEvacToLtDist = pickMotorDist(-1);
                             startTurnEvacToLtMillis = millis();
@@ -1395,6 +1421,25 @@ void loop()
                         break;
 
                     case 2:
+                        Robawt.setSteer(-evac_exit_rpm, -0.5);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 4) {
+                            if (turnedEvacExitDist < 25) { evacExitState ++; } //need to reverse
+                            else { evacExitState = 4; }
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                            startTurnEvacToLtMillis = millis();
+                        }
+                        break;
+
+                    case 3:
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 8) {
+                            evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                            startTurnEvacToLtMillis = millis();
+                        }
+                        break;
+
+                    case 4:
                         Robawt.setSteer(0, 0);
                         if (millis() - startTurnEvacToLtMillis > 1500) {
                             evacExitState = 0;
@@ -1404,78 +1449,98 @@ void loop()
                         }
                         break;
                 }
-                if (OOR_present() && foundLine) { 
+                if (front_see_out() && foundLine) { 
                     startTurnEvacToLtMillis = millis();
                     curr = 96; }
                 break;
 
-            case 93:
+            case 93: //^ when front left see out, wait for left to see out
                 send_pi(4);
-                Robawt.setSteer(40, 0);
+                Robawt.setSteer(evac_exit_rpm, 0);
                 if (left_see_out()) { 
                     startTurnEvacToLtDist = pickMotorDist(-1);
                     evacExitState = 0;
                     curr = 92;
                 }
-                if (OOR_present() && foundLine) { 
+                if (front_see_out() && foundLine) { 
                     startTurnEvacToLtMillis = millis();
                     curr = 96; }
                 break;
 
             case 96: //^ turn to line
-                send_pi(4);
-                Robawt.setSteer(rpm, rotation);
+                send_pi(0);
+                Robawt.setSteer(evac_exit_rpm, -0.2);
                 if (millis() - startTurnEvacToLtMillis > 1500) { curr = 0; }
                 break;
 
-            case 97: //^ turn back to go wall track evac
+            case 97: //^ turn back to go wall track evac, didnt detect any evac
+                Serial.print("Evac exit state: ");
+                Serial.println(evacExitState);
                 switch (evacExitState)
                 {
-                    case 0:
-                        Robawt.setSteer(-40, 0);
-                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 6) {
+                    case 0: //reverse
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 8.5) {
                             evacExitState ++;
                             startTurnEvacToLtMillis = millis();
+                            startTurnEvacToLtDist = pickMotorDist(-1);
                         }
                         break;
 
-                    case 1:
-                        Robawt.setSteer(40, 1);
-                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 35) {
-                            evacExitState ++;
+                    case 1: //turn 90
+                        Robawt.setSteer(evac_exit_rpm, 1);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 18) {
+                            startTurnEvacToLtDist = pickMotorDist(-1);
                             startTurnEvacToLtMillis = millis();
+                            evacExitState ++;
                         }
                         break;
 
-                    case 2:
-                        evac_setdist = 200;
-                        wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
-                        Robawt.setSteer(evac_rpm, wall_rot);
-                        if (ball_present()) {
-                            curr = 50;
-                            pickupState = 0;
-                            afterPickupState = 90;
-                        } 
-                        // else if (OOR_present()) {
-                        //     startReverseOORDist = MotorL.getDist();
-                        //     curr = 65;
-                        //     OORTurnState = 0; 
-                        //     afterTurnEvacState = 97; }
-                        // else if (wall_present()) {
-                        //     startReverseOORDist = MotorL.getDist();
-                        //     curr = 66;
-                        //     wallTurnState = 0; 
-                        //     afterTurnEvacState = 97; }
-                        // else if (wallgap_present()) { 
-                        //     curr = 67;
-                        //     wallGapTurnState = 0;
-                        //     startWallGapDistL = MotorL.getDist();
-                        //     startWallGapDistR = MotorR.getDist(); 
-                        //     afterTurnEvacState = 97; }
-                        if (millis() - startTurnEvacToLtMillis > 2000) {
+                    case 2: //move forward
+                        Robawt.setSteer(evac_exit_rpm, 0);
+                        if (l0x_readings[L0X::FRONT_LEFT] < 200) { //found wall
+                            evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        } else if (right_see_closewall()) {
+                            curr = 91;
+                            evacExitState = 0;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        } else if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 33) { //otherwise go one tile for two adjacent case
                             curr = 90;
                             evacExitState = 0;
                             startTurnEvacToLtMillis = millis();
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 3:  //go past wall, but for shorter amt of time
+                        Robawt.setSteer(evac_exit_rpm, 0);
+                        if (l0x_readings[L0X::FRONT] < 100) {  //wall right in front
+                            evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        } else if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 25) { //otherwise move this short amount
+                            curr = 90;
+                            evacExitState = 0;
+                            startTurnEvacToLtMillis = millis();
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 4: //wall in front of it, need reverse and turn 90
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 10) {
+                            evacExitState ++;
+                            startTurnEvacToLtDist = pickMotorDist(-1);
+                        }
+                        break;
+
+                    case 5: //turning 90 from wall in front of it
+                        Robawt.setSteer(evac_exit_rpm, 1);
+                        if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 18) {
+                            curr = 90;
+                            evacExitState = 0;
+                            startTurnEvacToLtMillis = millis();
+                            startTurnEvacToLtDist = pickMotorDist(-1);
                         }
                         break;
                 }
@@ -1766,9 +1831,26 @@ bool frontLeft_see_infinity() {
     return (l0x_readings[L0X::FRONT_LEFT] > 1680);
 }
 
-//^ left see outside evac when wall tracing at 200
+//* EVAC WALL TRACKING OUT OF EVAC
+
 bool left_see_out() {
-    return (l0x_readings[L0X::LEFT] > 600);
+    return (l0x_readings[L0X::LEFT] > 400);
+}
+
+bool front_see_out() {
+    return (l0x_readings[L0X::FRONT] > 400);
+}
+
+bool frontLeft_see_out() {
+    return (l0x_readings[L0X::FRONT_LEFT] > 600);
+}
+
+bool right_see_wall() {
+    return (l0x_readings[L0X::RIGHT] < 500);
+}
+
+bool right_see_closewall() {
+    return (l0x_readings[L0X::RIGHT] < 200);
 }
 
 //* MISC FUNCTIONS

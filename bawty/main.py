@@ -26,6 +26,8 @@ kp_lt = 1
 height_lt = bot_stream_height_org
 centre_x_lt = bot_stream_width/2
 
+black_kernel = np.ones((5, 5), np.uint8)
+
 #~ Vectors
 x_com = np.tile(np.linspace(-1., 1., bot_stream_width), (height_lt, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * bot_stream_width for i in np.linspace(1., 0, height_lt)])
@@ -116,7 +118,7 @@ u_greenevac = np.array([96, 255, 255], np.uint8)
 u_blackforball = 40
 u_black_lineforltfromevac = 70
 # crop_h_evactolt = 180
-crop_bh_evactolt = 100 #with top cam
+crop_bh_evactolt = 120 #with top cam
 crop_th_evactolt = 100 #with top cam
 
 #* IMAGE PROCESSING THRESHOLDS FOR LINETRACK
@@ -136,13 +138,13 @@ u_blue = np.array([106, 245, 191], np.uint8)
 # l_blue = np.array([96, 170, 80], np.uint8)
 # u_blue = np.array([109, 245, 191], np.uint8)
 
+#~ Red line
 l_red1lt = np.array([0, 100, 80], np.uint8)
 u_red1lt = np.array([20, 255, 255], np.uint8)
 l_red2lt = np.array([170, 100, 80], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
-
-#~ i assume this is for silver with redLED?
+#~ Silver using red led
 l_red1silver = np.array([0, 20, 165], np.uint8) 
 u_red1silver = np.array([15, 255, 255], np.uint8)
 l_red2silver = np.array([170, 20, 165], np.uint8) 
@@ -404,7 +406,6 @@ def task0_lt():
 
         #~ Image processing erode-dilate
         curr = Task.EMPTY
-        black_kernel = np.ones((5, 5), np.uint8)
 
         mask_black = mask_black_org.copy()
         mask_black = cv2.erode(mask_black, black_kernel)
@@ -760,7 +761,9 @@ def task4_backtolt():
     mask_black = mask_black_org.copy() - mask_green
     mask_black[-crop_bh_evactolt:, :] = 0
     mask_black[:crop_th_evactolt, :] = 0
-    # cv2.imshow("black mask", mask_black)
+    mask_black = cv2.erode(mask_black, black_kernel)
+    mask_black = cv2.dilate(mask_black, black_kernel)
+    cv2.imshow("black mask", mask_black)
     black_sum = np.sum(mask_black) / 255
     print("black sum", black_sum)
 
@@ -772,8 +775,8 @@ def task4_backtolt():
         black_width = black_end_x - black_start_x
         print("black width", black_width)
 
-        if (black_width) > 470: #! tune this value too
-            # curr = Task.EMPTY
+        if (black_width) > 500: #! tune this value too
+            curr = Task.EMPTY
 
             blackM = cv2.moments(mask_black)
             cx_black = int(blackM["m10"]/blackM["m00"])
@@ -922,6 +925,7 @@ while True:
         task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
+        task4_backtolt()
     else:
         print("Pico task unknown:", pico_task)
 
