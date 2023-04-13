@@ -127,6 +127,15 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 l_greenevac = np.array([80, 100, 10], np.uint8)
 u_greenevac = np.array([100, 255, 255], np.uint8)
 
+#~top camera (club)
+l_red1evac_top = np.array([0, 110, 110], np.uint8)
+u_red1evac_top = np.array([10, 255, 255], np.uint8)
+l_red2evac_top = np.array([175, 110, 110], np.uint8) 
+u_red2evac_top = np.array([180, 255, 255], np.uint8)
+
+l_greenevac_top = np.array([75, 80, 95], np.uint8)
+u_greenevac_top = np.array([91, 255, 255], np.uint8)
+
 u_blackforball = 40
 u_black_lineforltfromevac = 70
 # crop_h_evactolt = 180
@@ -247,6 +256,21 @@ def debug_silvertape():
 
     if 500 < red_sum < 1500:
         print("silver")
+
+def sort_contours(cnts):
+    boundingBoxes = [cv2.boundingRect(c) for c in cnts]
+    (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes), key=lambda b:b[1][1], reverse=True))
+    return (cnts, boundingBoxes)
+
+def draw_contour(image, c, i):
+    # compute the center of the contour area and draw a circle
+    # representing the center
+    M = cv2.moments(c)
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+    cv2.putText(image, "#{}".format(i + 1), (cX - 20, cY), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+    # return the image with the contour number drawn on it
+    return image
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -475,6 +499,9 @@ def task0_lt():
 
         print("x width:", black_line_width) #& debug width of line
 
+        #~ contours
+        
+
         #~ If line gap (line ending and line width small) 
         if ((black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 320): #or (black_second_start_y > 150 and white_second_start_y < 150):
                 if black_second_start_y < 200 or black_start_y < 200:
@@ -494,8 +521,35 @@ def task0_lt():
 
         #~ Line continuation
         else:
-            mask_black[:white_start_y, :] = 0
+            if white_start_y < 140:
+                contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
+                # cv2.imshow("with contours", frame_org)
+                # print(contours)
+
+                cnts = []
+                for cnt in contours:
+                    x,y,w,h = cv2.boundingRect(cnt)
+                    cnts.append({
+                        "x": x,
+                        "y": y,
+                        "w": w,
+                        "h": h
+                    })
+                closest_contour = max(cnts, key=lambda x: x["y"])
+                # white_start_y = int(closest_contour["y"] - closest_contour["h"])
+                # print("after contours, white start y:", white_start_y)
+                contour_mask = np.zeros([height_lt, bot_stream_width], dtype="uint8")
+                cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
+                # cv2.imshow("contours", contour_mask)
+
+                mask_black = cv2.bitwise_and(mask_black, contour_mask)
+
+            else:
+                mask_black[:white_start_y, :] = 0
+
             # cv2.imshow("continuous", mask_black)
+            
             curr = Task.EMPTY
 
             #~ Plain line track
@@ -948,7 +1002,7 @@ while True:
         task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
-        task4_backtolt()
+        task0_lt()
     else:
         print("Pico task unknown:", pico_task)
 

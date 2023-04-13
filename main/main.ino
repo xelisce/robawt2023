@@ -184,7 +184,8 @@ double linegapStartDist,
     linegapSilverDist;
 float linegap_rotation = 0;
 long linegap_millis,
-    linegapSilverMillis;
+    linegapSilverMillis,
+    endLinegapMillis;
 bool endLineGap = false;
 int debugLinetrackOrigCurr = 0;
 
@@ -481,7 +482,7 @@ void loop()
 
             case 11: //^ linegap sweeping
                 // if (curr == 1 || curr == 2 || curr == 3) { break; }
-                if (curr == 0){
+                if (curr == 0 && millis() - endLinegapMillis > 500){
                     linegapStartDist = pickMotorDist(-1);
                     linegapState = 0;
                     curr = 11;
@@ -737,6 +738,7 @@ void loop()
                         break;
 
                     case 2: //^ scan right 
+                        Robawt.setSteer(30, 1);
                         linegapTurnRightDist = fabs(pickMotorDist(1) - linegapStartDist);
                         // if (millis() - linegap_millis < 200) 
                         // { Robawt.setSteer(0, 0); Robawt.resetPID(); }
@@ -759,6 +761,7 @@ void loop()
                         // if (millis() - linegap_millis < 1000)
                         // { Robawt.setSteer(0, 0); Robawt.resetPID(); }
                         // else{ Robawt.setSteer(30, -1);}
+                        Robawt.setSteer(30, -1);
                         if (fabs(pickMotorDist(1) - linegapStartReverse) >= linegapTurnRightDist) {
                             if (linegap_rotation == -1) { 
                                 linegap_millis = millis();
@@ -816,6 +819,7 @@ void loop()
                             linegapState = 0;
                             endLineGap = false;
                             linegap_rotation = 0;
+                            endLinegapMillis = millis();
                         } else if (linegap_rotation == 0) {
                             Robawt.setSteer(rpm, rotation);
                         } else if (millis() - linegap_millis > 2500) { //this is dumb
@@ -1303,7 +1307,7 @@ void loop()
                 switch (wallGapTurnState)
                 {
                     case 0:
-                        Robawt.setSteer(30, 0.15);
+                        Robawt.setSteer(evac_rpm, 0.15);
                         moveWallGapDist = abs(MotorL.getDist()-startWallGapDistL) + abs(MotorR.getDist()-startWallGapDistR);
                         if (wall_present()) {
                             startReverseOORDist = MotorL.getDist();
@@ -1552,11 +1556,11 @@ void loop()
                         if (fabs(pickMotorDist(-1) - startTurnEvacToLtDist) > 4) {
                             startTurnEvacToLtDist = pickMotorDist(-1);
                             evacExitFrontVal = l0x_readings[L0X::FRONT];
-                            if (evacExitFrontVal <= 300) { evacExitState = 15; } //front in front, can be coming in from 45 or real 
-                            else {
-                                evacExitState ++; 
-                                isWallInFront = false; 
-                            }
+                            // if (evacExitFrontVal <= 300) { evacExitState = 15; } //front in front, can be coming in from 45 or real 
+                            // else {
+                            //     evacExitState ++; 
+                            //     isWallInFront = false; 
+                            // }
                         }
                         break;
 
