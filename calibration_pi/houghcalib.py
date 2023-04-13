@@ -1,6 +1,7 @@
 import cv2
 from MultiThread import WebcamStream
 import numpy as np
+import math
 
 evac_stream = WebcamStream(stream_id=2)
 evac_stream.start()
@@ -25,9 +26,9 @@ balls = []
 # max_radius = 170
 
 dp = 3
-min_dist = 67
-param1 = 128
-param2 = 62
+min_dist = 77 #67
+param1 = 198 #128
+param2 = 73 #62
 min_radius = 65
 max_radius = 88
 
@@ -108,13 +109,17 @@ while True:
         for x, y, r in circles[0]:
             mask_max = np.zeros(evac_max.shape[:2], dtype=np.uint8)
             mask_max = cv2.circle(mask_max, (int(x),int(y)), int(r), 255, -1)
+            ball_mask = cv2.inRange(evac_gray, 0, 40)
+            ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask_max)
+            black_percent_ball = (np.sum(ball_mask) / 255) / (math.pi * (r ** 2))
             balls.append({
                     "x": x,
                     "y": y,
                     "r": r,
+                    "black": black_percent_ball
                 })
             
-        # print(balls)
+        print(balls)
 
         circles = np.uint16(np.around(circles))
         for i in circles[0,:]:

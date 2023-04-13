@@ -26,7 +26,7 @@ kp_lt = 1
 height_lt = bot_stream_height_org
 centre_x_lt = bot_stream_width/2
 
-black_kernel = np.ones((5, 5), np.uint8)
+black_kernel = np.ones((7, 7), np.uint8)
 
 #~ Vectors
 x_com = np.tile(np.linspace(-1., 1., bot_stream_width), (height_lt, 1)) #reps is (outside, inside)
@@ -76,6 +76,7 @@ rpm_setptlt = 40
 
 #* EVAC CONSTANTS
 crop_h_evac = 100
+evac_height = top_stream_height_org-crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
 centre_x_botcam = bot_stream_width/2
@@ -86,15 +87,15 @@ rpm_evac = 30 #not actually used
 
 #* HOUGH CIRCLE PARAMETERS
 dp = 3
-min_dist = 67
-param1 = 128
-param2 = 62
+min_dist = 77 #67
+param1 = 198 #128
+param2 = 73 #62
 min_radius = 65
 max_radius = 88
 
 #* IMAGE PROCESSING THRESHOLDS FOR EVAC
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
-l_sat_thresh = np.array([180, 100, 255], np.uint8)
+l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 #~ Real values (probably for red line) (not currently used just for reference)
 # l_red1 = np.array([0, 100, 80], np.uint8)
@@ -105,16 +106,26 @@ l_sat_thresh = np.array([180, 100, 255], np.uint8)
 # u_green = np.array([85, 255, 255], np.uint8)
 
 #~ My house's values (day for evac red)
-l_red1evac = np.array([0, 90, 20], np.uint8)
-u_red1evac = np.array([15, 255, 255], np.uint8)
-l_red2evac = np.array([170, 90, 20], np.uint8) 
-u_red2evac = np.array([180, 255, 255], np.uint8)
+# l_red1evac = np.array([0, 90, 20], np.uint8)
+# u_red1evac = np.array([15, 255, 255], np.uint8)
+# l_red2evac = np.array([170, 90, 20], np.uint8) 
+# u_red2evac = np.array([180, 255, 255], np.uint8)
+
 #~ My house's values (day) 
 # l_green = np.array([70, 90, 30], np.uint8)
 # u_green = np.array([96, 255, 255], np.uint8)
 #~ My house's values (night)
-l_greenevac = np.array([55, 171, 5], np.uint8)
-u_greenevac = np.array([96, 255, 255], np.uint8)
+# l_greenevac = np.array([55, 171, 5], np.uint8)
+# u_greenevac = np.array([96, 255, 255], np.uint8)
+
+#~ Club values
+l_red1evac = np.array([0, 150, 100], np.uint8)
+u_red1evac = np.array([10, 255, 255], np.uint8)
+l_red2evac = np.array([175, 150, 100], np.uint8) 
+u_red2evac = np.array([180, 255, 255], np.uint8)
+
+l_greenevac = np.array([80, 100, 10], np.uint8)
+u_greenevac = np.array([100, 255, 255], np.uint8)
 
 u_blackforball = 40
 u_black_lineforltfromevac = 70
@@ -123,8 +134,8 @@ crop_bh_evactolt = 120 #with top cam
 crop_th_evactolt = 100 #with top cam
 
 #* IMAGE PROCESSING THRESHOLDS FOR LINETRACK
-u_black = 80 #^ DOM: prev value: 102
-2
+u_black = 110 #^ DOM: prev value: 102 and 80
+
 # ~ Real values
 l_greenlt = np.array([60, 115, 100], np.uint8) #alternate values: 50,50,90
 u_greenlt = np.array([80, 255, 255], np.uint8)
@@ -557,14 +568,15 @@ def task_1_ball():
     global rotation, curr, ball_type
 
     #* IMAGE SETUP
-    evac_org = bot_stream.read()
+    evac_org = top_stream.read()
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
     evac_max = np.amax(evac_org, axis=2)
     
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
-
+    evac_max = evac_max[:evac_height, :]
+    
     #* CIRCLE DETECTION
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
     #^ (I still have no idea what dp does btw)
@@ -573,9 +585,10 @@ def task_1_ball():
     #^ 3. param2, which controls the threshold for circle detection; a larger value will reduce no. of circles detected
     #^ Prev values were param1 = 200, param2 = 27
 
-    circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1=param1, param2=param2, minRadius=min_dist, maxRadius=max_radius)
+    circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1 = param1 , param2=param2, minRadius= min_radius, maxRadius=max_radius)   
     balls = []
-    if circles is not None:
+    # cv2.imshow("frame of ball", evac_max)
+    if circles is not None: 
         for x, y, r in circles[0]:
             mask = np.zeros(evac_org.shape[:2], dtype=np.uint8)
             mask = cv2.circle(mask, (int(x),int(y)), int(r), 255, -1)
@@ -583,7 +596,7 @@ def task_1_ball():
             ball_mask = cv2.inRange(evac_gray, 0, u_blackforball)
             ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask)
             # cv2.imshow("ball", ball_mask)
-            black_percent_ball = (np.sum(ball_mask) / 255) / (math.pi * r * r)
+            black_percent_ball = (np.sum(ball_mask) / 255) / (math.pi * (r ** 2))
             balls.append({
                     "x": x,
                     "y": y,
@@ -609,7 +622,7 @@ def task_1_ball():
 
         #~ Type of ball
         if closest_ball["black"] > 0.1 :
-            ball_type = 1
+            ball_type = 1                                                                                                                                                           
         else:
             ball_type = 0
         
@@ -638,7 +651,7 @@ def task_1_ball():
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_evac, # 0 to 200 MAX, but 100 really damn fast alr
                 253, curr.value,
-                250, ball_type]
+                250, ball_type] # 1: black, 0: silver
     
     print(to_pico)
 
@@ -664,7 +677,7 @@ def task_2_depositalive():
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 200 < green_sum:
+    if 2000 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green
@@ -677,6 +690,7 @@ def task_2_depositalive():
 
         #~ Green confirmed
         if evac_green_width > 400:
+            print("-"*30, "found", "-"*30)
             greenM = cv2.moments(mask_green)
             cx_green = int(greenM["m10"]/greenM["m00"])
             rotation = (cx_green-centre_x_botcam) / 20 #tune constant for rotating to deposit point
@@ -719,7 +733,7 @@ def task_3_depositdead():
     print("Red sum", red_sum)
 
     #~ Moving to red
-    if 200 < red_sum:
+    if 2000 < red_sum:
         print("RED")
         
         #~ Minimum red width so the robot centres on red
@@ -728,7 +742,7 @@ def task_3_depositdead():
         red_evac_start_x = red_evac_indices[0][0] if len(red_evac_indices[0]) else 0
         red_evac_end_x = red_evac_indices[0][-1] if len(red_evac_indices[0]) else 0
         evac_red_width = red_evac_end_x - red_evac_start_x
-        print("Evac green width", evac_red_width)
+        print("Evac red width", evac_red_width)
 
         #~ Red confirmed
         if evac_red_width > 400:
@@ -754,7 +768,7 @@ def task_3_depositdead():
                 253, curr.value]
     ser.write(to_pico)
 
-#* MAIN FUNCTION ------------------------ EVAC FIND DEAD DEPOSIT POINT ----------------------------------
+#* MAIN FUNCTION ------------------------ AFTER EVAC BACK TO LINETRACK ----------------------------------
         
 def task4_backtolt():
     global rotation, curr
@@ -769,7 +783,7 @@ def task4_backtolt():
 
     mask_black = mask_black_org.copy() - mask_green
     mask_black[-crop_bh_evactolt:, :] = 0
-    mask_black[:crop_th_evactolt, :] = 0
+    # mask_black[:crop_th_evactolt, :] = 0
     mask_black = cv2.erode(mask_black, black_kernel)
     mask_black = cv2.dilate(mask_black, black_kernel)
     cv2.imshow("black mask", mask_black)
@@ -934,7 +948,7 @@ while True:
         task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
-        task0_lt()
+        task4_backtolt()
     else:
         print("Pico task unknown:", pico_task)
 

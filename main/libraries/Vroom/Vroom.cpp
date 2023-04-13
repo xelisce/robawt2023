@@ -13,8 +13,8 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
 {
     pinMode(pin1, OUTPUT);
     pinMode(pin2, OUTPUT);
-    pinMode(encPinA, INPUT_PULLUP);
-    pinMode(encPinB, INPUT_PULLUP);
+    pinMode(encPinA, INPUT_PULLDOWN);
+    pinMode(encPinB, INPUT_PULLDOWN);
     _pwmPin1 = pin1;
     _pwmPin2 = pin2;
     this->_encPinA = encPinA;
