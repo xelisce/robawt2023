@@ -127,6 +127,15 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 l_greenevac = np.array([80, 100, 10], np.uint8)
 u_greenevac = np.array([100, 255, 255], np.uint8)
 
+#~top camera (club)
+l_red1evac_top = np.array([0, 110, 110], np.uint8)
+u_red1evac_top = np.array([10, 255, 255], np.uint8)
+l_red2evac_top = np.array([175, 110, 110], np.uint8) 
+u_red2evac_top = np.array([180, 255, 255], np.uint8)
+
+l_greenevac = np.array([75, 80, 95], np.uint8)
+u_greenevac = np.array([91, 255, 255], np.uint8)
+
 u_blackforball = 40
 u_black_lineforltfromevac = 70
 # crop_h_evactolt = 180
@@ -247,6 +256,11 @@ def debug_silvertape():
 
     if 500 < red_sum < 1500:
         print("silver")
+
+def aspect_ratio(cnt):
+   x, y, w, h = cv2.boundingRect(cnt)
+   ratio = float(w)/h
+   return ratio
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -741,74 +755,57 @@ def task_3_depositdead():
         red_evac_indices = np.where(red_evac_col == 255)
         red_evac_start_x = red_evac_indices[0][0] if len(red_evac_indices[0]) else 0
         red_evac_end_x = red_evac_indices[0][-1] if len(red_evac_indices[0]) else 0
-        evac_red_width = red_evac_end_x - red_evac_start_x
-        print("Evac red width", evac_red_width)
-
-        #~ Red confirmed
-        if evac_red_width > 400:
-            redM = cv2.moments(mask_red)
-            cx_red = int(redM["m10"]/redM["m00"])
-            rotation = (cx_red-centre_x_botcam) / 20 #tune constant for rotating to deposit point
-            curr = Task.DEPOSITDEAD
-
-    #~ Still finding red
-    else:
-        rotation = 0
-        curr = Task.EMPTYEVAC
-
-    #* DATA
-    if rotation > 90:
-        rotation = 90
-    elif rotation < -90:
-        rotation = -90
-    rotation = int(rotation) + 90
-
-    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
-                254, rpm_evac,
-                253, curr.value]
-    ser.write(to_pico)
-
-#* MAIN FUNCTION ------------------------ AFTER EVAC BACK TO LINETRACK ----------------------------------
-        
-def task4_backtolt():
-    global rotation, curr
-
-    frame_org = top_stream.read()
-    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
-    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
-
-    mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
-
-    mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
-
-    mask_black = mask_black_org.copy() - mask_green
-    mask_black[-crop_bh_evactolt:, :] = 0
+        evac_red_width = red_evac_e
     # mask_black[:crop_th_evactolt, :] = 0
-    mask_black = cv2.erode(mask_black, black_kernel)
-    mask_black = cv2.dilate(mask_black, black_kernel)
-    cv2.imshow("black mask", mask_black)
-    black_sum = np.sum(mask_black) / 255
-    print("black sum", black_sum)
 
-    if black_sum > 23000: #! tune this value
-        black_col = np.amax(mask_black, axis=0)
-        black_indices_x = np.where(black_col == 255)
-        black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
-        black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
-        black_width = black_end_x - black_start_x
-        print("black width", black_width)
+    contours,_ = cv2.findContours(mask_black_org, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    print("Number of objects detected:", len(contours))
 
-        if (black_width) > 500: #! tune this value too
-            curr = Task.EMPTY
+   # select first contour
+    cnt = contours[0]
 
-            blackM = cv2.moments(mask_black)
-            cx_black = int(blackM["m10"]/blackM["m00"])
-            rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
+    # find the aspect ratio
+    ar = aspect_ratio(cnt)
 
-        else:
-            curr = Task.FINDINGLINE
-    else:
-        curr = Task.FINDINGLINE
+    # round it to two decimal points
+    ar = round(ar, 2)
+    print(ar)
+
+    # draw contours
+    cv2.drawContours(frame_org,[cnt],0,(0,255,0),2)
+
+    # draw bounding rectangle
+    x,y,w,h = cv2.boundingRect(cnt)
+    cv2.rectangle(frame_org,(x,y),(x+w,y+h),(255,0,0),2)
+
+    cv2.imshow("le contours", frame_org)
+
+    
+    # mask_black = cv2.erode(mask_black, black_kernel)
+    # mask_black = cv2.dilate(mask_black, black_kernel)
+    # cv2.imshow("black mask", mask_black)
+    # black_sum = np.sum(mask_black) / 255
+    # print("black sum", black_sum)
+
+    # if black_sum > 23000: #! tune this value
+    #     black_col = np.amax(mask_black, axis=0)
+    #     black_indices_x = np.where(black_col == 255)
+    #     black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
+    #     black_end_x = black_indices_x[0][-1] if len(black_indices_x[0]) else 0
+    #     black_width = black_end_x - black_start_x
+    #     print("black width", black_width)
+
+    #     if (black_width) > 500: #! tune this value too
+    #         curr = Task.EMPTY
+
+    #         blackM = cv2.moments(mask_black)
+    #         cx_black = int(blackM["m10"]/blackM["m00"])
+    #         rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
+
+    #     else:
+    #         curr = Task.FINDINGLINE
+    # else:
+    #     curr = Task.FINDINGLINE
 
     #* DATA
     if rotation > 90:
