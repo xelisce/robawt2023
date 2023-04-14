@@ -23,7 +23,6 @@ class WebcamStream:
         if self.grabbed is False:
             print('[Exiting]: No more frames to read. (MultiThread)')
             exit(0)
-        self.prevframe = self.frame
         #self.stopped is initialised to False
         self.stopped = True
         #thread instantiation
@@ -36,16 +35,13 @@ class WebcamStream:
     
     def update(self):
         while True:
-            # if self.stopped is True:
-            #     break
-            self.prevframe = self.frame
+            if self.stopped is True:
+                break
             self.grabbed, self.frame = self.vcap.read()
             if self.grabbed is False:
-                print('[ERROR]: No more frames to read. (MultiThread)')
-                # self.stopped = True
-                # break
-                self.frame = self.prevframe
-            # else:
+                print('[Exiting]: No more frames to read. (MultiThread)')
+                self.stopped = True
+                break
         self.vcap.release()
     
     def read(self):
