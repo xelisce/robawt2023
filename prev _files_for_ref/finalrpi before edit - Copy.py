@@ -1,5 +1,5 @@
 import cv2
-from camthreader import *
+from MultiThread import WebcamStream
 import numpy as np
 import math
 import serial
@@ -53,8 +53,9 @@ min_square_size = 38    # for filtering green squares # old: 361
 min_cube_size = 100     # for filtering blue cube
  
 ### GET FRAME DIMENSIONS ###
-vs = WebcamVideoStream(src = 0).start()
-ser = serial.Serial('/dev/ttyAMA1', 115200, timeout = 0)
+vs = WebcamStream(stream_id = 0)
+vs.start()
+ser = serial.Serial('/dev/serial0', 9600, timeout = 0)
  
 test_frame = vs.read()
 width, height = test_frame.shape[1], test_frame.shape[0]
@@ -102,19 +103,20 @@ cccounter = 0
 while True:
     ### FIRST LINE TRACK ###
     # while True:
-    data = ser.read()
-    if cccounter > 0:
-        cccounter -= 1
-        data = b'\xff'
-    if data == b'\xff': # switch is off
-        if ser.in_waiting > 500:
-            ser.reset_input_buffer()
-            cccounter = 50
-        counter = 0
-        prev_angle = 0
-        greenSquare = False
-        deposited = False
-        blueCube = False
+    
+    # data = ser.read()
+    # if cccounter > 0:
+    #     cccounter -= 1
+    #     data = b'\xff'
+    # if data == b'\xff': # switch is off
+    #     if ser.in_waiting > 500:
+    #         ser.reset_input_buffer()
+    #         cccounter = 50
+    #     counter = 0
+    #     prev_angle = 0
+    #     greenSquare = False
+    #     deposited = False
+    #     blueCube = False
 
     frame = vs.read()
     frame[:25, :, :] = 255  # block out horizon
@@ -372,11 +374,9 @@ while True:
         task = 4
 
     ### SEND DATA TO TEENSY ###
-    output = [255, round(speed),
-            254, round(angle) + 90,
-            253, task,
-            252, line_middle,
-            251, 0]
+    output = [254, 40,
+            255, round(angle) + 90,
+            253, 0]
     ser.write(output)
 
     print(speed,angle,task)

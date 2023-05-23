@@ -214,13 +214,6 @@ while True:
                                 
 
     # #* DETECTION OF RESCUE KIT
-    # #^ Note from DOM: Will defo clean up the code once claw works haha yes
-
-    # # #~ If close enough to rescue kit: (temporary, will use lidar to detect proximity instead)
-    # # if not reversing_now and blue_sum >= 14000000: 
-    # #     blue_now = True
-    # #     reversing_now = True 
-    # #     curr = Task.BLUEFINAL  #^ DOM: please remove BLUEFINAL later thxxx
 
     # #~ Rescue kit spotted: 
     # if blue_sum >= b_minarea:
@@ -311,23 +304,23 @@ while True:
     #~end commented out
 
 
-    #~ shits and giggles ~kenneth
-    black_col = np.amax(mask_black, axis=0)
-    black_indices_h = np.where(black_col == 255)
-    if len(black_indices_h[0]):
-        black_start_x = black_indices_h[0][0]
-        black_end_x = black_indices_h[0][-1]
-        centre_x = width/2
-        left = black_start_x - centre_x
-        right = black_end_x - centre_x
-        if -left > right: #left
-            rotation = left/centre_x 
-            rotation = -((-rotation) ** 10) * 80
-        else:
-            rotation = right/centre_x 
-            rotation = ((rotation) ** 10) * 80
-    else:
-        rotation = 0
+    # #~ shits and giggles ~kenneth
+    # black_col = np.amax(mask_black, axis=0)
+    # black_indices_h = np.where(black_col == 255)
+    # if len(black_indices_h[0]):
+    #     black_start_x = black_indices_h[0][0]
+    #     black_end_x = black_indices_h[0][-1]
+    #     centre_x = width/2
+    #     left = black_start_x - centre_x
+    #     right = black_end_x - centre_x
+    #     if -left > right: #left
+    #         rotation = left/centre_x 
+    #         rotation = -((-rotation) ** 10) * 80
+    #     else:
+    #         rotation = right/centre_x 
+    #         rotation = ((rotation) ** 10) * 80
+    # else:
+    #     rotation = 0
 
     # cv2.imshow("new", frame_org[height-20:, black_start_x:black_end_x])
     #~ end shits and giggles ~kenneth

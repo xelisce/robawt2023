@@ -8,6 +8,9 @@ GUIDE TO DIRECTORIES
 /pi/
 Except for the images in .jpg and hsvcalib2.py, everything else is an updated copy of the pi's /home/pi/bot/ directory
 
+/bawty/
+TODO: update the description
+
 /main/
 For pico side code. 
 Copied libraries include Pololu's L0X and L1X, Brett Beauregard Arduino's PID Library and elapsedMillis from Arduino

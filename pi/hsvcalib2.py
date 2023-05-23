@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 
-raw = cv2.imread('hsvcalibimage.jpg')
+raw = cv2.imread('images/hsvcalibimagenewred2.jpg')
 frame_hsv = cv2.cvtColor(raw, cv2.COLOR_BGR2HSV)
 
 cv2.namedWindow("raw frame", cv2.WINDOW_NORMAL)
@@ -45,18 +45,18 @@ cv2.namedWindow('controls', 2)
 cv2.resizeWindow('controls', 550, 10) #why's the height 10 pixels lol
 
 cv2.createTrackbar('L1 HUE', 'controls', 0, 180, callback)
-cv2.createTrackbar('L1 SAT', 'controls', 0, 255, callback)
-cv2.createTrackbar('L1 VAL', 'controls', 0, 255, callback)
-cv2.createTrackbar('U1 HUE', 'controls', 180, 180, callback)
+cv2.createTrackbar('L1 SAT', 'controls', 170, 255, callback)
+cv2.createTrackbar('L1 VAL', 'controls', 70, 255, callback)
+cv2.createTrackbar('U1 HUE', 'controls', 10, 180, callback)
 cv2.createTrackbar('U1 SAT', 'controls', 255, 255, callback)
 cv2.createTrackbar('U1 VAL', 'controls', 255, 255, callback)
 
-cv2.createTrackbar('L2 HUE', 'controls', 0, 180, callback)
-cv2.createTrackbar('L2 SAT', 'controls', 0, 255, callback)
-cv2.createTrackbar('L2 VAL', 'controls', 0, 255, callback)
-cv2.createTrackbar('U2 HUE', 'controls', 0, 180, callback)
-cv2.createTrackbar('U2 SAT', 'controls', 0, 255, callback)
-cv2.createTrackbar('U2 VAL', 'controls', 0, 255, callback)
+cv2.createTrackbar('L2 HUE', 'controls', 170, 180, callback)
+cv2.createTrackbar('L2 SAT', 'controls', 170, 255, callback)
+cv2.createTrackbar('L2 VAL', 'controls', 70, 255, callback)
+cv2.createTrackbar('U2 HUE', 'controls', 180, 180, callback)
+cv2.createTrackbar('U2 SAT', 'controls', 255, 255, callback)
+cv2.createTrackbar('U2 VAL', 'controls', 255, 255, callback)
 
 
 key = cv2.waitKey(0)

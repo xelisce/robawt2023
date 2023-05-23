@@ -12,3 +12,5 @@
 .vscode/tasks.json
 .vscode/arduino.json
 .gitignore
+/images/pi.img
+/hsvcalib/realvalues
