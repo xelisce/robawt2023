@@ -18,5 +18,7 @@
         "stack": "cpp",
         "cstdlib": "cpp",
         "cmath": "cpp"
-    }
+    },
+    "arduino.useArduinoCli": true,
+    "arduino.path": "/usr/local/bin/arduino"
 }

@@ -1,12 +1,12 @@
 #include <Arduino.h>
 
 #define default_serial 1
-#define test_pi 0
-#define test_teensy 1
+#define test_pi 1
+#define test_teensy 0
 #define print 0
 
-const int TX1PIN = 8,
-  RX1PIN = 9,
+const int TX1PIN = 15,
+  RX1PIN = 14,
   TX0PIN = 16,
   RX0PIN = 17;
   

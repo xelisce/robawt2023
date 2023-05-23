@@ -1,22 +1,21 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/../**",
-                "${workspaceFolder}/main/libraries/VL53L1X",
-                "${workspaceFolder}/main/libraries/elapsedMillis-1.0.6"
+                "${workspaceFolder}/**",
+                "/home/mice/Desktop/arduino-1.8.19/**",
+                "/home/mice/Desktop/arduino-1.8.19/hardware/arduino/avr/cores/arduino"
             ],
             "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
+                "USBCON",
+                "ARDUINO=10800",
+                "__AVR_ATmega328P__"
             ],
-            "windowsSdkVersion": "10.0.22621.0",
-            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.34.31933/bin/Hostx64/x64/cl.exe",
+            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "windows-msvc-x64"
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
