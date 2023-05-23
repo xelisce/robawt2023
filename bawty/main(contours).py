@@ -27,14 +27,13 @@ height_lt = bot_stream_height_org
 centre_x_lt = bot_stream_width/2
 
 black_kernel = np.ones((7, 7), np.uint8)
-black_linegap_kernel = np.ones((10, 10), np.uint8)
 
 #~ Vectors
 x_com = np.tile(np.linspace(-1., 1., bot_stream_width), (height_lt, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * bot_stream_width for i in np.linspace(1., 0, height_lt)])
 x_linegap_com = x_com.copy()
-
-#^ Glenda's method\]=#```~ Powering x component with respect to y
+#^ Glenda's method:
+#~ Powering x component with respect to y
 # x_com_scale = ((1-y_com) ** 0.3)
 # x_com *= x_com_scale
 #^ Kenneth's method:
@@ -55,7 +54,7 @@ peak_triangle_gap = 0
 peak_triangle_width = 60
 triangle_margin = 20
 mask_gap = np.zeros([height_lt, bot_stream_width], dtype="uint8")
-points = np.array([[triangle_margin, height_lt], [bot_stream_width-triangle_margin, height_lt], [int(bot_stream_width/2+peak_triangle_width), 0], [int(bot_stream_width/2-peak_triangle_width), 0]])
+points = np.array([[triangle_margin, 0], [bot_stream_width-triangle_margin, 0], [int(bot_stream_width/2+peak_triangle_width), int(height_lt-peak_triangle_gap)], [int(bot_stream_width/2-peak_triangle_width), int(height_lt-peak_triangle_gap)]])
 cv2.fillConvexPoly(mask_gap, points, 255)
 
 #~ GS
@@ -70,7 +69,7 @@ redsilver_kernel = np.ones((7,7), np.uint8)
 #~ Linegap
 crop_h_bw = 93
 crop_h_bw_gap = 110
-gap_check_h = 155 # was 150, 170, 180
+gap_check_h = 170
 horizon_crop_h = 40
 crop_bh_silver = 100 #top camera
 crop_th_silver = 180
@@ -79,7 +78,7 @@ crop_th_silver = 180
 b_minarea = 6000
 
 #~ PID
-rpm_setptlt = 41
+rpm_setptlt = 40
 
 #* EVAC CONSTANTS
 crop_h_evac = 100
@@ -92,56 +91,6 @@ centre_x_topcam = top_stream_width/2
 kp_ball = 1
 rpm_evac = 30 #not actually used
 
-# u_sat_thresh = np.array([0, 0, 0], np.uint8)
-# l_sat_thresh = np.array([180, 255, 255], np.uint8)
-
-crop_bh_evactolt = 120 #with top cam
-crop_th_evactolt = 100 #with top cam
-
-
-
-#* IMAGE THRESHOLDS
-
-# ~ Club values
-
-l_red1evac = np.array([0, 150, 100], np.uint8)
-u_red1evac = np.array([10, 255, 255], np.uint8)
-l_red2evac = np.array([175, 150, 100], np.uint8) 
-u_red2evac = np.array([180, 255, 255], np.uint8)
-
-l_greenlt = np.array([65, 55, 65], np.uint8)
-u_greenlt = np.array([80, 255, 255], np.uint8)
-l_greenlt_alt = np.array([65, 55, 65], np.uint8)
-u_greenlt_alt = np.array([80, 220, 255], np.uint8)
-
-l_red1lt = np.array([0, 100, 80], np.uint8)
-u_red1lt = np.array([20, 255, 255], np.uint8)
-l_red2lt = np.array([170, 100, 80], np.uint8) 
-u_red2lt = np.array([180, 255, 255], np.uint8)
-
-l_red1silver = np.array([0, 20, 165], np.uint8) 
-u_red1silver = np.array([15, 255, 255], np.uint8)
-l_red2silver = np.array([170, 20, 165], np.uint8) 
-u_red2silver = np.array([180, 255, 255], np.uint8) 
-
-l_blue = np.array([96, 170, 80], np.uint8)
-u_blue = np.array([106, 245, 191], np.uint8)
-
-l_greenevac = np.array([80, 100, 5], np.uint8)
-u_greenevac = np.array([100, 255, 255], np.uint8)
-
-l_red1evac_top = np.array([0, 110, 110], np.uint8)
-u_red1evac_top = np.array([10, 255, 255], np.uint8)
-l_red2evac_top = np.array([175, 110, 110], np.uint8) 
-u_red2evac_top = np.array([180, 255, 255], np.uint8)
-
-l_greenevac_top = np.array([75, 80, 95], np.uint8)
-u_greenevac_top = np.array([91, 255, 255], np.uint8)
-
-u_black_lineforltfromevac = 70 #! didnt tune
-u_black = 110
-u_blackforball = 40
-
 #* HOUGH CIRCLE PARAMETERS
 dp = 3
 min_dist = 77 #67
@@ -150,84 +99,86 @@ param2 = 73 #62
 min_radius = 65
 max_radius = 88
 
+#* IMAGE PROCESSING THRESHOLDS FOR EVAC
+u_sat_thresh = np.array([0, 0, 0], np.uint8)
+l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
+#~ Real values (probably for red line) (not currently used just for reference)
+# l_red1 = np.array([0, 100, 80], np.uint8)
+# u_red1 = np.array([15, 255, 255], np.uint8)
+# l_red2 = np.array([170, 100, 80], np.uint8) 
+# u_red2 = np.array([180, 255, 255], np.uint8)
+# l_green = np.array([30, 50, 60], np.uint8)
+# u_green = np.array([85, 255, 255], np.uint8)
 
-#~ COMPETITION VALUES (WITH HAT ON)
-
-#! below are not actually used
-# l_red1silver = np.array([0, 1, 200], np.uint8) 
-# u_red1silver = np.array([10, 255, 255], np.uint8)
-# l_red2silver = np.array([175, 1, 200], np.uint8) 
-# u_red2silver = np.array([180, 255, 255], np.uint8) 
-
-# l_red1evac = np.array([0, 150, 100], np.uint8)
-# u_red1evac = np.array([10, 255, 255], np.uint8)
-# l_red2evac = np.array([175, 150, 100], np.uint8) 
-# u_red2evac = np.array([180, 255, 255], np.uint8)
-
-# l_greenevac = np.array([70, 80, 10], np.uint8)
-# u_greenevac = np.array([90, 255, 255], np.uint8)
-
-#? absolute useless
-# l_greenevac_top = np.array([60, 70, 40], np.uint8)
-# u_greenevac_top = np.array([80, 255, 255], np.uint8)
-
-# l_red1evac_top = np.array([0, 100, 80], np.uint8)
-# u_red1evac_top = np.array([10, 255, 255], np.uint8)
-# l_red2evac_top = np.array([170, 100, 80], np.uint8) 
-# u_red2evac_top = np.array([180, 255, 255], np.uint8)
-# crop_h_evactolt = 180
-#! end unused values
-
-
-# l_blue = np.array([100, 135, 40], np.uint8)
-# u_blue = np.array([115, 255, 255], np.uint8)
-
-# l_red1lt = np.array([0, 130, 105], np.uint8)
-# u_red1lt = np.array([10, 255, 255], np.uint8)
-# l_red2lt = np.array([170, 96, 84], np.uint8) 
-# u_red2lt = np.array([180, 255, 255], np.uint8)
-
-# l_greenlt = np.array([60, 80, 100], np.uint8) #alternate values: 50,50,90
-# u_greenlt = np.array([80, 255, 255], np.uint8)
-# l_greenlt_alt = np.array([60, 70, 90], np.uint8) #! not sure if this works
-# u_greenlt_alt = np.array([80, 220, 255], np.uint8)
-
-
-
-# dp = 3
-# min_dist = 77 #67
-# param1 = 191 #128
-# param2 = 103 #62
-# min_radius = 65
-# max_radius = 88
-
-
-#! top camera green and red
-# u_blackforball = 49
-
-# u_black = 60
-
-# u_black_lineforltfromevac = 55 #! didnt tune (from 50)
-
-
-#~ COMPETITION VALUES (WITHOUT HAT ON)
-
-# l_red1evac = np.array([0, 150, 70], np.uint8)
+#~ My house's values (day for evac red)
+# l_red1evac = np.array([0, 90, 20], np.uint8)
 # u_red1evac = np.array([15, 255, 255], np.uint8)
-# l_red2evac = np.array([170, 150, 70], np.uint8) 
+# l_red2evac = np.array([170, 90, 20], np.uint8) 
 # u_red2evac = np.array([180, 255, 255], np.uint8)
 
-# l_greenevac = np.array([70, 80, 20], np.uint8)
-# u_greenevac = np.array([95, 255, 255], np.uint8)
+#~ My house's values (day) 
+# l_green = np.array([70, 90, 30], np.uint8)
+# u_green = np.array([96, 255, 255], np.uint8)
+#~ My house's values (night)
+# l_greenevac = np.array([55, 171, 5], np.uint8)
+# u_greenevac = np.array([96, 255, 255], np.uint8)
 
-# #! red silver
-# l_red1silver = np.array([0, 15, 171], np.uint8) #!lowered sat from 15 to 12
-# u_red1silver = np.array([10, 40, 255], np.uint8)
-# l_red2silver = np.array([170, 15, 171], np.uint8) 
-# u_red2silver = np.array([180, 40, 255], np.uint8) 
+#~ Club values
+l_red1evac = np.array([0, 150, 100], np.uint8)
+u_red1evac = np.array([10, 255, 255], np.uint8)
+l_red2evac = np.array([175, 150, 100], np.uint8) 
+u_red2evac = np.array([180, 255, 255], np.uint8)
 
+l_greenevac = np.array([80, 100, 10], np.uint8)
+u_greenevac = np.array([100, 255, 255], np.uint8)
 
+#~top camera (club)
+l_red1evac_top = np.array([0, 110, 110], np.uint8)
+u_red1evac_top = np.array([10, 255, 255], np.uint8)
+l_red2evac_top = np.array([175, 110, 110], np.uint8) 
+u_red2evac_top = np.array([180, 255, 255], np.uint8)
+
+l_greenevac_top = np.array([75, 80, 95], np.uint8)
+u_greenevac_top = np.array([91, 255, 255], np.uint8)
+
+u_blackforball = 40
+u_black_lineforltfromevac = 70
+# crop_h_evactolt = 180
+crop_bh_evactolt = 120 #with top cam
+crop_th_evactolt = 100 #with top cam
+
+#* IMAGE PROCESSING THRESHOLDS FOR LINETRACK
+u_black = 110 #^ DOM: prev value: 102 and 80
+
+# ~ Real values
+l_greenlt = np.array([60, 115, 100], np.uint8) #alternate values: 50,50,90
+u_greenlt = np.array([80, 255, 255], np.uint8)
+
+l_greenlt_alt = np.array([65, 55, 65], np.uint8)
+u_greenlt_alt = np.array([80, 220, 255], np.uint8)
+#~ My house's values
+# l_green = np.array([70, 90, 80], np.uint8)
+# u_green = np.array([96, 255, 255], np.uint8)
+
+#~ Real values
+l_blue = np.array([96, 170, 80], np.uint8)
+u_blue = np.array([106, 245, 191], np.uint8)
+#~ My house's values
+# l_blue = np.array([96, 170, 80], np.uint8)
+# u_blue = np.array([109, 245, 191], np.uint8)
+
+#~ Red line
+l_red1lt = np.array([0, 100, 80], np.uint8)
+u_red1lt = np.array([20, 255, 255], np.uint8)
+l_red2lt = np.array([170, 100, 80], np.uint8) 
+u_red2lt = np.array([180, 255, 255], np.uint8)
+
+#~ Silver using red led
+l_red1silver = np.array([0, 20, 165], np.uint8) 
+u_red1silver = np.array([15, 255, 255], np.uint8)
+l_red2silver = np.array([170, 20, 165], np.uint8) 
+u_red2silver = np.array([180, 255, 255], np.uint8) 
 
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
@@ -259,15 +210,12 @@ see_line = 0
 ball_type = 1
 silver_line = 0
 end_line_gap = 0
-seesaw = True
 
 red_now = False
 gs_now = False
 blue_now = False
 
 pico_task = 0
-
-pi_start = True
 
 #* FUNCTIONS
 
@@ -336,7 +284,7 @@ def draw_contour(image, c, i):
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
 def task0_lt():
-    global rotation, rpm_lt, curr, red_now, gs_now, blue_now, silver_line, end_line_gap, pi_start, seesaw
+    global rotation, rpm_lt, curr, red_now, gs_now, blue_now, silver_line, end_line_gap, contours
 
     frame_org = bot_stream.read()
     frame_org = cv2.flip(frame_org, 0)
@@ -355,8 +303,7 @@ def task0_lt():
     # print("Green sum:", gs_sum) #& debug green min pixels
 
     mask_green_alt = cv2.inRange(frame_hsv, l_greenlt_alt, u_greenlt_alt)
-    mask_both_green = cv2.bitwise_or(mask_green, mask_green_alt)
-    mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_both_green
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black) - mask_green_alt - mask_green
     # cv2.imshow('black frame', black_mask) #& debug black mask
     # print(np.sum(mask_black), curr.name)
  
@@ -494,12 +441,7 @@ def task0_lt():
         frame_top_org = top_stream.read()
         # frame_top_org = cv2.flip(frame_top_org, 0)
         # frame_top_org = cv2.flip(frame_top_org, 1)
-        frame_top_gray = cv2.cvtColor(frame_top_org, cv2.COLOR_BGR2GRAY)
         frame_top_hsv = cv2.cvtColor(frame_top_org, cv2.COLOR_BGR2HSV)
-
-        mask_top_black = cv2.inRange(frame_top_gray, 0, u_black_lineforltfromevac)
-        black_top_sum = np.sum(mask_top_black) / 255
-        print("black_top_sum", black_top_sum)
 
         mask_top_red1 = cv2.inRange(frame_top_hsv, l_red1silver, u_red1silver)
         mask_top_red2 = cv2.inRange(frame_top_hsv, l_red2silver, u_red2silver)
@@ -514,7 +456,7 @@ def task0_lt():
         print("red top sum", red_top_sum)
         # cv2.imshow("original", frame_top_org[crop_th_silver:top_stream_height_org-crop_bh_silver, :])
 
-        if 1000 < red_top_sum < 7000 and red_sum < 16000 and black_top_sum < 550000:
+        if 1000 < red_top_sum < 7000 and red_sum < 16000:
             print('|'* 30, "silver", '|'* 30)
             silver_line = 1
         else:
@@ -577,30 +519,15 @@ def task0_lt():
         black_second_mask[:white_second_start_y, :] = 0
         black_second_mask[black_second_start_y:, :] = 0
         black_second_sum = np.sum(black_second_mask) /255
-
-        if black_second_sum > 0: #^ getting (offsetted) width of second line segment 
-            black_second_row = np.amax(black_second_mask[black_second_start_y-35:black_second_start_y, :], axis=0)
-            black_second_indices = np.where(black_second_row == 255)
-            black_second_mask_start_x = black_second_indices[0][0] if len(black_second_indices[0]) else 0
-            black_second_mask_end_x = black_second_indices[0][-1] if len(black_second_indices[0]) else 0
-            black_second_mask_width = black_second_mask_end_x - black_second_mask_start_x
-
-            print("second x width:", black_second_mask_width) #& debug width of line
-            print("black second pixels sum:", black_second_sum)
-            # cv2.imshow("second line", black_second_mask)
-
-        else:
-            black_second_mask_width = 0
+        # cv2.imshow("second line", black_second_mask)
+        print("black second pixels sum:", black_second_sum)
 
         #~ If line gap (line ending and line width small) 
         if ((black_start_y < height_lt-gap_check_h or white_start_y > height_lt-gap_check_h) and black_line_width < 300): #or (black_second_start_y > 150 and white_second_start_y < 150):
-                if black_second_start_y <= 120 and not 80 <= black_second_mask_width <= 600: #or black_start_y < 200:
+                if black_second_start_y < 200: #or black_start_y < 200:
                     curr = Task.LINEGAP
                     print(">" * 15 + 'LINE GAP' + '<' * 15)
-                mask_linegap_black = mask_black_org.copy()
-                mask_linegap_black = cv2.erode(mask_linegap_black, kernel=black_linegap_kernel)
-                mask_linegap_black = cv2.dilate(mask_linegap_black, kernel=black_linegap_kernel)
-                mask_black = cv2.bitwise_and(mask_gap, mask_linegap_black)
+                mask_black = cv2.bitwise_and(mask_gap, mask_black)
                 x_black_com = x_linegap_com
                 powered_y = 1
 
@@ -618,10 +545,10 @@ def task0_lt():
 
             #~ Contours for weird close national tile
             if white_start_y < 140:
-                # cv2.imshow("before contours", mask_black)
+                cv2.imshow("before contours", mask_black)
                 contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
-                # cv2.imshow("with contours", frame_org)
+                cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
+                cv2.imshow("with contours", frame_org)
                 # print(contours)
 
                 cnts = []
@@ -644,7 +571,7 @@ def task0_lt():
 
             else:
                 mask_black[:white_start_y, :] = 0
-            # cv2.imshow("continuous", mask_black)
+            cv2.imshow("continuous", mask_black)
 
             curr = Task.EMPTY
             x_black_com = x_com
@@ -655,23 +582,12 @@ def task0_lt():
             powered_y = min(3.5, powered_y) #? prev value: 4
 
 
-        #!!!previously: 200 and 200
-        #^ Im genuinely considering adding a separate condition specifically for the marching ants lolols
-        #^ ORRRR manually code force move forward when encoders remain relatively unchanged for ~5s??
-        if (black_start_y > 200 and white_start_y < 165 and black_line_width > 100) or (black_second_start_y > 120 and white_second_start_y < 110 and black_second_sum > 3500 and 70 < black_second_mask_width < 600): #!!! white2ndstart = 120, 80<black_second_mask_width<600
+        if (black_start_y > 200 and white_start_y < 250 and black_line_width > 60) or (black_second_start_y > 150 and white_second_start_y < 150 and black_second_sum > 4000): #TODO: add width maybe?????
             # cv2.imshow("offset black mask", mask_black[200:250, :])
-            print("-" * 40 + "end line gap" + "-" * 40)
+            print("-"*40 + "end line gap" + "-" * 40)
             curr = Task.EMPTY
             end_line_gap = 1
             x_black_com = x_com
-
-        #^ actually why the hell dont we just do an ordinary linetrack and 
-
-        
-        if black_line_height > 250 and 100 < black_line_width < 460 and black_start_x > 450 and white_start_y < 450:
-            seesaw = True
-        else:
-            seesaw = False
 
         #~ Vectorizing the black components
         #^ Ancillary: Powering xcom
@@ -713,16 +629,14 @@ def task0_lt():
         # # print("rotation:", rotation)
 
     #* SEND DATA
-    # rpm_lt = 41
+
     print("value:", curr)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
                 253, curr.value,
                 251, end_line_gap,
-                249, silver_line,
-                248, 1,
-                247, seesaw]
+                249, silver_line]
 
     # print(to_pico)
     
@@ -739,8 +653,8 @@ def task_1_ball():
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
     evac_max = np.amax(evac_org, axis=2)
     
-    # evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
-    # evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
+    evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
+    evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:evac_height, :]
     
     #* CIRCLE DETECTION
@@ -787,7 +701,7 @@ def task_1_ball():
         rotation = math.atan2(x_ball, y_ball) * 180/math.pi if y != 0 else 0
 
         #~ Type of ball
-        if closest_ball["black"] > 0.3: #! was previously 0.1
+        if closest_ball["black"] > 0.1 :
             ball_type = 1                                                                                                                                                           
         else:
             ball_type = 0
@@ -843,7 +757,7 @@ def task_2_depositalive():
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 700 < green_sum:
+    if 2000 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green
@@ -899,7 +813,7 @@ def task_3_depositdead():
     print("Red sum", red_sum)
 
     #~ Moving to red
-    if 700 < red_sum:
+    if 2000 < red_sum:
         print("RED")
         
         #~ Minimum red width so the robot centres on red
@@ -949,10 +863,10 @@ def task4_backtolt():
 
     mask_black = mask_black_org.copy() - mask_green
     mask_black[-crop_bh_evactolt:, :] = 0
-    mask_black[:crop_th_evactolt, :] = 0
+    # mask_black[:crop_th_evactolt, :] = 0
     mask_black = cv2.erode(mask_black, black_kernel)
     mask_black = cv2.dilate(mask_black, black_kernel)
-    # cv2.imshow("black mask", mask_black)
+    cv2.imshow("black mask", mask_black)
     black_sum = np.sum(mask_black) / 255
     print("black sum", black_sum)
 
@@ -964,12 +878,12 @@ def task4_backtolt():
         black_width = black_end_x - black_start_x
         print("black width", black_width)
 
-        if (black_width) > 520: 
+        if (black_width) > 500: #! tune this value too
             curr = Task.EMPTY
 
             blackM = cv2.moments(mask_black)
             cx_black = int(blackM["m10"]/blackM["m00"])
-            rotation = (cx_black-centre_x_botcam) / 20 #! tune this value
+            rotation = (cx_black-centre_x_botcam) / 20 #! also tune this value
 
         else:
             curr = Task.FINDINGLINE
@@ -1004,8 +918,6 @@ def task5_leftlookright():
 
     #~ Obstacle see line
     obstacle_line_mask = mask_black_org.copy()
-    obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
-    obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
     obstacle_line_mask[:height_lt-60, :] = 0
     obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
 
@@ -1120,9 +1032,9 @@ while True:
     else:
         print("Pico task unknown:", pico_task)
 
-    # key = cv2.waitKey(1)
-    # if key == ord('q'):
-    #     break
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        break
 
 top_stream.stop()
 bot_stream.stop()
