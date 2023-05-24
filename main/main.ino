@@ -30,8 +30,7 @@ void setup()
     Wire1.setSCL(SCL1PIN);
     Wire1.begin();
     Wire1.setClock(400000);
-    // while (!Wire1.init()) delay(10); 
-    Serial.println("TCA2 initialised");
+    Serial.println("TCA initialised");
 
     for (int i=0; i <= 7; i++) {
         tcaselect2(i);
