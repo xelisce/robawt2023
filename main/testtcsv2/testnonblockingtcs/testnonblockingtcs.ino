@@ -4,15 +4,24 @@
 
 TCS34725 tcs;
 
+#define TCAADR 0x70
+
 void setup(void)
 {
     Serial.begin(9600);
-
-    Wire.setSDA(4);
-    Wire.setSCL(5);
-    Wire.begin();
-    Wire.setClock(400000);
-    if (!tcs.attach(Wire))
+    while (!Serial) delay(10);
+    // Wire.setSDA(4);
+    // Wire.setSCL(5);
+    // Wire.begin();
+    // Wire.setClock(400000);
+    // if (!tcs.attach(Wire))
+    //     Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    Wire1.setSDA(6);
+    Wire1.setSCL(7);
+    Wire1.begin();
+    Wire1.setClock(400000);
+    tcaselect2(1);
+    if (!tcs.attach(Wire1))
         Serial.println("ERROR: TCS34725 NOT FOUND !!!");
 
     tcs.integrationTime(33); // ms
@@ -22,6 +31,7 @@ void setup(void)
 
 void loop(void)
 {
+    tcaselect2(1);
     if (tcs.available()) // if current measurement has done
     {
         TCS34725::Color color = tcs.color();
@@ -34,5 +44,14 @@ void loop(void)
         Serial.print("C          : "); Serial.println(rawdata.c);
         // Serial.print("Everything : "); Serial.println(rawdata.);
 
+    }
+}
+
+void tcaselect2(uint8_t i) //I2C Multiplexer: TCA9548A
+{
+    if (i >= 0 && i <= 7) {
+        Wire1.beginTransmission(TCAADR);
+        Wire1.write(1 << i);
+        Wire1.endTransmission();
     }
 }
