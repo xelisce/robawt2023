@@ -26,34 +26,46 @@ void setup()
     Serial.begin(9600);
     Serial.println("Serial intialised");
 
-    Wire.setSDA(SDA1PIN);
-    Wire.setSCL(SCL1PIN);
-    Wire.begin();
-    Wire.setClock(400000);
-    Serial.println("TCA initialised")
+    Wire1.setSDA(SDA1PIN);
+    Wire1.setSCL(SCL1PIN);
+    Wire1.begin();
+    Wire1.setClock(400000);
+    // while (!Wire1.init()) delay(10); 
+    Serial.println("TCA2 initialised");
 
     for (int i=0; i <= 7; i++) {
         tcaselect2(i);
-        if (!tcs.attach(Wire))
+        if (!tcs.attach(Wire1))
             Serial.println("ERROR: TCS34725 NOT FOUND !!!");
         tcs.integrationTime(33); // ms
         tcs.gain(TCS34725::Gain::X01);
+        Serial.println("Success!");
     }
+    Serial.println("HAHA");
 }
 
 void loop() 
 {
-    for (int i=0; i <= 7; i++) {
-        tcaselect2(i);
-        TCS34725::Color color = tcs.color();
-        TCS34725::RawData rawdata = tcs.raw();
-        Serial.print("Color Temp : "); Serial.println(tcs.colorTemperature());
-        Serial.print("Lux        : "); Serial.println(tcs.lux());
-        Serial.print("R          : "); Serial.println(color.r);
-        Serial.print("G          : "); Serial.println(color.g);
-        Serial.print("B          : "); Serial.println(color.b);
-        Serial.print("C          : "); Serial.println(rawdata.c);
-    }
+    // tcaselect2(1);
+    // TCS34725::Color color = tcs.color();
+    // TCS34725::RawData rawdata = tcs.raw();
+    // Serial.print("Color Temp : "); Serial.println(tcs.colorTemperature());
+    // Serial.print("Lux        : "); Serial.println(tcs.lux());
+    // Serial.print("R          : "); Serial.println(color.r);
+    // Serial.print("G          : "); Serial.println(color.g);
+    // Serial.print("B          : "); Serial.println(color.b);
+    // Serial.print("C          : "); Serial.println(rawdata.c);
+    // for (int i=0; i <= 7; i++) {
+    //     tcaselect2(i);
+    //     TCS34725::Color color = tcs.color();
+    //     TCS34725::RawData rawdata = tcs.raw();
+    //     Serial.print("Color Temp : "); Serial.println(tcs.colorTemperature());
+    //     Serial.print("Lux        : "); Serial.println(tcs.lux());
+    //     Serial.print("R          : "); Serial.println(color.r);
+    //     Serial.print("G          : "); Serial.println(color.g);
+    //     Serial.print("B          : "); Serial.println(color.b);
+    //     Serial.print("C          : "); Serial.println(rawdata.c);
+    // }
 }
 
 void tcaselect(uint8_t i) //I2C Multiplexer: TCA9548A
