@@ -4,15 +4,16 @@
 // Modified from https://playground.arduino.cc/Main/I2cScanner/
 // --------------------------------------
 
+#include <Arduino.h>
 #include <Wire.h>
 #include "VL53L0X.h"
 
-#define SDAPIN 4
-#define SCLPIN 5
+#define SDAPIN 6
+#define SCLPIN 7
 #define TCAADDR 0x70
-#define WIRE Wire
+#define WIRE Wire1
 
-VL53L0X lidarsl0x;
+// VL53L0X lidarsl0x;
 
 void setup() {
   WIRE.setSDA(SDAPIN);
@@ -24,12 +25,12 @@ void setup() {
      delay(10);
   Serial.println("\nI2C Scanner");
 
-  tcaselect(3);
-  lidarsl0x.setTimeout(500);
-  while (!lidarsl0x.init()) {
-      Serial.println("L0X failed to initialise");
-  }
-  lidarsl0x.startContinuous();
+  // tcaselect(3);
+  // lidarsl0x.setTimeout(500);
+  // while (!lidarsl0x.init()) {
+  //     Serial.println("L0X failed to initialise");
+  // }
+  // lidarsl0x.startContinuous();
 }
 
 
@@ -73,10 +74,10 @@ void loop() {
 
   delay(2000);           // wait 5 seconds for next scan
 
-  tcaselect(3);
-  if(lidarsl0x.available()) {
-      Serial.println(lidarsl0x.readRangeMillimeters());
-  }
+  // tcaselect(3);
+  // if(lidarsl0x.available()) {
+  //     Serial.println(lidarsl0x.readRangeMillimeters());
+  // }
 }
 
 void tcaselect(uint8_t i)  //I2C Multiplexer: TCA9548A

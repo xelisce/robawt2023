@@ -8,11 +8,11 @@ void setup(void)
 {
     Serial.begin(9600);
 
-    Wire.setSDA(4);
-    Wire.setSCL(5);
-    Wire.begin();
-    Wire.setClock(400000);
-    if (!tcs.attach(Wire))
+    Wire1.setSDA(6);
+    Wire1.setSCL(7);
+    Wire1.begin();
+    Wire1.setClock(400000);
+    if (!tcs.attach(Wire1))
         Serial.println("ERROR: TCS34725 NOT FOUND !!!");
 
     tcs.integrationTime(33); // ms
