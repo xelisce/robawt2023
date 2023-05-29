@@ -30,7 +30,7 @@ void setup()
     WIRE.setSCL(7);
     WIRE.begin();
     
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println("\nTCAScanner ready!");
     
     for (uint8_t t=0; t<8; t++) {

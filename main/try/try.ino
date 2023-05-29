@@ -1,12 +1,11 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "TCS34725AutoGain.h"
+#include "Vroom.h"
 
-TCS34725 tcs;
+TCS34725 tcs1, tcs2;
 
 #define TCAADR 0x70
-#define L0XADR 0x29
-#define L1XADR 0x29
 #define TCSADR 0x29
 
 #define TNYPIN1 9
@@ -21,6 +20,19 @@ TCS34725 tcs;
 #define LEDPIN 3
 #define ONBOARDLEDPIN 25
 
+
+Motor MotorR(13, 12, 1, 0); 
+Motor MotorL(10, 11, 18, 19);
+Vroom Robawt(&MotorL, &MotorR);
+
+double steerDir;
+double left, right;
+double leftLux, rightLux;
+  
+void ISRLA() { MotorL.readEncA(); }
+void ISRLB() { MotorL.readEncB(); }
+void ISRRA() { MotorR.readEncA(); }
+void ISRRB() { MotorR.readEncB(); }
 
 // int l0x_readings[6] = {200, 0, 0, 0};
 const int tca_pins[2] = {2, 4};
@@ -41,43 +53,71 @@ void setup()
     Wire1.setClock(400000);
     Serial.println("TCA initialised");
 
-    // for (int i=0; i <= 7; i++) {
-    //     tcaselect2(i);
-    //     if (!tcs.attach(Wire1))
-    //         Serial.println("ERROR: TCS34725 NOT FOUND !!!");
-    //     tcs.integrationTime(33); // ms
-    //     tcs.gain(TCS34725::Gain::X01);
-    //     Serial.println("Success!");
-    // }
     pinMode(ONBOARDLEDPIN, OUTPUT);
+    tcaselect2(2);
+    if (!tcs1.attach(&Wire1))
+        Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    tcs1.integrationTime(33); // ms
+    tcs1.gain(TCS34725::Gain::X01);
 
-    for (int i=0; i<2; i++) 
-    {
-        tcaselect(tca_pins[i]);
-        // if (!tcs.attach(Wire1))
-        //     Serial.println("ERROR: TCS34725 NOT FOUND !!!");
-        while (!tcs.attach()) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
-        tcs.integrationTime(33); // ms
-        tcs.gain(TCS34725::Gain::X01);
-        Serial.println("Success!");
-    }
+    tcaselect2(4);
+    if (!tcs2.attach(&Wire1)) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    tcs2.integrationTime(33); // ms
+    tcs2.gain(TCS34725::Gain::X01);
+
+    pinMode(28, INPUT);
+    attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
+    attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
+    attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
+    attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
 }
 
 void loop() 
 {
     digitalWrite(ONBOARDLEDPIN, HIGH);
+    if (digitalRead(28)){
 
-    tcaselect2(2);
-    if (tcs.available()) // if current measurement has done
-    {
-        TCS34725::Color color = tcs.color();
-        TCS34725::RawData rawdata = tcs.raw();
-        Serial.print("Color Temp : "); Serial.println(tcs.colorTemperature());
-        Serial.print("Lux        : "); Serial.println(tcs.lux());
-        Serial.print("R          : "); Serial.println(color.r);
-        Serial.print("G          : "); Serial.println(color.g);
-        Serial.print("B          : "); Serial.println(color.b);
-        Serial.print("C          : "); Serial.println(rawdata.c);
+        // Robawt.setSteer(30, 0);
+        tcaselect2(2);
+        if (tcs1.available()) // if current measurement has done
+        {
+            Serial.println("First TCS selected: ");
+            TCS34725::Color color = tcs1.color();
+            TCS34725::RawData rawdata = tcs1.raw();
+            Serial.print("Color Temp : "); Serial.println(tcs1.colorTemperature());
+            Serial.print("Lux        : "); Serial.println(tcs1.lux());
+            Serial.print("R          : "); Serial.println(color.r);
+            Serial.print("G          : "); Serial.println(color.g);
+            Serial.print("B          : "); Serial.println(color.b);
+            Serial.print("C          : "); Serial.println(rawdata.c);
+            rightLux = tcs1.lux();
+        }
+        right = (rightLux) / (1298.90 - 226.02);
+    
+        tcaselect2(4);
+        if (tcs2.available()) // if current measurement has done
+        {
+            Serial.println("Second TCS selected: ");
+            TCS34725::Color color = tcs2.color();
+            TCS34725::RawData rawdata = tcs2.raw();
+            Serial.print("Color Temp : "); Serial.println(tcs2.colorTemperature());
+            Serial.print("Lux        : "); Serial.println(tcs2.lux());
+            Serial.print("R          : "); Serial.println(color.r);
+            Serial.print("G          : "); Serial.println(color.g);
+            Serial.print("B          : "); Serial.println(color.b);
+            Serial.print("C          : "); Serial.println(rawdata.c);
+            leftLux = tcs2.lux();
+        }
+
+        left = leftLux / (906.03 - 195.82);
+        steerDir = left - right;
+        Robawt.setSteer(30, steerDir);
+    }
+
+    else {
+        Serial.println("No running!");
+        Robawt.setSteer(0, 0);
+        Robawt.resetPID();
     }
 }
 

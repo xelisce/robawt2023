@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/mice/Desktop/arduino-1.8.19/**",
-                "/home/mice/Desktop/arduino-1.8.19/hardware/arduino/avr/cores/arduino"
+                "/home/mice/Desktop/arduino-1.8.19/hardware/arduino/avr/libraries/**",
+                "/home/mice/.arduino15/**"
             ],
             "defines": [
                 "USBCON",
