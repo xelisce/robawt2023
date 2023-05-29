@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include "TCS34725AutoGain.h"
 
-TCS34725 tcs;
+TCS34725 tcs1, tcs2;
 
 #define TCAADR 0x70
 
@@ -20,30 +20,51 @@ void setup(void)
     Wire1.setSCL(7);
     Wire1.begin();
     Wire1.setClock(400000);
-    tcaselect2(1);
-    if (!tcs.attach(Wire1))
+    tcaselect2(2);
+    if (!tcs1.attach(&Wire1))
         Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    tcs1.integrationTime(33); // ms
+    tcs1.gain(TCS34725::Gain::X01);
 
-    tcs.integrationTime(33); // ms
-    tcs.gain(TCS34725::Gain::X01);
+    tcaselect2(4);
+    if (!tcs2.attach(&Wire1)) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    tcs2.integrationTime(33); // ms
+    tcs2.gain(TCS34725::Gain::X01);
 
 }
 
 void loop(void)
 {
-    tcaselect2(1);
-    if (tcs.available()) // if current measurement has done
+    
+    tcaselect2(2);
+    if (tcs1.available()) // if current measurement has done
     {
-        TCS34725::Color color = tcs.color();
-        TCS34725::RawData rawdata = tcs.raw();
-        Serial.print("Color Temp : "); Serial.println(tcs.colorTemperature());
-        Serial.print("Lux        : "); Serial.println(tcs.lux());
+        Serial.println("First TCS selected: ");
+        TCS34725::Color color = tcs1.color();
+        TCS34725::RawData rawdata = tcs1.raw();
+        Serial.print("Color Temp : "); Serial.println(tcs1.colorTemperature());
+        Serial.print("Lux        : "); Serial.println(tcs1.lux());
         Serial.print("R          : "); Serial.println(color.r);
         Serial.print("G          : "); Serial.println(color.g);
         Serial.print("B          : "); Serial.println(color.b);
         Serial.print("C          : "); Serial.println(rawdata.c);
         // Serial.print("Everything : "); Serial.println(rawdata.);
+    }
 
+   
+    tcaselect2(4);
+    if (tcs2.available()) // if current measurement has done
+    {
+        Serial.println("Second TCS selected: ");
+        TCS34725::Color color = tcs2.color();
+        TCS34725::RawData rawdata = tcs2.raw();
+        Serial.print("Color Temp : "); Serial.println(tcs2.colorTemperature());
+        Serial.print("Lux        : "); Serial.println(tcs2.lux());
+        Serial.print("R          : "); Serial.println(color.r);
+        Serial.print("G          : "); Serial.println(color.g);
+        Serial.print("B          : "); Serial.println(color.b);
+        Serial.print("C          : "); Serial.println(rawdata.c);
+        // Serial.print("Everything : "); Serial.println(rawdata.);
     }
 }
 

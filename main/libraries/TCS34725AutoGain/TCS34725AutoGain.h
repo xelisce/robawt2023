@@ -89,9 +89,24 @@ public:
     };
 
 
-    bool attach(WireType& w = Wire, Mode initMode = Mode::RGBC)
+    //^ DOM: try replacing Wiretype with TwoWire *w = &Wire
+    // bool attach(WireType& w = Wire, Mode initMode = Mode::RGBC)
+    // {
+    //     wire = &w; //^ then replace this with wire = w
+    //     uint8_t x = read8(Reg::ID);
+    //     if (x != ID_REG_PART_NUMBER) return false;
+
+    //     // there is actually some register persistence
+    //     if (initMode != Mode::Undefined) {
+    //         mode(initMode);
+    //         interrupt(true);   // use to detect availability (available())
+    //         persistence(0x00); // every RGBC cycle generates an interrupt
+    //     }
+    //     return true;
+    // }
+    bool attach(TwoWire *w = &Wire, Mode initMode = Mode::RGBC)
     {
-        wire = &w;
+        wire = w;
         uint8_t x = read8(Reg::ID);
         if (x != ID_REG_PART_NUMBER) return false;
 
@@ -535,7 +550,8 @@ private:
     }
 
 
-    WireType* wire;
+    // WireType* wire; //^DOM
+    TwoWire* wire;
     float scaling {2.5f};
 
     // for lux & temperature
