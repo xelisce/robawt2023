@@ -23,5 +23,6 @@
         "regex": "cpp"
     },
     "arduino.useArduinoCli": true,
-    "arduino.path": "/usr/local/bin/arduino"
+    "arduino.path": "/usr/local/bin/arduino",
+    "cmake.configureOnOpen": true
 }
