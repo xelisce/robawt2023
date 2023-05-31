@@ -4,8 +4,6 @@
 #include <VL53L0X.h>
 #include <VL53L1X.h>
 
-
-
 //* debug shit *//
 #define xelslibrary 0
 
@@ -32,8 +30,6 @@ namespace Servos {
 
 int f_reading, fb_reading;
 bool servos_change = true;
-
-
 
 int claw_arm_angle = 180;
 int claw_l_angle = 0;
@@ -71,7 +67,6 @@ void claw_service_up() {
     claw_arm_angle = 140;
     servos_change = true;
 }
-
 
 #define TCAADR 0x70
 #define L0XADR 0x29

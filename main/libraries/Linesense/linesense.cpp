@@ -48,18 +48,18 @@ void tcaselect(uint8_t i)
 {
     if (i > 7)
         return;
-    Wire.beginTransmission(TCAADDR);
-    Wire.write(1 << i);
-    Wire.endTransmission();
+    Wire1.beginTransmission(TCAADDR);
+    Wire1.write(1 << i);
+    Wire1.endTransmission();
 }
 
 LineSense::LineSense()
 {
-    Wire.begin();
-    for (uint8_t t = 0; t < 8; t++)
+    Wire1.begin();
+    for (uint8_t t = 0; t < 6; t++)
     {
-        tcaselect(t);
-        _tcs.begin();
+        tcaselect(_tcs_pins[t]);
+        tcs[t].begin();
     }
 }
 
@@ -105,12 +105,17 @@ void LineSense::debugRaw(int port)
 void LineSense::calibrateSensors()
 {
     int sum = 0;
-    for (uint8_t t = 0; t < 8; t++)
+    long start_time;
+    for (uint8_t t = 0; t < 6; t++)
     {
-        tcaselect(t);
-        _tcs.getRawData(&_r, &_g, &_b, &_c);
+        tcaselect(_tcs_pins[t]);                                
+        start_time = millis();
+        tcs[t].getRawData(&_r, &_g, &_b, &_c);
         Serial.print(t);
         Serial.print(":");
+        Serial.print(millis() - start_time);
+        
+        Serial.print(" ");
         Serial.print(_c);
         Serial.print(",");
         Serial.print(rgb_to_hsv(_r, _g, _b).hue);
@@ -120,9 +125,11 @@ void LineSense::calibrateSensors()
         Serial.print(rgb_to_hsv(_r, _g, _b).val);
         Serial.print(" ");
         sum += (rgb_to_hsv(_r, _g, _b).sat);
+        Serial.print(" ");
+        
     }
-    delay(50);
-    Serial.print(sum);
+    // delay(50);
+    // Serial.print(sum);
     Serial.println();
 }
 
@@ -209,7 +216,7 @@ void LineSense::debugNorm()
     Serial.println(_frontreadings[2] - _frontreadings[3]);
 }
 
-double LineSense::getBlack(bool forcedtrack = false)
+double LineSense::getBlack(bool forcedtrack)
 {
     _weights[0] = 1 * (_frontreadings[0] < 0.5);
     _weights[1] = 1 * (_frontreadings[1] < 0.5);

@@ -2,8 +2,9 @@
 #include <Wire.h>
 #include "TCS34725AutoGain.h"
 #include "Vroom.h"
+#include "linesense.h"
 
-TCS34725 tcs1, tcs2;
+// TCS34725 tcs1, tcs2;
 
 #define TCAADR 0x70
 #define TCSADR 0x29
@@ -35,7 +36,8 @@ void ISRRA() { MotorR.readEncA(); }
 void ISRRB() { MotorR.readEncB(); }
 
 // int l0x_readings[6] = {200, 0, 0, 0};
-const int tca_pins[2] = {2, 4};
+TCS34725 tcs[6];
+const int tcs_pins[6] = {0,1,2,4,5,6};
 // String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
 // namespace L0X {
 //     enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
@@ -55,15 +57,20 @@ void setup()
 
     pinMode(ONBOARDLEDPIN, OUTPUT);
 
-    tcaselect2(2);
-    if (!tcs1.attach(&Wire1))
-        Serial.println("ERROR: TCS34725 NOT FOUND !!!");
-    tcs1.integrationTime(33); // ms
-    tcs1.gain(TCS34725::Gain::X01);
-    tcaselect2(4);
-    if (!tcs2.attach(&Wire1)) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
-    tcs2.integrationTime(33); // ms
-    tcs2.gain(TCS34725::Gain::X01);
+    for (int i=0; i<6; i++){
+        tcaselect2(tcs_pins[i]);
+        if (!tcs[i].attach(&Wire1))
+            Serial.print("ERROR: TCS34725");
+            Serial.print(tcs_pins[i]);
+            Serial.println("NOT FOUND !!!");
+        tcs[i].integrationTime(33); // ms
+        tcs[i].gain(TCS34725::Gain::X01);
+    }
+    
+    // tcaselect2(4);
+    // if (!tcs2.attach(&Wire1)) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
+    // tcs2.integrationTime(33); // ms
+    // tcs2.gain(TCS34725::Gain::X01);
 
     pinMode(28, INPUT);
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
