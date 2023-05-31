@@ -103,9 +103,6 @@ void setup()
     fb_lidar.setDistanceMode(VL53L1X::Medium);
     fb_lidar.startContinuous(20);
 
-    servos[0].attach(servos_pin[i], 500, 2500); // (pin, min, max)
-    servos[i].writeMicroseconds(pwmangle(servos_angle[i], servos_max_angle[i]));
-
     claw_arm_servo.attach(CLAW_ARM, 500, 2500);
     claw_l_servo.attach(CLAW_L, 500, 2500);
     claw_r_servo.attach(CLAW_R, 500, 2500);
@@ -157,7 +154,7 @@ void loop()
                     #endif
                     #if pick_ball
                     // claw_down();
-                    claw_close();
+                    claw_close_ball();
                     #endif
                     if (millis() - pickupStateTimer > 1000) {
                         pickupStateTimer = millis();
