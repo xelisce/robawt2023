@@ -4,28 +4,44 @@
 #include <VL53L0X.h>
 #include <VL53L1X.h>
 
-int f_reading, fb_reading;
-bool servos_change = true;
+
+
+//* debug shit *//
+#define xelslibrary 0
 
 //* assign ports *//
 #define FB_LIDAR 4 //front_bottom lidar channel
-#define F_LIDAR 3 //front top lidar
-#define CLAW_L 1 //S1
-#define CLAW_R 2 //S2
-#define CLAW_ARM 3 //S3
+#define F_LIDAR 1 //front top lidar
+#define CLAW_L 21 //S4
+#define CLAW_R 20 //S5
+#define CLAW_ARM 2 //S6
+
 //* choose either ball or cube *//
 #define pick_ball 1
 #define pick_cube 0
 //* choose if print *//
 #define debug_print 1 
 //* choose initial angles of servos *//
+
+Servo servos[6];
+const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
+const double servos_max_angle[6] = {180, 180, 300, 180, 300, 300};
+namespace Servos {
+    enum Servos { DEAD, ALIVE, SORT, LEFT, RIGHT, ARM}; //S1 to S3 are dummy names atm
+}
+
+int f_reading, fb_reading;
+bool servos_change = true;
+
+
+
 int claw_arm_angle = 180;
 int claw_l_angle = 0;
 int claw_r_angle = 130;
 //* change trigger if needed *//
 bool item_present() {
     //+45 for the diff sensors' offset physically
-    return (f_reading +45 - fb_reading > 30 && fb_reading < 80);
+    return (f_reading +45 - fb_reading >= 30 && fb_reading < 90);
 }
 //* change claw functions if needed *//
 void claw_open() {
@@ -88,46 +104,81 @@ void setup()
     Serial.println("Serial initialised");
     #endif
 
-    pinMode(SWTPIN, INPUT);
+    pinMode(SWTPIN, INPUT_PULLDOWN);
 
+    #if xelslibrary
     TopMux.begin();
+    #else
+    Wire.setSDA(4);
+    Wire.setSCL(5);
+    Wire.begin();
+    Wire.setClock(400000);
+    #endif
 
+    #if xelslibrary
     TopMux.select(F_LIDAR);
+    #else
+    tcaselect(F_LIDAR);
+    #endif
+
     f_lidar.setTimeout(500);
     while (!f_lidar.init()) Serial.println("FRONT LIDAR FAILED TO INIT");
     f_lidar.startContinuous();
 
+    #if xelslibrary
     TopMux.select(FB_LIDAR);
+    #else
+    tcaselect(FB_LIDAR);
+    #endif
+    
     fb_lidar.setTimeout(500);
     while (!fb_lidar.init()) Serial.println("FRONT BOTTOM LIDAR FAILED TO INIT");
     fb_lidar.setDistanceMode(VL53L1X::Medium);
     fb_lidar.startContinuous(20);
-
+    
     claw_arm_servo.attach(CLAW_ARM, 500, 2500);
     claw_l_servo.attach(CLAW_L, 500, 2500);
     claw_r_servo.attach(CLAW_R, 500, 2500);
-    claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 300));
-    claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 180));
-    claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 180));
+    claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
+    claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
+    claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
 }
 
 void loop() 
 {
     if (servos_change) {
-        claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 300));
-        claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 180));
-        claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 180));
+        claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
+        claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
+        claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
         servos_change = false;
     }
 
+    #if xelslibrary
     TopMux.select(F_LIDAR);
+    #else
+    tcaselect(F_LIDAR);
+    #endif
     if(f_lidar.available()) {
         f_reading = f_lidar.readRangeMillimeters();
     }
+
+    #if xelslibrary
     TopMux.select(FB_LIDAR);
+    #else
+    tcaselect(FB_LIDAR);
+    #endif
+    
     if(fb_lidar.dataReady()) {
         fb_reading = fb_lidar.read(false);
     }
+
+    #if debug_print
+    Serial.print("Top lidar: ");
+    Serial.print(f_reading);
+
+    Serial.print("  Bottom lidar: ");
+    Serial.print(fb_reading);
+    #endif
 
     if (digitalRead(SWTPIN)) {
         claw_service_up();     
@@ -171,7 +222,7 @@ void loop()
 
                 case 3: 
                     claw_open();
-                    // claw_up();
+                    claw_up();
                     if (millis() - pickupStateTimer > 1000) {
                         pickupStateTimer = millis();
                         pickupState ++; }
@@ -179,7 +230,7 @@ void loop()
 
                 case 4:
                     claw_down();
-                    // claw_open();
+                    claw_open();
                     if (millis() - pickupStateTimer > 1000) {
                         pickupStateTimer = millis();
                         pickupState = 0; }
@@ -201,4 +252,13 @@ void loop()
 int pwmangle(double angle, double max_angle) //Servo PWM
 {
     return (int)(angle/max_angle * 2000 + 500);
+}
+
+void tcaselect(uint8_t i)  //I2C Multiplexer: TCA9548A
+{
+    if (i >= 0 && i <= 7) {
+        Wire.beginTransmission(TCAADR);
+        Wire.write(1 << i);
+        Wire.endTransmission();
+    }
 }

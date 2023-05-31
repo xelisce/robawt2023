@@ -54,12 +54,12 @@ void setup()
     Serial.println("TCA initialised");
 
     pinMode(ONBOARDLEDPIN, OUTPUT);
+
     tcaselect2(2);
     if (!tcs1.attach(&Wire1))
         Serial.println("ERROR: TCS34725 NOT FOUND !!!");
     tcs1.integrationTime(33); // ms
     tcs1.gain(TCS34725::Gain::X01);
-
     tcaselect2(4);
     if (!tcs2.attach(&Wire1)) Serial.println("ERROR: TCS34725 NOT FOUND !!!");
     tcs2.integrationTime(33); // ms

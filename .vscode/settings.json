@@ -20,7 +20,8 @@
         "cmath": "cpp",
         "ostream": "cpp",
         "istream": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "random": "cpp"
     },
     "arduino.useArduinoCli": true,
     "arduino.path": "/usr/local/bin/arduino",
