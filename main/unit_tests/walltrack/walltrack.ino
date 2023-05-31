@@ -8,7 +8,7 @@
 #define right_track 0 //wall track using right diagonal lidar
 #define both_track 0 //wall track based on switch is flipped or not
 //* choose if print *//
-#define debug_print 0 //requires usb to be plugged in for robot to move
+#define debug_print 1 //requires usb to be plugged in for robot to move
 //* choose constant dist or spiral *//
 #define spiral 0
 
@@ -29,8 +29,8 @@
 #define LEFT_CH 5
 #define RIGHT_CH 2
 
-Motor MotorR(13, 12, 1, 0); 
-Motor MotorL(10, 11, 18, 19);
+Motor MotorL(12, 13, 1, 0); 
+Motor MotorR(11, 10, 19, 18);
 Vroom Robawt(&MotorL, &MotorR);
 
 TCA9548A TopMux(SDAPIN, SCLPIN, &Wire, 400000);
@@ -49,17 +49,17 @@ double evac_rpm = 45;
 double evac_startdist,
     k_p_wall_rot,
     wall_rot;
-double evac_setdist = 400;
+double evac_setdist = 200;
 
 void setup() {
     
     Serial.begin(9600);
     #if debug_print
-    while (!Serial) delay(10);
+    // while (!Serial) delay(10);
     Serial.println("Serial initialised");
     #endif
 
-    pinMode(SWTPIN, INPUT_PULLDOWN);
+    pinMode(SWTPIN, INPUT);
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
     attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
     attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
