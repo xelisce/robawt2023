@@ -223,6 +223,8 @@ void ISRLB() { MotorL.readEncB(); }
 void ISRRA() { MotorR.readEncA(); }
 void ISRRB() { MotorR.readEncB(); }
 
+bool seeBlack;
+int curr;
 
 void setup() 
 {
@@ -260,7 +262,7 @@ void loop()
 {
     start_loop_time = millis();
 
-    for (int i=1; i<3; i++) {
+    for (int i=1; i<3; i++) { //^ was previously only using 4
         tcaselect2(tcs_pins[i]);
         start_time = millis();
         tcs[i].getRawData(&sensorarray[i].r, &sensorarray[i].g, &sensorarray[i].b, &sensorarray[i].c);
@@ -285,15 +287,30 @@ void loop()
     left = (double)(sensorarray[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
     right = (double)(sensorarray[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
     steer = left - right;
+
+    // if (sensorarray[1].val <= 110) seeBlack = true;
+    // if (sensorarray[2].val <= 130) seeBlack = true;
     Serial.print("left: "); Serial.print(left); Serial.print(" ");
     Serial.print("right: "); Serial.print(right); Serial.print(" ");
     Serial.print("steer: "); Serial.print(steer); Serial.print("  ");
     Serial.print("time: "); Serial.print(millis() - start_loop_time); Serial.println("  ");
 
     if (digitalRead(SWTPIN)) {
-        Robawt.setSteer(30, steer);
+        switch (curr){ 
+            case 0:
+                Robawt.setSteer(30, steer);
+                if (seeBlack) {
+                    curr = 1;
+                }
+                break;
+            case 1:
+                Robawt.setSteer(0, 0);
+                break;
+        }   
     } else {
         Robawt.setSteer(0, 0);
+        seeBlack = false;
+        curr = 0;
         Robawt.reset();
     }
     // double hue, sat, value;

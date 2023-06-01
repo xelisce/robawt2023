@@ -14,11 +14,16 @@
 #define CLAW_R 20 //S5
 #define CLAW_ARM 2 //S6
 
+//* Test pickup or test deposit
+#define testpickup 0
+#define testdeposit 1
 //* choose either ball or cube *//
 #define pick_ball 1
 #define pick_cube 0
 //* choose if print *//
 #define debug_print 1 
+
+
 //* choose initial angles of servos *//
 
 Servo servos[6];
@@ -34,6 +39,8 @@ bool servos_change = true;
 int claw_arm_angle = 180;
 int claw_l_angle = 0;
 int claw_r_angle = 130;
+int alive_servo_angle = 0;
+
 //* change trigger if needed *//
 bool item_present() {
     //+45 for the diff sensors' offset physically
@@ -68,6 +75,15 @@ void claw_service_up() {
     servos_change = true;
 }
 
+void alive_up(){
+    alive_servo_angle = 10;
+    servos_change = true;
+}
+void alive_down(){
+    alive_servo_angle = 100;
+    servos_change = true;
+}
+
 #define TCAADR 0x70
 #define L0XADR 0x29
 #define L1XADR 0x29
@@ -86,7 +102,7 @@ void claw_service_up() {
 TCA9548A TopMux(SDAPIN, SCLPIN, &Wire, 400000);
 VL53L0X f_lidar;
 VL53L1X fb_lidar;
-Servo claw_arm_servo, claw_l_servo, claw_r_servo;
+Servo claw_arm_servo, claw_l_servo, claw_r_servo, alive_servo;
 
 int pickupState = 0;
 long pickupStateTimer;
@@ -99,7 +115,7 @@ void setup()
     Serial.println("Serial initialised");
     #endif
 
-    pinMode(SWTPIN, INPUT_PULLDOWN);
+    pinMode(SWTPIN, INPUT);
 
     #if xelslibrary
     TopMux.begin();
@@ -131,20 +147,25 @@ void setup()
     fb_lidar.setDistanceMode(VL53L1X::Medium);
     fb_lidar.startContinuous(20);
     
-    claw_arm_servo.attach(CLAW_ARM, 500, 2500);
-    claw_l_servo.attach(CLAW_L, 500, 2500);
-    claw_r_servo.attach(CLAW_R, 500, 2500);
-    claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
-    claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
-    claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
+    // claw_arm_servo.attach(CLAW_ARM, 500, 2500);
+    // claw_l_servo.attach(CLAW_L, 500, 2500);
+    // claw_r_servo.attach(CLAW_R, 500, 2500);
+    alive_servo.attach(26, 500, 2500);
+
+    // claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
+    // claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
+    // claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
+    alive_servo.writeMicroseconds(pwmangle(alive_servo_angle, 180));
+    
 }
 
 void loop() 
 {
     if (servos_change) {
-        claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
-        claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
-        claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
+        // claw_arm_servo.writeMicroseconds(pwmangle(claw_arm_angle, 180));
+        // claw_l_servo.writeMicroseconds(pwmangle(claw_l_angle, 300));
+        // claw_r_servo.writeMicroseconds(pwmangle(claw_r_angle, 300));
+        alive_servo.writeMicroseconds(pwmangle(alive_servo_angle, 180));
         servos_change = false;
     }
 
@@ -176,15 +197,20 @@ void loop()
     #endif
 
     if (digitalRead(SWTPIN)) {
-        claw_service_up();     
+        claw_service_up();
+        #if testdeposit
+        alive_up();
+        #endif     
     } else {
         claw_down();
+        alive_down();
 
         #if debug_print
         Serial.print("See item: ");
         Serial.println(item_present());
         #endif
 
+        #if testpickup
         if (item_present() || pickupState != 0) {
 
             switch (pickupState)
@@ -231,6 +257,7 @@ void loop()
                         pickupState = 0; }
                     break;
             }
+            
 
             #if debug_print
             Serial.print("Pickup state: ");
@@ -241,6 +268,7 @@ void loop()
             claw_open();
             claw_down();
         }
+        #endif
     }
 }
 
