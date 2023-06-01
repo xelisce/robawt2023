@@ -140,6 +140,7 @@ void loop() {
 #include <Arduino.h>
 #include <Wire.h>
 #include "Adafruit_TCS34725.h"
+#include <Vroom.h>
 // #include "linesense.h"
 
 //* OBJECT INITIALISATIONS
@@ -154,10 +155,6 @@ Adafruit_TCS34725 tcs[6] = {Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TC
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X)};
-
-// LineSense array;
-
-const int tcs_pins[6] = {0,1,2,4,5,6};
 
 //* ADDRESSES
 #define TCAADR 0x70
@@ -175,46 +172,59 @@ const int tcs_pins[6] = {0,1,2,4,5,6};
 #define RX0PIN 17
 #define PICOLEDPIN 25
 #define SWTPIN 28
-struct hsv
+struct sensor
 {
+    uint16_t r;
+    uint16_t g;
+    uint16_t b;
+    uint16_t c;
     int hue;
     int sat;
     int val;
 };
 
-struct hsv rgb_to_hsv(float r, float g, float b)
+sensor sensorarray[6];
+const int tcs_pins[6] = {5, 4, 2, 1, 6, 0};
+const int tcs_black[6] = {0, 92, 111, 0, 0, 0};
+const int tcs_white[6] = {0, 374, 494, 0, 0, 0};
+
+sensor rgb_to_hsv(sensor *curr)
 {
     // R, G, B values are divided by 255
     // to change the range from 0..255 to 0..1:
-    float h, s, v;
-    r /= 255.0;
-    g /= 255.0;
-    b /= 255.0;
+    float r = curr->r / 255.0;
+    float g = curr->g / 255.0;
+    float b = curr->b / 255.0;
     float cmax = max(r, max(g, b)); // maximum of r, g, b
     float cmin = min(r, min(g, b)); // minimum of r, g, b
     float diff = cmax - cmin;       // diff of cmax and cmin.
     if (cmax == cmin)
-        h = 0;
+        curr->hue = 0;
     else if (cmax == r)
-        h = fmod((60 * ((g - b) / diff) + 360), 360.0);
+        curr->hue = fmod((60 * ((g - b) / diff) + 360), 360.0);
     else if (cmax == g)
-        h = fmod((60 * ((b - r) / diff) + 120), 360.0);
+        curr->hue = fmod((60 * ((b - r) / diff) + 120), 360.0);
     else if (cmax == b)
-        h = fmod((60 * ((r - g) / diff) + 240), 360.0);
+        curr->hue = fmod((60 * ((r - g) / diff) + 240), 360.0);
     // if cmax equal zero
     if (cmax == 0)
-        s = 0;
+        curr->sat = 0;
     else
-        s = (diff / cmax) * 100;
+        curr->sat = (diff / cmax) * 100;
     // compute v
-    v = cmax * 100;
-
-    struct hsv curr;
-    curr.hue = h;
-    curr.sat = s;
-    curr.val = v;
-    return curr;
+    curr->val = cmax * 100;
+    return *curr;
 }
+
+Motor MotorL(12, 13, 1, 0); 
+Motor MotorR(11, 10, 19, 18);
+Vroom Robawt(&MotorL, &MotorR);
+
+void ISRLA() { MotorL.readEncA(); }
+void ISRLB() { MotorL.readEncB(); }
+void ISRRA() { MotorR.readEncA(); }
+void ISRRB() { MotorR.readEncB(); }
+
 
 void setup() 
 {
@@ -235,33 +245,59 @@ void setup()
             while (1);
         }
         Serial.println("Success!");
-
     }
 
+    pinMode(SWTPIN, INPUT);
+    attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
+    attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
+    attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
+    attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
 }
+
+long start_time, end_time;
+long start_loop_time;
+double left, right, steer;
 
 void loop() 
 {
+    start_loop_time = millis();
 
-    // tcaselect2(4);
+    for (int i=1; i<3; i++) {
+        tcaselect2(tcs_pins[i]);
+        start_time = millis();
+        tcs[i].getRawData(&sensorarray[i].r, &sensorarray[i].g, &sensorarray[i].b, &sensorarray[i].c);
+        end_time = millis();
+        Serial.print("Sensor "); Serial.print(i); Serial.print("    ");
+        Serial.print("R: "); Serial.print(sensorarray[i].r); Serial.print(" ");
+        Serial.print("G: "); Serial.print(sensorarray[i].g); Serial.print(" ");
+        Serial.print("B: "); Serial.print(sensorarray[i].b); Serial.print(" ");
+        Serial.print("C: "); Serial.print(sensorarray[i].c); Serial.print(" ");
+        sensorarray[i] = rgb_to_hsv(&sensorarray[i]);
+        Serial.print("R: "); Serial.print(sensorarray[i].r); Serial.print(" ");
+        Serial.print("G: "); Serial.print(sensorarray[i].g); Serial.print(" ");
+        Serial.print("B: "); Serial.print(sensorarray[i].b); Serial.print(" ");
+        Serial.print("C: "); Serial.print(sensorarray[i].c); Serial.print(" ");
+        Serial.print("H: "); Serial.print(sensorarray[i].hue, DEC); Serial.print(" ");
+        Serial.print("S: "); Serial.print(sensorarray[i].sat, DEC); Serial.print(" ");
+        Serial.print("V: "); Serial.print(sensorarray[i].val, DEC); Serial.print(" ");
+        Serial.print("Time: "); Serial.print(end_time - start_time, DEC); Serial.print(" ");
+        Serial.println();
+    }
     
-    // uint16_t r, g, b, c, colorTemp, lux;
-    // tcs1.getRawData(&r, &g, &b, &c);
-    // Serial.print("Time for 1 tcs: "); Serial.println(millis() - start); 
-    
-    // // colorTemp = tcs.calculateColorTemperature(r, g, b);
-    // // colorTemp = tcs1.calculateColorTemperature_dn40(r, g, b, c);
-    // // lux = tcs1.calculateLux(r, g, b);
+    left = (double)(sensorarray[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
+    right = (double)(sensorarray[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
+    steer = left - right;
+    Serial.print("left: "); Serial.print(left); Serial.print(" ");
+    Serial.print("right: "); Serial.print(right); Serial.print(" ");
+    Serial.print("steer: "); Serial.print(steer); Serial.print("  ");
+    Serial.print("time: "); Serial.print(millis() - start_loop_time); Serial.println("  ");
 
-    // // Serial.print("#2 Color11 Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
-    // // Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
-    // Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-    // Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-    // Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-    // Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-    // Serial.println(" ");
-
-    
+    if (digitalRead(SWTPIN)) {
+        Robawt.setSteer(30, steer);
+    } else {
+        Robawt.setSteer(0, 0);
+        Robawt.reset();
+    }
     // double hue, sat, value;
     // long start_2;
     // start_2 = millis();
@@ -269,44 +305,30 @@ void loop()
     // hsv.calibrateSensors();
     // Serial.print("library time: "); Serial.println(millis() - start_2);
 
-    long start, end;
-    struct hsv hsvm;
+    // long start, end;
+    // struct hsv hsvm;
     
-    uint16_t r, g, b, c;
-    for (int i=0; i<6;i++){
-        start = millis();
-        tcaselect2(tcs_pins[i]);
-        tcs[i].getRawData(&r, &g, &b, &c);
-        end = millis();
-        Serial.print("TCS no: "); Serial.print(tcs_pins[i]); Serial.print(" | ");
-        Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-        Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-        Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-        Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-        Serial.print("| "); Serial.println(end - start);
+    // uint16_t r, g, b, c;
+    // for (int i=0; i<6;i++){
+    //     start = millis();
+    //     tcaselect2(tcs_pins[i]);
+    //     tcs[i].getRawData(&r, &g, &b, &c);
+    //     end = millis();
+    //     Serial.print("TCS no: "); Serial.print(tcs_pins[i]); Serial.print(" | ");
+    //     Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
+    //     Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
+    //     Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
+    //     Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
+    //     Serial.print("| "); Serial.println(end - start);
 
-        hsvm = rgb_to_hsv(r, g, b);
-        Serial.print("Hue: "); Serial.print(hsvm.hue);
-        Serial.print(" Sat: ");Serial.print(hsvm.sat);
-        Serial.print(" Val: ");Serial.print(hsvm.val);
-        Serial.println();
-    }
+    //     hsvm = rgb_to_hsv(r, g, b);
+    //     Serial.print("Hue: "); Serial.print(hsvm.hue);
+    //     Serial.print(" Sat: ");Serial.print(hsvm.sat);
+    //     Serial.print(" Val: ");Serial.print(hsvm.val);
+    //     Serial.println();
+    // }
+
     
-
-    // tcaselect2(4);
-
-    // tcs2.getRawData(&r, &g, &b, &c);
-    // // colorTemp = tcs.calculateColorTemperature(r, g, b);
-    // colorTemp = tcs2.calculateColorTemperature_dn40(r, g, b, c);
-    // lux = tcs2.calculateLux(r, g, b);
-
-    // Serial.print("#4 Color11 Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
-    // Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
-    // Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-    // Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-    // Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-    // Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-    // Serial.println(" ");
 }
 
 void tcaselect(uint8_t i) //I2C Multiplexer: TCA9548A
@@ -412,5 +434,28 @@ TCS no: 5 | R: 1059 G: 1393 B: 1280 C: 3716 | 1
 Hue: 159 Sat: 23 Val: 546
 TCS no: 6 | R: 914 G: 1471 B: 1407 C: 3764 | 1
 Hue: 173 Sat: 37 Val: 576
+
+*/
+
+
+
+/* NEW 
+
+white
+Sensor 0    R: 1570 G: 2071 B: 1883 C: 5506 R: 1570 G: 2071 B: 1883 C: 5506 H: 157 S: 24 V: 812 Time: 1 
+Sensor 1    R: 680 G: 955 B: 922 C: 2587 R: 680 G: 955 B: 922 C: 2587 H: 172 S: 28 V: 374 Time: 1 
+Sensor 2    R: 1063 G: 1262 B: 1209 C: 3601 R: 1063 G: 1262 B: 1209 C: 3601 H: 164 S: 15 V: 494 Time: 0 
+Sensor 3    R: 591 G: 874 B: 824 C: 2326 R: 591 G: 874 B: 824 C: 2326 H: 169 S: 32 V: 342 Time: 1 
+Sensor 4    R: 1090 G: 1752 B: 1658 C: 4458 R: 1090 G: 1752 B: 1658 C: 4458 H: 171 S: 37 V: 687 Time: 1 
+Sensor 5    R: 910 G: 1062 B: 1046 C: 3129 R: 910 G: 1062 B: 1046 C: 3129 H: 173 S: 14 V: 416 Time: 0 
+
+black
+Sensor 0    R: 193 G: 285 B: 271 C: 759 R: 193 G: 285 B: 271 C: 759 H: 170 S: 32 V: 111 Time: 0 
+Sensor 1    R: 155 G: 236 B: 234 C: 642 R: 155 G: 236 B: 234 C: 642 H: 178 S: 34 V: 92 Time: 1 
+Sensor 2    R: 210 G: 284 B: 284 C: 804 R: 210 G: 284 B: 284 C: 804 H: 180 S: 26 V: 111 Time: 0 
+Sensor 3    R: 141 G: 229 B: 224 C: 606 R: 141 G: 229 B: 224 C: 606 H: 176 S: 38 V: 89 Time: 1 
+Sensor 4    R: 107 G: 185 B: 192 C: 484 R: 107 G: 185 B: 192 C: 484 H: 184 S: 44 V: 75 Time: 0 
+Sensor 5    R: 144 G: 193 B: 204 C: 565 R: 144 G: 193 B: 204 C: 565 H: 191 S: 29 V: 80 Time: 1 
+
 
 */

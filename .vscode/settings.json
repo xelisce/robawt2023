@@ -21,7 +21,8 @@
         "ostream": "cpp",
         "istream": "cpp",
         "regex": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "queue": "cpp"
     },
     "arduino.useArduinoCli": true,
     "arduino.path": "/usr/local/bin/arduino",
