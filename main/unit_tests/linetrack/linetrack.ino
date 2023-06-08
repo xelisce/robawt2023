@@ -183,8 +183,8 @@ struct sensor
 
 sensor sensorarray[6];
 const int tcs_pins[6] = {5, 4, 2, 1, 6, 0};
-const int tcs_black[6] = {0, 92, 111, 0, 0, 0};
-const int tcs_white[6] = {0, 374, 494, 0, 0, 0};
+const int tcs_black[6] = {0, 104, 124, 0, 0, 0};
+const int tcs_white[6] = {0, 331, 410, 0, 0, 0};
 
 sensor rgb_to_hsv(sensor *curr)
 {
@@ -268,10 +268,10 @@ void loop()
         tcs[i].getRawData(&sensorarray[i].r, &sensorarray[i].g, &sensorarray[i].b, &sensorarray[i].c);
         end_time = millis();
         Serial.print("Sensor "); Serial.print(i); Serial.print("    ");
-        Serial.print("R: "); Serial.print(sensorarray[i].r); Serial.print(" ");
-        Serial.print("G: "); Serial.print(sensorarray[i].g); Serial.print(" ");
-        Serial.print("B: "); Serial.print(sensorarray[i].b); Serial.print(" ");
-        Serial.print("C: "); Serial.print(sensorarray[i].c); Serial.print(" ");
+        // Serial.print("R: "); Serial.print(sensorarray[i].r); Serial.print(" ");
+        // Serial.print("G: "); Serial.print(sensorarray[i].g); Serial.print(" ");
+        // Serial.print("B: "); Serial.print(sensorarray[i].b); Serial.print(" ");
+        // Serial.print("C: "); Serial.print(sensorarray[i].c); Serial.print(" ");
         sensorarray[i] = rgb_to_hsv(&sensorarray[i]);
         Serial.print("R: "); Serial.print(sensorarray[i].r); Serial.print(" ");
         Serial.print("G: "); Serial.print(sensorarray[i].g); Serial.print(" ");
@@ -286,7 +286,7 @@ void loop()
     
     left = (double)(sensorarray[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
     right = (double)(sensorarray[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
-    steer = left - right;
+    steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
 
     // if (sensorarray[1].val <= 110) seeBlack = true;
     // if (sensorarray[2].val <= 130) seeBlack = true;
@@ -294,7 +294,6 @@ void loop()
     Serial.print("right: "); Serial.print(right); Serial.print(" ");
     Serial.print("steer: "); Serial.print(steer); Serial.print("  ");
     Serial.print("time: "); Serial.print(millis() - start_loop_time); Serial.println("  ");
-
     if (digitalRead(SWTPIN)) {
         switch (curr){ 
             case 0:

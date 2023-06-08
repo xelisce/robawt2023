@@ -22,7 +22,9 @@
         "istream": "cpp",
         "regex": "cpp",
         "random": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "ios": "cpp",
+        "xiosbase": "cpp"
     },
     "arduino.useArduinoCli": true,
     "arduino.path": "/usr/local/bin/arduino",
