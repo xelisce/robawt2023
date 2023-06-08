@@ -278,10 +278,26 @@ void loop()
         switch (curr)
         {
             case LINETRACK:
-                // left = (double)(tcsSensors[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
-                // right = (double)(tcsSensors[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
-                // steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
-                // Robawt.setSteer(lt_rpm, steer);
+                left = (double)(tcsSensors[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
+                right = (double)(tcsSensors[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
+                steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
+                Robawt.setSteer(lt_rpm, steer);
+                break;
+
+            case LEFTGREEN:
+                turnAngle(-0.8, 75, STOP);
+                break;
+
+            case RIGHTGREEN:
+                turnAngle(0.8, 75, STOP);
+                break;
+
+            case DOUBLEGREEN:
+                turnAngle(1, 180, STOP);
+                break;
+
+            case RED:
+                curr = STOP;
                 break;
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
@@ -304,6 +320,9 @@ void loop()
                 break;
 
             default:
+                #if debugWithLED
+                ledOn = true;
+                #endif
                 Serial.println("ERROR: variable curr undefined, default case triggered");
                 break;
         }
