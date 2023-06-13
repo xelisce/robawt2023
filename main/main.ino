@@ -91,11 +91,21 @@ struct tcsSensor
     int hue;
     int sat;
     int val;
+    bool green = false;
+    bool red = false;
+    bool black = false;
+    bool silver = false;
 };
 struct tcsSensor tcsSensors[tcsNum];
 const int tcs_pins[tcsNum] = {5, 4, 2, 1, 6, 0}; //from left to right, then second row with robot facing forward
 const int tcs_black[tcsNum] = {0, 104, 124, 0, 0, 0};
 const int tcs_white[tcsNum] = {0, 331, 410, 0, 0, 0};
+const int tcs_lgreen[tcsNum] = {0, 0, 0, 0, 0, 0};
+const int tcs_ugreen[tcsNum] = {0, 0, 0, 0, 0, 0};
+const int tcs_lred1[tcsNum] = {0, 0, 0, 0, 0, 0};
+const int tcs_ured1[tcsNum] = {0, 0, 0, 0, 0, 0};
+const int tcs_lred2[tcsNum] = {0, 0, 0, 0, 0, 0};
+const int tcs_ured2[tcsNum] = {0, 0, 0, 0, 0, 0};
 
 //* ------------------------------------------- USER-DEFINED VARIABLES -------------------------------------------
 
@@ -273,13 +283,15 @@ void loop()
 
     if (digitalRead(SWTPIN))
     {
-        //* ------------------------------------------- CURRENT SITUATION HANDLED -------------------------------------------
+        tcsAnalyse();
+
+        //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
 
         switch (curr)
         {
             case LINETRACK:
-                left = (double)(tcsSensors[1].val - tcs_black[1])/(double)(tcs_white[1] - tcs_black[1]);
-                right = (double)(tcsSensors[2].val - tcs_black[2])/(double)(tcs_white[2] - tcs_black[2]);
+                left = grayPercent(1);
+                right = grayPercent(2);
                 steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
                 Robawt.setSteer(lt_rpm, steer);
                 break;
@@ -397,7 +409,7 @@ void tcaselect2(uint8_t i) //I2C Bottom Multiplexer: TCA9548A
     }
 }
 
-//* CLAW & SERVO FUNCTIONS
+//* SERVO FUNCTIONS
 
 int pwmangle(double angle, double max_angle) //Servo PWM
 {
@@ -478,7 +490,7 @@ void sort_dead() {
     servos_change = true;
 }
 
-//* MISCELLANEOUS
+//* TCS FUNCTIONS
 
 void rgb_to_hsv(int i)
 {
@@ -507,6 +519,42 @@ void rgb_to_hsv(int i)
     // compute v
     currentTCS->val = cmax * 100;
 }
+
+double grayPercent(int i) 
+{
+    return (double)(tcsSensors[i].val - tcs_black[i])/(double)(tcs_white[i] - tcs_black[i]);
+}
+
+bool isBlack(int i)
+{
+    if (!(tcsSensors[i].green) && !(tcsSensors[i].red) && grayPercent(i) < 0.5) { return true; }
+    else { return false; }
+}
+
+bool isGreen(int i) 
+{
+    return (tcs_lgreen[i] < tcsSensors[i].hue) && (tcs_ugreen[i] > tcsSensors[i].hue);
+}
+
+bool isRed(int i) 
+{
+    return ((tcs_lred1[i] < tcsSensors[i].hue) && (tcs_ured1[i] > tcsSensors[i].hue)) || ((tcs_lred2[i] < tcsSensors[i].hue) && (tcs_ured2[i] > tcsSensors[i].hue));
+}
+
+bool isSilver(int i)
+{
+    return false;
+}
+
+void tcsAnalyse(int i)
+{
+    tcsSensors[i].green = isGreen(i);
+    tcsSensors[i].red = isRed(i);
+    tcsSensors[i].black = isBlack(i);
+    tcsSensors[i].silver = isSilver(i);
+}
+
+//* DRIVEBASE FUNCTIONS
 
 double pickMotorDist(double rot) { 
     if (rot > 0) { return MotorL.getDist(); }
