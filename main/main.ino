@@ -30,6 +30,7 @@
 #define debugLoopTime 1
 #define debugTCSReadings 1
 #define debugLED 0
+#define debugSerial
 
 //* ------------------------------------------- OBJECT INITIALISATIONS -------------------------------------------
 
@@ -109,10 +110,6 @@ const int tcs_ured2[tcsNum] = {0, 0, 0, 0, 0, 0};
 
 //* ------------------------------------------- USER-DEFINED VARIABLES -------------------------------------------
 
-//^ SWITCHES
-commandType cmd = LT;
-currType curr = LINETRACK;
-
 //^ DEBUG
 long beforeEntireLoopTimeMicros, afterEntireLoopTimeMicros;
 long beforeLidarLoopTimeMicros, afterLidarLoopTimeMicros;
@@ -125,15 +122,17 @@ bool ledOn = false;
 long lastSerialPiSendMillis = millis();
 
 //^ ESSENTIALS
-double steer = 0, rpm = 30;
-double lt_rpm = 30;
+currType curr = EMPTYLINETRACK;
+double steer = 0, rotation = 0;
+double rpm = 30, lt_rpm = 30;
+int serialState = 0, task = 0;
 
 //^ LINETRACK VARIABLES
 double left = 1, right = 1;
 
 //^ FORCED VARIABLES
 bool forcedTurnAlrInit = false;
-currType postForcedDistCase = LINETRACK;
+currType postForcedDistCase = EMPTYLINETRACK;
 double startForcedDistL, startForcedDistR, currForcedDist;
 double wantedForcedDist = 0;
 double forcedDirection = 0;
@@ -286,15 +285,29 @@ void loop()
         // tcsAnalyse();
         serialEvent();
 
+        //* ------------------------------------------- PI TASK HANDLED -------------------------------------------
+
+        switch (task)
+        {
+            case 0: //EMPTY LINETRACK
+                curr = EMPTYLINETRACK;
+                break;
+        }
+
         //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
 
         switch (curr)
         {
-            case LINETRACK:
+            case TCSLINETRACK:
                 left = grayPercent(1);
                 right = grayPercent(2);
                 steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
                 Robawt.setSteer(lt_rpm, steer);
+                break;
+
+            case EMPTYLINETRACK:
+                send_pi(0);
+                Robawt.setSteer(rpm, rotation);
                 break;
 
             case LEFTGREEN:
@@ -345,7 +358,7 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        curr = LINETRACK;
+        curr = EMPTYLINETRACK;
     }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
@@ -383,6 +396,38 @@ void loop()
 //* ------------------------------------------- USER DEFINED FUNCTIONS -------------------------------------------
 
 //* COMMUNICATIONS
+
+void serialEvent() //Pi to pico serial
+    {
+    while (Serial1.available()) 
+    {
+        int serialData = Serial1.read();
+        if (serialData == 255 || serialData == 254 || serialData == 253) {
+            serialState = (int)serialData;
+            #if debugSerial
+            Serial.print("Serial State: ");
+            Serial.println(serialState);
+            #endif
+        } else {
+            switch (serialState) 
+            {
+                case 255:
+                    rotation = ((double)(serialData)-90)/90;
+                    break;
+                case 254:
+                    rpm = (double)serialData;
+                    break;
+                case 253:
+                    task = (int)serialData;
+                    break;
+            }
+            #if debugSerial
+            Serial.print("Data: ");
+            Serial.println(serialData);
+            #endif
+        }
+    }
+}
 
 void send_pi(int i) //Pico to pi serial
 {
@@ -597,4 +642,84 @@ void moveDist(double dir, double distOfMove, enum currType postCase) //in cm
     curr = MOVEDIST;
     wantedForcedDist = distOfMove * 1.47;
     postForcedDistCase = postCase;
+}
+
+//* LIDAR FUNCTIONS
+
+//~ Inside evac
+
+bool ball_present() {
+    //+45 for the diff sensors' offset physically
+    return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 80);
+}
+
+bool wall_present() {
+    return (l0x_readings[L0X::FRONT]+45 < 90 && l1x_readings[L1X::FRONT_BOTTOM] < 90);
+}
+
+bool OOR_present() {
+    return ((front_see_infinity() && right_see_wall()) //if front sees out, and right either sees wall or OOR
+    || (front_see_infinity() && (left_see_infinity() || (frontLeft_see_infinity() && left_see_out())))); //if left and front sees out
+}
+
+bool wallgap_present() {
+    return (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680);
+}
+
+bool front_see_infinity() {
+    return (l0x_readings[L0X::FRONT] > 1680);
+}
+
+bool left_see_infinity() {
+    return  (l0x_readings[L0X::LEFT] > 1680);
+}
+
+bool right_see_infinity() {
+    return  (l0x_readings[L0X::RIGHT] > 1680);
+}
+
+bool frontLeft_see_infinity() {
+    return (l0x_readings[L0X::FRONT_LEFT] > 1680);
+}
+
+//~ Exiting evac
+
+bool left_see_out() {
+    return (l0x_readings[L0X::LEFT] > 400);
+}
+
+bool front_see_out() {
+    return (l0x_readings[L0X::FRONT] > 400);
+}
+
+bool right_see_out() {
+    return (l0x_readings[L0X::FRONT] > 600);
+}
+
+bool frontLeft_see_out() {
+    return (l0x_readings[L0X::FRONT_LEFT] > 600);
+}
+
+bool right_see_wall() {
+    return (l0x_readings[L0X::RIGHT] < 500);
+}
+
+bool left_see_closewall() {
+    return (l0x_readings[L0X::LEFT] < 200);
+}
+
+bool right_see_closewall() {
+    return (l0x_readings[L0X::RIGHT] < 200);
+}
+
+bool evacExitFrontValSeeInfinity() {
+    return (evacExitFrontVal > 1680);
+}
+
+bool left_see_reallyclosewall() {
+    return (l0x_readings[L0X::LEFT] < 150);
+}
+
+bool right_see_reallyclosewall() {
+    return (l0x_readings[L0X::RIGHT] < 150);
 }
