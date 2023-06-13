@@ -283,7 +283,8 @@ void loop()
 
     if (digitalRead(SWTPIN))
     {
-        tcsAnalyse();
+        // tcsAnalyse();
+        serialEvent();
 
         //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
 
