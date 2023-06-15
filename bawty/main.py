@@ -221,11 +221,13 @@ def task0_lt():
 
         #~ Line continuation
         mask_black[:first_line_top, :] = 0
+        cv2.imshow("black mask", mask_black)
 
         #~ Plain line track
-        powered_y = (height_lt-40)/first_line_height if first_line_height != 0 else 1
-        powered_y = powered_y ** 0.5
-        powered_y = min(3.5, powered_y) #? prev value: 4
+        # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
+        # powered_y = powered_y ** 0.95 #? prev value: 0.5
+        # powered_y = min(3.5, powered_y) #? prev value: 4
+        powered_y = 1.5
 
         #TODO weird national tile
         x_black_com = x_com
@@ -273,7 +275,7 @@ def task0_lt():
                 254, rpm_lt,
                 253, curr.value]
     # print(to_pico)
-    # ser.write(to_pico)
+    ser.write(to_pico)
 
 #* ------------------------ RESPOND TO PICO ----------------------------------
 

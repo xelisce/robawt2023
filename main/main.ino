@@ -30,7 +30,7 @@
 #define debugLoopTime 1
 #define debugTCSReadings 1
 #define debugLED 0
-#define debugSerial
+#define debugSerial 0
 
 //* ------------------------------------------- OBJECT INITIALISATIONS -------------------------------------------
 
@@ -206,11 +206,13 @@ void setup()
     // follows the numbering 
     // | 0 1 2 3 4 |
     // |    5 6    |
+    /* 
     for (int i = 0; i < tcsNum; i++) {
         tcaselect2(tcs_pins[i]);
         while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
     }
     Serial.println("TCS sensors initialised");
+    */
 
     //^ MOTOR ENCODERS
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
@@ -648,78 +650,78 @@ void moveDist(double dir, double distOfMove, enum currType postCase) //in cm
 
 //~ Inside evac
 
-bool ball_present() {
-    //+45 for the diff sensors' offset physically
-    return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 80);
-}
+// bool ball_present() {
+//     //+45 for the diff sensors' offset physically
+//     return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 80);
+// }
 
-bool wall_present() {
-    return (l0x_readings[L0X::FRONT]+45 < 90 && l1x_readings[L1X::FRONT_BOTTOM] < 90);
-}
+// bool wall_present() {
+//     return (l0x_readings[L0X::FRONT]+45 < 90 && l1x_readings[L1X::FRONT_BOTTOM] < 90);
+// }
 
-bool OOR_present() {
-    return ((front_see_infinity() && right_see_wall()) //if front sees out, and right either sees wall or OOR
-    || (front_see_infinity() && (left_see_infinity() || (frontLeft_see_infinity() && left_see_out())))); //if left and front sees out
-}
+// bool OOR_present() {
+//     return ((front_see_infinity() && right_see_wall()) //if front sees out, and right either sees wall or OOR
+//     || (front_see_infinity() && (left_see_infinity() || (frontLeft_see_infinity() && left_see_out())))); //if left and front sees out
+// }
 
-bool wallgap_present() {
-    return (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680);
-}
+// bool wallgap_present() {
+//     return (l0x_readings[L0X::LEFT] > 1680 || l0x_readings[L0X::FRONT_LEFT] > 1680);
+// }
 
-bool front_see_infinity() {
-    return (l0x_readings[L0X::FRONT] > 1680);
-}
+// bool front_see_infinity() {
+//     return (l0x_readings[L0X::FRONT] > 1680);
+// }
 
-bool left_see_infinity() {
-    return  (l0x_readings[L0X::LEFT] > 1680);
-}
+// bool left_see_infinity() {
+//     return  (l0x_readings[L0X::LEFT] > 1680);
+// }
 
-bool right_see_infinity() {
-    return  (l0x_readings[L0X::RIGHT] > 1680);
-}
+// bool right_see_infinity() {
+//     return  (l0x_readings[L0X::RIGHT] > 1680);
+// }
 
-bool frontLeft_see_infinity() {
-    return (l0x_readings[L0X::FRONT_LEFT] > 1680);
-}
+// bool frontLeft_see_infinity() {
+//     return (l0x_readings[L0X::FRONT_LEFT] > 1680);
+// }
 
 //~ Exiting evac
 
-bool left_see_out() {
-    return (l0x_readings[L0X::LEFT] > 400);
-}
+// bool left_see_out() {
+//     return (l0x_readings[L0X::LEFT] > 400);
+// }
 
-bool front_see_out() {
-    return (l0x_readings[L0X::FRONT] > 400);
-}
+// bool front_see_out() {
+//     return (l0x_readings[L0X::FRONT] > 400);
+// }
 
-bool right_see_out() {
-    return (l0x_readings[L0X::FRONT] > 600);
-}
+// bool right_see_out() {
+//     return (l0x_readings[L0X::FRONT] > 600);
+// }
 
-bool frontLeft_see_out() {
-    return (l0x_readings[L0X::FRONT_LEFT] > 600);
-}
+// bool frontLeft_see_out() {
+//     return (l0x_readings[L0X::FRONT_LEFT] > 600);
+// }
 
-bool right_see_wall() {
-    return (l0x_readings[L0X::RIGHT] < 500);
-}
+// bool right_see_wall() {
+//     return (l0x_readings[L0X::RIGHT] < 500);
+// }
 
-bool left_see_closewall() {
-    return (l0x_readings[L0X::LEFT] < 200);
-}
+// bool left_see_closewall() {
+//     return (l0x_readings[L0X::LEFT] < 200);
+// }
 
-bool right_see_closewall() {
-    return (l0x_readings[L0X::RIGHT] < 200);
-}
+// bool right_see_closewall() {
+//     return (l0x_readings[L0X::RIGHT] < 200);
+// }
 
-bool evacExitFrontValSeeInfinity() {
-    return (evacExitFrontVal > 1680);
-}
+// bool evacExitFrontValSeeInfinity() {
+//     return (evacExitFrontVal > 1680);
+// }
 
-bool left_see_reallyclosewall() {
-    return (l0x_readings[L0X::LEFT] < 150);
-}
+// bool left_see_reallyclosewall() {
+//     return (l0x_readings[L0X::LEFT] < 150);
+// }
 
-bool right_see_reallyclosewall() {
-    return (l0x_readings[L0X::RIGHT] < 150);
-}
+// bool right_see_reallyclosewall() {
+//     return (l0x_readings[L0X::RIGHT] < 150);
+// }
