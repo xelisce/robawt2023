@@ -1,13 +1,15 @@
 enum currType { //what the pico needs to do
     //^ Linetrack
-    TCSLINETRACK,
-    EMPTYLINETRACK,
-    LEFTGREEN,
-    RIGHTGREEN,
-    DOUBLEGREEN,
+    TCS_LINETRACK,
+    EMPTY_LINETRACK,
+    LEFT_GREEN,
+    RIGHT_GREEN,
+    DOUBLE_GREEN,
     RED,
+    ALIGN_SWEEP,
+    AFTER_ALIGN_SWEEP,
     //^ Forced stuff
     STOP,
-    MOVEDIST,
-    TURNANGLE
+    MOVE_DIST,
+    TURN_ANGLE
 };

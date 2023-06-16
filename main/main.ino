@@ -122,20 +122,34 @@ bool ledOn = false;
 long lastSerialPiSendMillis = millis();
 
 //^ ESSENTIALS
-currType curr = EMPTYLINETRACK;
+currType curr = EMPTY_LINETRACK;
 double steer = 0, rotation = 0;
 double rpm = 30, lt_rpm = 30;
 int serialState = 0, task = 0;
+namespace Pi {
+    enum Pi
+    {
+        LINETRACK = 0, 
+        END_SWEEP = 1
+    };
+}
 
 //^ LINETRACK VARIABLES
 double left = 1, right = 1;
 
 //^ FORCED VARIABLES
 bool forcedTurnAlrInit = false;
-currType postForcedDistCase = EMPTYLINETRACK;
+currType postForcedDistCase = EMPTY_LINETRACK;
 double startForcedDistL, startForcedDistR, currForcedDist;
 double wantedForcedDist = 0;
 double forcedDirection = 0;
+
+//^ ALIGNING SWEEP
+int alignSweepState = 0;
+bool lineAligned = true, endLineGap = true;
+long afterAlignedMillis;
+double prevTurnedAlignSweepDistL, prevTurnedAlignSweepDistR;
+double alignSweepRotation;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -147,7 +161,7 @@ void setup()
     pinMode(SWTPIN, INPUT);
     pinMode(PICOLEDPIN, OUTPUT);
     pinMode(LEDPIN, OUTPUT);
-    digitalWrite(LEDPIN, LOW);
+    digitalWrite(LEDPIN, HIGH);
     digitalWrite(PICOLEDPIN, LOW);
     Serial.println("PIO pins initialised");
 
@@ -228,6 +242,8 @@ void setup()
 
 void loop()
 {
+    digitalWrite(LEDPIN, HIGH);
+    
     #if debugLoopTime
     beforeEntireLoopTimeMicros = micros();
     #endif
@@ -267,6 +283,7 @@ void loop()
     #if debugLoopTime
     beforeTCSLoopTimeMicros = micros();
     #endif
+    /*
     for (int i = 1; i < 3; i++) { //^ only using 2 to linetrack right now
         tcaselect2(tcs_pins[i]);
         #if debugLoopTime
@@ -278,6 +295,7 @@ void loop()
         afterEachTCSLoopTimeMicros[i] = micros();
         #endif
     }
+    */
     #if debugLoopTime
     afterTCSLoopTimeMicros = micros();
     #endif
@@ -292,7 +310,14 @@ void loop()
         switch (task)
         {
             case 0: //EMPTY LINETRACK
-                curr = EMPTYLINETRACK;
+                if ((curr == MOVE_DIST && postForcedDistCase == EMPTY_LINETRACK) || curr == AFTER_ALIGN_SWEEP) { curr = AFTER_ALIGN_SWEEP; }
+                else { curr = EMPTY_LINETRACK; }
+                break;
+
+            case 10:
+                if (curr == ALIGN_SWEEP || curr == AFTER_ALIGN_SWEEP) { break; }
+                curr = ALIGN_SWEEP;
+                alignSweepState = 0;
                 break;
         }
 
@@ -300,32 +325,129 @@ void loop()
 
         switch (curr)
         {
-            case TCSLINETRACK:
+            case TCS_LINETRACK: //^ unused
                 left = grayPercent(1);
                 right = grayPercent(2);
                 steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
                 Robawt.setSteer(lt_rpm, steer);
                 break;
 
-            case EMPTYLINETRACK:
-                send_pi(0);
+            case EMPTY_LINETRACK:
+                send_pi(Pi::LINETRACK);
                 Robawt.setSteer(rpm, rotation);
                 break;
 
-            case LEFTGREEN:
+            case LEFT_GREEN:
                 turnAngle(-0.8, 75, STOP);
                 break;
 
-            case RIGHTGREEN:
+            case RIGHT_GREEN:
                 turnAngle(0.8, 75, STOP);
                 break;
 
-            case DOUBLEGREEN:
+            case DOUBLE_GREEN:
                 turnAngle(1, 180, STOP);
                 break;
 
             case RED:
                 curr = STOP;
+                break;
+
+            case ALIGN_SWEEP:
+                switch (alignSweepState)
+                {
+                    case 0: //^ left turn
+                        turnAngle(-1, 45, ALIGN_SWEEP, ALIGN_SWEEP);
+                        alignSweepState++;
+                        [[fallthrough]];
+                    case 1:
+                        Robawt.setSteer(30, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        if (currForcedDist >= wantedForcedDist) {
+                            alignSweepRotation = 0;
+                            prevTurnedAlignSweepDistL = currForcedDist;
+                            alignSweepState++;
+                            [[fallthrough]];
+                        } else if (lineAligned) {
+                            alignSweepRotation = -1;
+                            prevTurnedAlignSweepDistL = currForcedDist;
+                            alignSweepState++; 
+                            [[fallthrough]];
+                        } else {
+                            break;
+                        }
+
+                    case 2: //^ turn back right to the original position
+                        turnDist(1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, ALIGN_SWEEP);
+                        alignSweepState++;
+                        [[fallthrough]];
+                    case 3:
+                        Robawt.setSteer(30, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        if (currForcedDist >= wantedForcedDist) { 
+                            alignSweepState++; 
+                            [[fallthrough]];
+                        } else {
+                            break;
+                        }
+
+                    case 4: //^ right turn
+                        turnDist(1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, ALIGN_SWEEP);
+                        alignSweepState++;
+                        [[fallthrough]];
+                    case 5:
+                        Robawt.setSteer(30, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        if (currForcedDist >= wantedForcedDist) {
+                            prevTurnedAlignSweepDistR = currForcedDist;
+                            alignSweepState++;
+                            [[fallthrough]];
+                        } else if (lineAligned) { 
+                            alignSweepRotation = 1;
+                            prevTurnedAlignSweepDistR = currForcedDist;
+                            alignSweepState = 8; 
+                            [[fallthrough]];
+                        } else {
+                            break;
+                        }
+
+                    case 6: //^ turn back left to original position
+                        turnDist(-1, prevTurnedAlignSweepDistR, ALIGN_SWEEP, ALIGN_SWEEP);
+                        alignSweepState++;
+                        [[fallthrough]];
+                    case 7:
+                        Robawt.setSteer(30, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        if (currForcedDist >= wantedForcedDist) { 
+                            alignSweepState++;
+                            [[fallthrough]];
+                        } else {
+                            break;
+                        }
+
+                    case 8: //^ turn to required position
+                        send_pi(Pi::END_SWEEP);
+                        switch (alignSweepRotation)
+                        {
+                            case 0:
+                                Robawt.setSteer(rpm, 0);
+                                break;
+                            case -1:
+                                turnDist(-1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, TURN_ANGLE);
+                                alignSweepRotation = 0;
+                                break;
+                            case 1:
+                                turnDist(1, prevTurnedAlignSweepDistR, ALIGN_SWEEP, TURN_ANGLE);
+                                alignSweepRotation = 0;
+                                break;
+                        }
+                        break;
+                }
+                break;
+
+            case AFTER_ALIGN_SWEEP:
+                send_pi(Pi::END_SWEEP);
+                moveDist(0, 20, EMPTY_LINETRACK);
                 break;
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
@@ -335,13 +457,13 @@ void loop()
                 Robawt.resetPID();
                 break;
 
-            case MOVEDIST:
+            case MOVE_DIST:
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedDirection*30, 0); }
                 break;
 
-            case TURNANGLE:
+            case TURN_ANGLE:
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(30, forcedDirection); }
@@ -360,7 +482,7 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        curr = EMPTYLINETRACK;
+        curr = EMPTY_LINETRACK;
     }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
@@ -404,7 +526,7 @@ void serialEvent() //Pi to pico serial
     while (Serial1.available()) 
     {
         int serialData = Serial1.read();
-        if (serialData == 255 || serialData == 254 || serialData == 253) {
+        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251) {
             serialState = (int)serialData;
             #if debugSerial
             Serial.print("Serial State: ");
@@ -421,6 +543,12 @@ void serialEvent() //Pi to pico serial
                     break;
                 case 253:
                     task = (int)serialData;
+                    break;
+                case 252:
+                    lineAligned = (bool)serialData;
+                    break;
+                case 251:
+                    endLineGap = (bool)serialData;
                     break;
             }
             #if debugSerial
@@ -618,13 +746,13 @@ double constraint(double val, double minVal, double maxVal)
     return min(max(val, minVal), maxVal);
 }
 
-void turnAngle(double rot, double angleOfTurn, enum currType postCase) //in degrees
+void turnAngle(double rot, double angleOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE) //in degrees
 {
     //only support: 0.5 OR 1 rot, speed 30 rpm, < 180 degrees. note: angle is always positive
     forcedDirection = rot;
     startForcedDistL = MotorL.getDist();
     startForcedDistR = MotorR.getDist();
-    curr = TURNANGLE;
+    curr = afterInitState;
     if (abs(rot) == 1) {
         wantedForcedDist = angleOfTurn / 5.95;
         wantedForcedDist += constraint((angleOfTurn - 90)/60, -0.5, 0.5); //to account for discrepancies in smaller angle turns: decel and accel requires a tighter distance to work with, as well as larger distance means higher uncertainty between the unsynced steering
@@ -632,18 +760,28 @@ void turnAngle(double rot, double angleOfTurn, enum currType postCase) //in degr
         wantedForcedDist = angleOfTurn / 5.75;
         wantedForcedDist += constraint(((angleOfTurn - 90)/90), -0.5, 0.5);
     }
-    postForcedDistCase = postCase;
+    postForcedDistCase = postState;
 }
 
-void moveDist(double dir, double distOfMove, enum currType postCase) //in cm
+void turnDist(double rot, double distOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE)
+{
+    forcedDirection = rot;
+    startForcedDistL = MotorL.getDist();
+    startForcedDistR = MotorR.getDist();
+    curr = afterInitState;
+    wantedForcedDist = distOfTurn;
+    postForcedDistCase = postState;
+}
+
+void moveDist(double dir, double distOfMove, enum currType postState, enum currType afterInitState=MOVE_DIST) //in cm
 {
     //only support: speed 30 rpm. note: put .0 if whole number, or problems will happen
     forcedDirection = dir; //1 or -1 for forward and backward respectively
     startForcedDistL = MotorL.getDist();
     startForcedDistR = MotorR.getDist();
-    curr = MOVEDIST;
+    curr = afterInitState;
     wantedForcedDist = distOfMove * 1.47;
-    postForcedDistCase = postCase;
+    postForcedDistCase = postState;
 }
 
 //* LIDAR FUNCTIONS
