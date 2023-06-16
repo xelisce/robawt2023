@@ -154,3 +154,9 @@ void Vroom::resetPID()
     _left->resetPID();
     _right->resetPID();
 }
+
+void Vroom::stop()
+{
+    this->setSteer(0, 0);
+    this->resetPID();
+}

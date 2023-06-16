@@ -1,4 +1,4 @@
-//* LIBRARIES
+/*//* LIBRARIES
 #include <Arduino.h>
 #include <Servo.h>
 #include <Wire.h>
@@ -530,3 +530,4 @@ void moveDist(double dir, double distOfMove, enum currType postCase) //in cm
     wantedForcedDist = distOfMove * 1.47;
     postForcedDistCase = postCase;
 }
+*/

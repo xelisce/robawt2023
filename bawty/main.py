@@ -139,7 +139,7 @@ red_now = False
 gs_now = False
 blue_now = False
 short_linegap_now = False
-align_long_linegap_now = False
+# align_long_linegap_now = False
 long_linegap_now = False
 
 pico_task = 0
@@ -172,7 +172,7 @@ def receive_pico() -> str:
 
 def task0_lt():
     global rotation, rpm_lt, see_thin_line, end_line_gap
-    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now, align_long_linegap_now
+    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now
 
     #~ Basic conversion of color spaces
     frame_org = top_stream.read()
@@ -241,10 +241,23 @@ def task0_lt():
             black_line_width = black_right_x - black_left_x
             print("x width:", black_line_width) #& debug width of line
 
-            #~ End long line gap but runs every code
+            #~ End long line gap sequence but runs every code
             if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 160:
                 end_line_gap = 1 # to end the linegap move forward
-                long_linegap_now = False
+                print(r"%%%%%%%%%%% MOVE FORWARD %%%%%%%%%%%")
+            else:
+                end_line_gap = 0
+            if black_line_width < 34 and first_line_height < 68 and first_line_bottom > 175:
+                tip_of_line = mask_black[first_line_top:first_line_top+10, black_left_x:black_right_x]
+                tip_of_line_black_percentage = np.sum(tip_of_line)/(10*black_line_width*255)
+                print("percentage of tip:", tip_of_line_black_percentage)
+                if tip_of_line_black_percentage > 0.70:
+                    see_thin_line = 1
+                    print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10)
+                else:
+                    see_thin_line = 0
+            else:
+                see_thin_line = 0
 
             #~ Short line gap, use entire frame
             if short_linegap_now:
@@ -254,16 +267,18 @@ def task0_lt():
                 if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
                     short_linegap_now = False
 
-            #~ Aligning to the line before long line gap
+            #~ Long line gap, use entire frame
             elif long_linegap_now:
-                rpm_lt = rpm_setptlt
                 curr = Task.ALIGN_LINEGAP
-                if black_line_width < 34 and first_line_height < 68:
-                    see_thin_line = 1 # to end the aligning
+                rpm_lt = rpm_setptlt
+                print("--------LONG LINE GAP NOW--------")
+                mask_black = mask_uncropped_black
+                if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
+                    long_linegap_now = False
 
             #~ When line is ending
             elif (first_line_height < 68 and black_line_width < 80):
-                rpm_lt = 0
+                # rpm_lt = 0
 
                 #~ Trigger short line gap: Jump to next line
                 if (first_line_top - second_line_bottom < 80) and second_line_bottom < first_line_top:
@@ -272,8 +287,8 @@ def task0_lt():
 
                 #~ Trigger long line gap: Align self
                 else:
-                    long_linegap_now = True
                     curr = Task.ALIGN_LINEGAP
+                    long_linegap_now = True
                     # mask_black = mask_uncropped_black
 
             #~ Ordinary linetrack
@@ -377,11 +392,6 @@ while True:
 
     if pico_task == 0:
         print("Linetrack")
-        task0_lt()
-    elif pico_task == 1:
-        long_linegap_now = True
-        align_long_linegap_now = False
-        print("Linegap finished")
         task0_lt()
     # elif pico_task == 1:
     #     print("Evac looking for ball")

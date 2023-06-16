@@ -52,7 +52,8 @@ class Vroom
         Vroom(Motor *left, Motor *right);
         void setSteer(double rpm, double rotation), //when speed is negative, robot heading switches
             reset(),
-            resetPID();
+            resetPID(),
+            stop();
 
     private:
         Motor *_left, *_right;
