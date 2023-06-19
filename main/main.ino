@@ -380,7 +380,7 @@ void loop()
                 {
                     case 0: //^ left turn
                         lineAligned = false;
-                        turnAngle(-1, 60, ALIGN_SWEEP, ALIGN_SWEEP);
+                        turnAngle(-1, 80, ALIGN_SWEEP, ALIGN_SWEEP);
                         alignSweepState++;
                         // [[fallthrough]];
                         break;
@@ -424,7 +424,7 @@ void loop()
                         if (currForcedDist >= wantedForcedDist) { 
                             // Robawt.stop();
                             alignSweepState++; 
-                            testTimerMillis = millis();
+                            // testTimerMillis = millis();
                             // [[fallthrough]];
                         }
                         // } else {
@@ -432,10 +432,12 @@ void loop()
                         // }
 
                     case 4: //^ right turn
-                        Robawt.setSteer(0, 0);
+                        // Robawt.setSteer(0, 0);
                         lineAligned = false;
                         turnDist(1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, ALIGN_SWEEP);
-                        if (millis() - testTimerMillis > 500) { alignSweepState++; }
+                        // if (millis() - testTimerMillis > 500) { 
+                        alignSweepState++; 
+                        // }
                         // [[fallthrough]];
                         break;
                     case 5:
@@ -454,6 +456,7 @@ void loop()
                             alignSweepRotation = 1;
                             prevTurnedAlignSweepDistR = currForcedDist;
                             alignSweepState = 8; 
+                            // testTimerMillis = millis();
                             // break;
                         }
                         // } else {
@@ -476,6 +479,7 @@ void loop()
                         if (currForcedDist >= wantedForcedDist) { 
                             // Robawt.stop();
                             alignSweepState++;
+                            // testTimerMillis = millis();
                             // [[fallthrough]];
                         }
                         // } else {
@@ -484,32 +488,35 @@ void loop()
 
                     case 8: //^ turn to required position
                         lineAligned = false;
-                        Robawt.setSteer(0, 0);
-                        if (millis() - testTimerMillis > 500) {
+                        // Robawt.setSteer(0, 0);
+                        // if (millis() - testTimerMillis > 500) {
                             switch ((int)alignSweepRotation)
                             {
                                 case 0:
                                     Robawt.setSteer(rpm, 0);
-                                    curr = STOP;
+                                    curr = AFTER_ALIGN_SWEEP;
                                     break;
                                 case -1:
-                                    turnDist(-1, prevTurnedAlignSweepDistL, STOP);
+                                    turnDist(-1, prevTurnedAlignSweepDistL/2, AFTER_ALIGN_SWEEP);
                                     alignSweepRotation = 0;
                                     break;
                                 case 1:
-                                    turnDist(1, prevTurnedAlignSweepDistR, STOP);
+                                    turnDist(-1, prevTurnedAlignSweepDistR/2, AFTER_ALIGN_SWEEP);
                                     alignSweepRotation = 0;
                                     break;
                             }
-                        }
+                        // }
                         break;
                 }
                 break;
 
             case AFTER_ALIGN_SWEEP:
                 // curr = STOP;
+                #if debugWithLED
+                ledOn = true;
+                #endif
                 send_pi(Pi::LINETRACK);
-                moveDist(0, 20, EMPTY_LINETRACK);
+                moveDist(1, 20, EMPTY_LINETRACK);
                 afterGapMillis = millis();
                 break;
 
@@ -549,7 +556,7 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        curr = ALIGN_SWEEP;
+        curr = EMPTY_LINETRACK;
         alignSweepState = 0;
     }
 

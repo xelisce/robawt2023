@@ -321,10 +321,10 @@ def task0_lt():
                 # cv2.imshow("black mask", mask_black)
 
             #~ Powers and components
-            powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
-            powered_y = powered_y ** 0.01 #? prev value: 0.5
+            # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
+            # powered_y = powered_y ** 0.01 #? prev value: 0.5
             # powered_y = min(3.5, powered_y) #? prev value: 4
-            # powered_y = 1
+            powered_y = 0.5
             x_black_com = x_com
 
             #~ Vectorizing the black components
