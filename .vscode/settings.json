@@ -24,7 +24,8 @@
         "random": "cpp",
         "queue": "cpp",
         "ios": "cpp",
-        "xiosbase": "cpp"
+        "xiosbase": "cpp",
+        "pio.h": "c"
     },
     "arduino.useArduinoCli": true,
     "arduino.path": "/usr/local/bin/arduino",
