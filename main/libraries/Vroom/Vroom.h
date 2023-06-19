@@ -18,6 +18,7 @@ class Motor
         Motor(int pin1, int pin2, int encPinA, int encPinB);
         double setSpeed(double speed), 
             setRpm(double rpm),
+            setVal(double rpm), //^ temporary test function
             getRpm(),
             getSpeed(),
             getRps(),
@@ -41,7 +42,9 @@ class Motor
             _begin, _end,
             _kp = 0.5,
             _ki = 9,
-            _kd = 0;
+            _kd = 0,
+            _val,
+            _rpm;
         // bool _dontReset;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);
 };

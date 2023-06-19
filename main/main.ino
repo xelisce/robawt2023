@@ -29,7 +29,7 @@
 #define waitForSerial 0
 
 #define debugLoopTime 0
-#define debugTCSReadings 0
+#define debugTCSReadings 1
 #define debugWithLED 1
 #define debugSerial 0
 #define debugState 1
@@ -182,11 +182,11 @@ void setup()
     Serial.println("USB serial initialised");
 
     //^ PI SERIAL COMMS
-    Serial1.setRX(RX0PIN); 
-    Serial1.setTX(TX0PIN);
-    Serial1.begin(9600);
-    while (!Serial1) delay(10); 
-    Serial.println("Pi serial initialised");
+    // Serial1.setRX(RX0PIN); 
+    // Serial1.setTX(TX0PIN);
+    // Serial1.begin(9600);
+    // while (!Serial1) delay(10); 
+    // Serial.println("Pi serial initialised");
 
     //^ MULTIPLEXERS
     Wire.setSDA(SDAPIN);
@@ -229,13 +229,11 @@ void setup()
     // follows the numbering 
     // | 0 1 2 3 4 |
     // |    5 6    |
-    /* 
-    for (int i = 0; i < tcsNum; i++) {
+    for (int i = 1; i < 3; i++) {
         tcaselect2(tcs_pins[i]);
         while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
     }
     Serial.println("TCS sensors initialised");
-    */
 
     //^ MOTOR ENCODERS
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
@@ -292,7 +290,6 @@ void loop()
     #if debugLoopTime
     beforeTCSLoopTimeMicros = micros();
     #endif
-    /*
     for (int i = 1; i < 3; i++) { //^ only using 2 to linetrack right now
         tcaselect2(tcs_pins[i]);
         #if debugLoopTime
@@ -304,7 +301,6 @@ void loop()
         afterEachTCSLoopTimeMicros[i] = micros();
         #endif
     }
-    */
     #if debugLoopTime
     afterTCSLoopTimeMicros = micros();
     #endif
@@ -312,10 +308,10 @@ void loop()
     if (digitalRead(SWTPIN))
     {
         // tcsAnalyse();
-        serialEvent();
+        // serialEvent();
 
         //* ------------------------------------------- PI TASK HANDLED -------------------------------------------
-
+        /*
         if (curr != STOP) {
             switch (task)
             {
@@ -335,7 +331,7 @@ void loop()
                     }
                     break;
             }
-        }
+        }*/
 
         //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
 
@@ -397,8 +393,8 @@ void loop()
                             alignSweepState++;
                             // [[fallthrough]];
                         } else if (lineAligned) {
-                            // curr = STOP;
-                            // Robawt.stop();
+                            curr = STOP;
+                            Robawt.stop();
                             alignSweepRotation = -1;
                             prevTurnedAlignSweepDistL = currForcedDist;
                             alignSweepState++; 
@@ -452,7 +448,8 @@ void loop()
                             alignSweepState++;
                             // [[fallthrough]];
                         } else if (lineAligned) { 
-                            // Robawt.stop();
+                            curr = STOP;
+                            Robawt.stop();
                             alignSweepRotation = 1;
                             prevTurnedAlignSweepDistR = currForcedDist;
                             alignSweepState = 8; 
@@ -494,14 +491,14 @@ void loop()
                             {
                                 case 0:
                                     Robawt.setSteer(rpm, 0);
-                                    curr = AFTER_ALIGN_SWEEP;
+                                    curr = STOP;
                                     break;
                                 case -1:
-                                    turnDist(-1, prevTurnedAlignSweepDistL/2, AFTER_ALIGN_SWEEP);
+                                    turnDist(-1, prevTurnedAlignSweepDistL/2, STOP);
                                     alignSweepRotation = 0;
                                     break;
                                 case 1:
-                                    turnDist(-1, prevTurnedAlignSweepDistR/2, AFTER_ALIGN_SWEEP);
+                                    turnDist(-1, prevTurnedAlignSweepDistR/2, STOP);
                                     alignSweepRotation = 0;
                                     break;
                             }
@@ -556,7 +553,7 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        curr = EMPTY_LINETRACK;
+        curr = TCS_LINETRACK;
         alignSweepState = 0;
     }
 

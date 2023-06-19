@@ -14,8 +14,11 @@ const int TX1PIN = 8,
   TX0PIN = 16,
   RX0PIN = 17;
 
-Motor MotorR(12, 13, 0, 1); 
-Motor MotorL(10, 11, 18, 19);
+bool flipDir;
+double steer;
+
+Motor MotorL(12, 13, 1, 0); 
+Motor MotorR(11, 10, 19, 18);
   
 void ISRLA() { MotorL.readEncA(); }
 void ISRLB() { MotorL.readEncB(); }
@@ -24,7 +27,7 @@ void ISRRB() { MotorR.readEncB(); }
 
 void setup() 
 {
-    
+    flipDir = true;
     #if default_serial
     Serial.begin(9600);
     Serial.println("USB Serial initialised!");
@@ -36,40 +39,27 @@ void setup()
     attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
 }
 
+long start, stop;
 void loop() 
 {
     if (digitalRead(28)){
-        // for (int i=0; i<80; i=i+5){
-        //     MotorR.setRpm(i); 
-        //     MotorL.setRpm(i);  
-        //     delay(1000);
-        // }
-        // for (int i=80; i>0; i=i-5){
-        //     MotorR.setRpm(i); 
-        //     MotorL.setRpm(i);  
-        //     delay(1000);
-        // }
+        start = millis();
+        steer = flipDir ? 30 : -30 
         Serial.println("Still running!");
-        MotorR.setRpm(30);
-        MotorL.setRpm(30);
-        Serial.println(MotorL.setRpm(30));
-        Serial.println(MotorR.setRpm(30));
-
+        Serial.println(MotorL.setRpm(steer));
+        stop = millis();
+        Serial.print("Loop time: "); Serial.println(stop - start);
+        // Serial.println(MotorR.setRpm(30));
     }
     else {
-        Serial.println("No running!");
-        MotorR.setRpm(0);
-        MotorR.resetPID();
-        MotorL.setRpm(0);
-        MotorL.resetPID();
+        flipDir = !flipDir //^ flips dir on turning off switch
+        Serial.println("Stopped");
+        Serial.println(MotorL.setRpm(0));
+        // Serial.println("Running backwards!");
+        // Serial.println(MotorL.setRpm(-30));
     }
 }
 
-// void setup() {
-//     pinMode(12, OUTPUT);
-//     pinMode(13, OUTPUT);
-//     pinMode(ONBOARDLEDPIN, OUTPUT);
-// }
 
 // void loop() {
 //     digitalWrite(ONBOARDLEDPIN, HIGH);

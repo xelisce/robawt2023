@@ -55,7 +55,7 @@ y_com = np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt)])
 # x_com *= x_com_scale
 #~ Same but bumped up to remove cropped out
 x_com_scale = 1 - np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt-higher_crop_triangle_h)])
-x_com_scale = x_com_scale ** 2
+x_com_scale = x_com_scale ** 1.7
 x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 x_com *= x_com_scale
 #^ Kenneth's method:
@@ -98,7 +98,7 @@ min_radius = 65
 max_radius = 88
 
 u_blackforball = 49
-u_black_lt = 60
+u_black_lt = 80
 u_black_lineforltfromevac = 55
 
 #* VARIABLE INITIALISATIONS
