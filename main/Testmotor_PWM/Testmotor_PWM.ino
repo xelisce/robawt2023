@@ -36,6 +36,17 @@ void setup()
 
 void loop() 
 {
-    Serial.print("Left: "); Serial.print(MotorL.getEncVal());
-    Serial.print("Right: "); Serial.println(MotorR.getEncVal());
+    if (!digitalRead(28))
+    {
+      analogWrite(MotorR.getPin1(), 80);
+      digitalWrite(MotorR.getPin2(), LOW);
+      Serial.println("Backward");
+    }
+    else
+    {
+      analogWrite(MotorR.getPin2(), 80);
+      digitalWrite(MotorR.getPin1(), LOW);
+      Serial.println("Forward");
+    }
+    
 }
