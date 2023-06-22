@@ -31,9 +31,26 @@ double Motor::setSpeed(double speed) //* mm s^-1
 
 double Motor::setRpm(double rpm) //* rev min^-1
 {
-    _wantedRpm = fabs(rpm); //setpoint
+    _wantedRpm = rpm; //setpoint
     noInterrupts();
     _realRpm = this->getRpm(); //input
+    interrupts();
+    _motorPID.Compute();
+    if (rpm >= 0) {
+        digitalWrite(_pwmPin1, LOW);
+        analogWrite(_pwmPin2, (int)(_neededRpm)); //output
+    } else {
+        analogWrite(_pwmPin1, (int)(_neededRpm));
+        digitalWrite(_pwmPin2, LOW);
+    }
+    return _neededRpm;
+}
+
+double Motor::setRpmDirectly(double rpm, double realRpm) //* rev min^-1
+{
+    _wantedRpm = fabs(rpm); //setpoint
+    noInterrupts();
+    _realRpm = realRpm; 
     interrupts();
     _motorPID.Compute();
     if (rpm >= 0) {
@@ -100,7 +117,7 @@ void Motor::readEncA()
         _begin = _end;
         _end = micros();
         _encVal ++;
-        // _encDir = 1;
+        _encDir = 1;
     }
 }
 
@@ -110,7 +127,7 @@ void Motor::readEncB()
         _begin = _end;
         _end = micros();
         _encVal --; 
-        // _encDir = -1;
+        _encDir = -1;
     }
 }
 
@@ -128,7 +145,6 @@ void Motor::resetEnc()
     _pastEncVal = _encVal % 374;
     _encVal = 0;
 }
-
 
 Vroom::Vroom(Motor *l, Motor *r) 
 {

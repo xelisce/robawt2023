@@ -66,6 +66,8 @@ x_com *= x_com_scale
 #~ Powering y component
 # y_com = y_com ** 2
 
+
+
 #* IMAGE THRESHOLDS
 
 #~ Xel's house values
@@ -253,7 +255,7 @@ def task0_lt():
                 print("percentage of tip:", tip_of_line_black_percentage)
                 if tip_of_line_black_percentage > 0.70:
                     see_thin_line = 1
-                    print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10)
+                    print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10) #? why the hell are you printing this 10 times :skul:
                 else:
                     see_thin_line = 0
             else:
@@ -388,7 +390,7 @@ while True:
     if received_task != -1:
         pico_task = int(received_task)
 
-    task0_lt()
+    # task0_lt()
 
     if pico_task == 0:
         print("Linetrack")
