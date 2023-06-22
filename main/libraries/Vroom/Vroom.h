@@ -31,20 +31,21 @@ class Motor
             getPin1(), getPin2(),
             getEncVal();
         void resetPID(),
-            resetEnc();
+            resetEnc(); //dont use
             // resetDist();
 
     private:
         int _pwmPin1, _pwmPin2,
-            _encPinA, _encPinB, _encDir;
-        long int _encVal, _pastEncVal;
+            _encPinA, _encPinB,
+            _encDir;
+        long int _encVal, _pastEncVal,
+            _begin, _end;
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
-            _begin, _end,
             _kp = 0.5,
             _ki = 9,
             _kd = 0,
-            _val,
+            _val, //this is the pwm direct value
             _rpm;
         // bool _dontReset;
         PID _motorPID = PID(&_realRpm, &_neededRpm, &_wantedRpm, _kp, _ki, _kd, DIRECT);

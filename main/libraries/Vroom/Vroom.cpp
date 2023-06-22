@@ -47,6 +47,7 @@ double Motor::setRpm(double rpm) //* rev min^-1
 }
 
 double Motor::setRpmDirectly(double rpm, double realRpm) //* rev min^-1
+//^ XEL: i dont get how this would work wouldnt it infinitely speed up till the motor burns
 {
     _wantedRpm = fabs(rpm); //setpoint
     noInterrupts();
@@ -95,9 +96,9 @@ double Motor::getRpm()
         double lastInterval = _end - _begin;
         double nowInterval = micros()-_end; //1/370*60 
         if (lastInterval < nowInterval)
-            return 162162/nowInterval; //^ math hack by converting no. of rotations into degrees or sth
+            return (162162/nowInterval)*_encDir; //^ math hack by converting no. of rotations into degrees or sth
         else
-            return 162162/lastInterval;
+            return (162162/lastInterval)*_encDir;
     } else {
         return 0;
     }
@@ -117,7 +118,7 @@ void Motor::readEncA()
         _begin = _end;
         _end = micros();
         _encVal ++;
-        _encDir = 1;
+        _encDir = 1; //forward
     }
 }
 
@@ -127,7 +128,7 @@ void Motor::readEncB()
         _begin = _end;
         _end = micros();
         _encVal --; 
-        _encDir = -1;
+        _encDir = -1; //backward
     }
 }
 
