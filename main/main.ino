@@ -44,7 +44,7 @@ void moveDist(double dir, double distOfMove, enum currType postState, enum currT
 //* ------------------------------------------- OBJECT INITIALISATIONS -------------------------------------------
 
 //* DRIVEBASE SETUP
-Motor MotorL(12, 13, 1, 0); 
+Motor MotorL(12, 13, 0, 1); 
 Motor MotorR(11, 10, 19, 18);
 Vroom Robawt(&MotorL, &MotorR);
 void ISRLA() { MotorL.readEncA(); }

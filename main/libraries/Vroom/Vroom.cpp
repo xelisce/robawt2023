@@ -93,12 +93,12 @@ double Motor::setVal(double rpm)
 double Motor::getRpm() 
 {
     if (_begin && _end) {
-        double lastInterval = _end - _begin;
-        double nowInterval = micros()-_end; //1/370*60 
+        long lastInterval = _end - _begin;
+        long nowInterval = micros()-_end; //1/370*60 
         if (lastInterval < nowInterval)
-            return (162162/nowInterval)*_encDir; //^ math hack by converting no. of rotations into degrees or sth
+            return (double)((162162/nowInterval)*_encDir);
         else
-            return (162162/lastInterval)*_encDir;
+            return (double)((162162/lastInterval)*_encDir);
     } else {
         return 0;
     }
