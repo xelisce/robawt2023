@@ -6,7 +6,6 @@
 #define default_serial 1
 #define test_pi 0
 #define test_teensy 0
-#define print 0
 #define ONBOARDLEDPIN 25
 
 const int TX1PIN = 8,
@@ -16,7 +15,7 @@ const int TX1PIN = 8,
 
 Motor MotorR(12, 13, 0, 1); 
 Motor MotorL(10, 11, 18, 19);
-  
+
 void ISRLA() { MotorL.readEncA(); }
 void ISRLB() { MotorL.readEncB(); }
 void ISRRA() { MotorR.readEncA(); }
@@ -26,7 +25,7 @@ void setup()
 {
     
     #if default_serial
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println("USB Serial initialised!");
     #endif
     pinMode(28, INPUT);
