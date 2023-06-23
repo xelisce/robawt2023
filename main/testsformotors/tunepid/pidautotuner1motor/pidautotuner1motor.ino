@@ -16,8 +16,8 @@ long _encVal;
 PID motorPID(&inputRpm, &outputRpm, &setpointRpm, 4.67, 0.62, 9.88, DIRECT);
 
 //  4.67
-// ki: 0.62
-// kd: 9.88
+// k_i: 0.62
+// k_d: 9.88
 
 
 void setup() {
@@ -98,32 +98,32 @@ void setup() {
     Serial.print("kp: "); Serial.println(kp);
     Serial.print("ki: "); Serial.println(ki);
     Serial.print("kd: "); Serial.println(kd);
-    delay(2090);
+    delay(2000);
     // motorPID.SetTunings(kp,ki,kd);
 
-// kp: 5.81
-// ki: 0.98
-// kd: 9.84
+// k_p: 5.81
+// k_i: 0.98
+// k_d: 9.84
 
-// kp: 5.53
-// ki: 0.74
-// kd: 11.16
+// k_p: 5.53
+// k_i: 0.74
+// k_d: 11.16
 
-// kp: 27.00
-// ki: 1056.73
-// kd: 9.21
+// k_p: 27.00
+// k_i: 1056.73
+// k_d: 9.21
 
-// kp: 5.65
-// ki: 0.88
-// kd: 9.68
+// k_p: 5.65
+// k_i: 0.88
+// k_d: 9.68
 
-// kp: 5.42
-// ki: 0.74
-// kd: 10.63
+// k_p: 5.42
+// k_i: 0.74
+// k_d: 10.63
 
-// kp: 5.71
-// ki: 0.90
-// kd: 9.88
+// k_p: 5.71
+// k_i: 0.90
+// k_d: 9.88
 
 
 }
@@ -135,9 +135,12 @@ void loop() {
         interrupts();
         motorPID.Compute();
         setRpm(outputRpm);
-        Serial.print(outputRpm);
+        // Serial.println(outputRpm);
     } else {
         setRpm(0);
+        Serial.print("k_p: "); Serial.println(kp);
+        Serial.print("k_i: "); Serial.println(ki);
+        Serial.print("k_d: "); Serial.println(kd);
     }
 }
 

@@ -427,7 +427,7 @@ def task0_lt():
             
             print("green sum:", gs_sum)
 
-            #~ GREEM SQUARE FOUND
+            #~ GREEN SQUARE FOUND
             if gs_bkpct > gs_minbkpct:
 
                 #~ Find x position of green
