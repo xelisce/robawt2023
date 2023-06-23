@@ -41,8 +41,8 @@ class Motor
         unsigned long long _begin, _end;
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
-            _kp = 0,
-            _ki = 18,
+            _kp = 1.1,
+            _ki = 12, // 23
             _kd = 0,
             _val, //this is the pwm direct value
             _rpm;

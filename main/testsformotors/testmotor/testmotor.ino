@@ -21,8 +21,8 @@ const int TX1PIN = 8,
 bool flipDir;
 double steer;
 
-PIO pio = pio0;
-uint offset, sm;
+// PIO pio = pio0;
+// uint offset, sm;
 
 Motor MotorL(12, 13, 1, 0); 
 Motor MotorR(11, 10, 19, 18);

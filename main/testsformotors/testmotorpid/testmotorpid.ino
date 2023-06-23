@@ -17,6 +17,8 @@ const int TX1PIN = 8,
 Motor MotorL(12, 13, 0, 1); 
 Motor MotorR(11, 10, 19, 18);
 
+double rpm = 30;
+
 void ISRLA() { MotorL.readEncA(); }
 void ISRLB() { MotorL.readEncB(); }
 void ISRRA() { MotorR.readEncA(); }
@@ -29,7 +31,7 @@ void setup()
     Serial.begin(115200);
     Serial.println("USB Serial initialised!");
     #endif
-    pinMode(28, INPUT);
+    pinMode(28, INPUT_PULLDOWN);
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
     attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
     attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
@@ -39,28 +41,17 @@ void setup()
 void loop() 
 {
     if (digitalRead(28)){
-        // for (int i=0; i<80; i=i+5){
-        //     MotorR.setRpm(i); 
-        //     MotorL.setRpm(i);  
-        //     delay(1000);
-        // }
-        // for (int i=80; i>0; i=i-5){
-        //     MotorR.setRpm(i); 
-        //     MotorL.setRpm(i);  
-        //     delay(1000);
-        // }
+     
         // Serial.println("Still running!");
-        MotorL.setRpm(30);
-        MotorR.setRpm(30);
-        Serial.print(MotorL.getRpm()); Serial.print("   ");
-        Serial.println(MotorR.getRpm());
+        MotorL.setRpm(rpm);
+        MotorR.setRpm(rpm);
+        Serial.print(MotorL.getRpm()); Serial.print("  ||  "); Serial.println(MotorR.getRpm());
     }
     else {
         // Serial.println("Back running!");
-        MotorL.setRpm(-30);
-        MotorR.setRpm(-30);
-        Serial.print(MotorL.getRpm()); Serial.print("   ");
-        Serial.println(MotorR.getRpm());
+        MotorL.setRpm(-rpm);
+        MotorR.setRpm(-rpm);
+        Serial.print(MotorL.getRpm()); Serial.print("  ||  "); Serial.println(MotorR.getRpm());
     }
 }
 
@@ -80,3 +71,15 @@ void loop()
 //     // digitalWrite(12, LOW);
 //     // digitalWrite(13, HIGH);
 // }
+
+
+   // for (int i=0; i<80; i=i+5){
+        //     MotorR.setRpm(i); 
+        //     MotorL.setRpm(i);  
+        //     delay(1000);
+        // }
+        // for (int i=80; i>0; i=i-5){
+        //     MotorR.setRpm(i); 
+        //     MotorL.setRpm(i);  
+        //     delay(1000);
+        // }
