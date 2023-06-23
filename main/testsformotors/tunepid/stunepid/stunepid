@@ -72,6 +72,7 @@ void loop() {
       output = outputStep, kp = Kp, ki = Ki, kd = Kd;
       motorPID.SetMode(AUTOMATIC); // the PID is turned on
       motorPID.SetTunings(kp, ki, kd); // update PID with the new tunings
+      setRpm(Output);
       break;
 
     case tuner.runPid: // active once per sample after tunings
