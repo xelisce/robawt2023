@@ -1,8 +1,9 @@
 #include <pidautotuner.h>
 #include <PID_v1.h>
+#include <Arduino.h>
 
 double inputRpm, outputRpm, setpointRpm = 30;
-double kp = 0.5, ki = 9, kd = 0;
+double k_p = 0.5, k_i = 9, k_d = 0;
 int pin1 = 12;
 int pin2 = 13;
 int encPinA = 0;
@@ -15,8 +16,8 @@ long _encVal;
 PID motorPID(&inputRpm, &outputRpm, &setpointRpm, 4.67, 0.62, 9.88, DIRECT);
 
 //  4.67
-// ki: 0.62
-// kd: 9.88
+// k_i: 0.62
+// k_d: 9.88
 
 
 void setup() {
@@ -27,6 +28,7 @@ void setup() {
     pinMode(encPinA, INPUT_PULLDOWN);
     pinMode(encPinB, INPUT_PULLDOWN);
     motorPID.SetMode(AUTOMATIC);
+    motorPID.SetSampleTime(100);
 
     attachInterrupt(encPinA, readEncA, RISING);
     attachInterrupt(encPinB, readEncB, RISING);
@@ -90,37 +92,38 @@ void setup() {
     setRpm(0);
 
     // Get PID gains - set your PID controller's gains to these
-    kp = tuner.getKp();
-    ki = tuner.getKi();
-    kd = tuner.getKd();
-    Serial.print("kp: "); Serial.println(k_p);
-    Serial.print("ki: "); Serial.println(k_i);
-    Serial.print("kd: "); Serial.println(k_d);
-    motorPID.SetTunings(kp,ki,kd);
+    k_p = tuner.getKp();
+    k_i = tuner.getKi();
+    k_d = tuner.getKd();
+    Serial.print("k_p: "); Serial.println(k_p);
+    Serial.print("k_i: "); Serial.println(k_i);
+    Serial.print("k_d: "); Serial.println(k_d);
+    motorPID.SetTunings(k_p, k_i, k_d);
+    delay(1500);
 
-// kp: 5.81
-// ki: 0.98
-// kd: 9.84
+// k_p: 5.81
+// k_i: 0.98
+// k_d: 9.84
 
-// kp: 5.53
-// ki: 0.74
-// kd: 11.16
+// k_p: 5.53
+// k_i: 0.74
+// k_d: 11.16
 
-// kp: 27.00
-// ki: 1056.73
-// kd: 9.21
+// k_p: 27.00
+// k_i: 1056.73
+// k_d: 9.21
 
-// kp: 5.65
-// ki: 0.88
-// kd: 9.68
+// k_p: 5.65
+// k_i: 0.88
+// k_d: 9.68
 
-// kp: 5.42
-// ki: 0.74
-// kd: 10.63
+// k_p: 5.42
+// k_i: 0.74
+// k_d: 10.63
 
-// kp: 5.71
-// ki: 0.90
-// kd: 9.88
+// k_p: 5.71
+// k_i: 0.90
+// k_d: 9.88
 
 
 }
@@ -130,9 +133,12 @@ void loop() {
         inputRpm = getRpm();
         motorPID.Compute();
         setRpm(outputRpm);
-        Serial.print(outputRpm);
+        // Serial.println(outputRpm);
     } else {
         setRpm(0);
+        Serial.print("k_p: "); Serial.println(k_p);
+        Serial.print("k_i: "); Serial.println(k_i);
+        Serial.print("k_d: "); Serial.println(k_d);
     }
 }
 
@@ -171,13 +177,13 @@ double getRpm()
     }
 }
 
-void setRpm(double output) //* rev min^-1
+void setRpm(double outputRpm) //* rev min^-1
 {
-    if (output >= 0) {
+    if (outputRpm >= 0) {
         digitalWrite(pin1, LOW);
-        analogWrite(pin2, (int)(output)); 
+        analogWrite(pin2, (int)(outputRpm)); 
     } else {
-        analogWrite(pin1, (int)(output));
+        analogWrite(pin1, (int)(outputRpm));
         digitalWrite(pin2, LOW);
     }
 }

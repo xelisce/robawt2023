@@ -18,7 +18,6 @@ class Motor
         Motor(int pin1, int pin2, int encPinA, int encPinB);
         double setSpeed(double speed), 
             setRpm(double rpm),
-            setRpmDirectly(double rpm, double realRpm),
             setVal(double rpm), //^ temporary test function
             getRpm(),
             getSpeed(),

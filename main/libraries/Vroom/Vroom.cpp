@@ -46,24 +46,6 @@ double Motor::setRpm(double rpm) //* rev min^-1
     return _neededRpm;
 }
 
-double Motor::setRpmDirectly(double rpm, double realRpm) //* rev min^-1
-//^ XEL: i dont get how this would work wouldnt it infinitely speed up till the motor burns
-{
-    _wantedRpm = fabs(rpm); //setpoint
-    noInterrupts();
-    _realRpm = realRpm; 
-    interrupts();
-    _motorPID.Compute();
-    if (rpm >= 0) {
-        digitalWrite(_pwmPin1, LOW);
-        analogWrite(_pwmPin2, (int)(_neededRpm)); //output
-    } else {
-        analogWrite(_pwmPin1, (int)(_neededRpm));
-        digitalWrite(_pwmPin2, LOW);
-    }
-    return _neededRpm;
-}
-
 //* NO PID
 // double Motor::setRpm(double rpm) //* rev min^-1
 // {
