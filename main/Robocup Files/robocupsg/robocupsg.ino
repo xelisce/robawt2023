@@ -45,8 +45,8 @@
 //* ------------------------------------------- START CODE -------------------------------------------
 
 //* OBJECT INITIALISATIONS
-Motor MotorR(13, 12, 19, 18); //M2 swapped
-Motor MotorL(10, 11, 1, 0); //M1
+Motor MotorL(12, 13, 0, 1); 
+Motor MotorR(11, 10, 19, 18);
 Vroom Robawt(&MotorL, &MotorR);
 VL53L0X lidarsl0x[4];
 VL53L1X lidarsl1x[1];
@@ -61,14 +61,14 @@ void ISRRB() { MotorR.readEncB(); }
 //* LIDARS SETUP
 //^ VL53L0X
 int l0x_readings[4] = {200, 0, 0, 0};
-const int l0x_pins[4] = {4, 3, 1, 5};
+const int l0x_pins[4] = {1, 5, 6, 0};
 String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
 namespace L0X {
     enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
 }
 //^ VL53L1X
 int l1x_readings[1] = {0};
-const int l1x_pins[1] = {2};
+const int l1x_pins[1] = {4};
 String l1x_labels[1] = {"FRONT BOTTOM: "};
 namespace L1X {
     enum L1X { FRONT_BOTTOM };
@@ -81,12 +81,12 @@ const int l1x_start = L1X::FRONT_BOTTOM, //first l1x lidar
 
 
 //* SERVOS SETUP
-double servos_angle[6] = {0, 140, 180, 0, 130, 90}; //basic states initialised
-const double servos_max_angle[6] = {180, 180, 180, 300, 300, 300};
-const int servos_pin[6] = {27, 26, 21, 20, 2, 22};
+double servos_angle[6] = {0, 0, 180, 0, 130, 177}; //basic states initialised
+const double servos_max_angle[6] = {180, 180, 300, 300, 300, 180};
+const int servos_pin[6] = {27, 26, 22, 21, 20, 2};
 bool servos_change = false;
 namespace Servos {
-    enum Servos { DEAD, ALIVE, ARM, LEFT, RIGHT, SORT};
+    enum Servos { DEAD, ALIVE, SORT, LEFT, RIGHT, ARM };
 }
 
 //! can delete?
@@ -299,7 +299,7 @@ long lastSerialPiSend;
 
 void setup() 
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
     // while (!Serial) delay(10); 
     Serial.println("USB serial initialised");
 
@@ -408,7 +408,7 @@ void loop()
     #endif
 
     //* SWITCH IS ON
-    if (!digitalRead(SWTPIN))
+    if (digitalRead(SWTPIN))
     {
         if (hasFlippedSwitchOnce == false) { //! not used (unless you plan to scale evac by time...)
             LineTrackStartTime = millis(); 
@@ -586,15 +586,7 @@ void loop()
         }   
         // }
 
-        #if debug_curr
-        Serial.print("Curr: ");
-        Serial.println(curr);
-        Serial.print("Task: ");
-        Serial.println(task);
-        // Serial.print("DebugLG: ");
-        // Serial.print("KitPickupstate: ");
-        // Serial.println(pickupKitState);
-        #endif
+
 
         //* CURRENT ACTION HANDLED
         switch (curr)
@@ -628,9 +620,9 @@ void loop()
                 if (millis() - lastSawRightMillis > 500) {
                     linetrackrightSaw = false;
                 }
-                if (linetrackrightSaw && linetrackleftSaw && l0x_readings[L0X::FRONT] < 1300 && (millis() - endEvacMillis) > 2000) {
-                    curr = 51;
-                }
+                // if (linetrackrightSaw && linetrackleftSaw && l0x_readings[L0X::FRONT] < 1300 && (millis() - endEvacMillis) > 2000) {
+                //     curr = 51;
+                // }
                 break;
 
             case 1: //^ left green
@@ -2178,6 +2170,18 @@ void loop()
         Serial.print(" || ");
     }
     Serial.println();
+    #endif
+
+
+    #if debug_curr
+    Serial.print("Curr: ");
+    Serial.println(curr);
+    Serial.print("Task: ");
+    Serial.println(task);
+    Serial.print("Switch: "); Serial.println(digitalRead(28));
+    // Serial.print("DebugLG: ");
+    // Serial.print("KitPickupstate: ");
+    // Serial.println(pickupKitState);
     #endif
 
     #if debug_led

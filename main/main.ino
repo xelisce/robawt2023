@@ -132,7 +132,7 @@ bool ledOn = false;
 long lastSerialPiSendMillis = millis();
 
 //^ ESSENTIALS
-currType curr = EMPTY_LINETRACK;
+currType curr = TCS_LINETRACK;
 double steer = 0, rotation = 0;
 double rpm = 30, lt_rpm = 30;
 int serialState = 0, task = 0;
@@ -343,11 +343,10 @@ void loop()
                 left = isBlack(1);
                 right = isBlack(2);
                 Serial.println("running tcs lt");
-
                 // steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
                 if (left && right) {MotorL.setVal(80); MotorR.setVal(80); caze = 1;}
-                else if (left){ MotorL.setVal(80); MotorR.setVal(0); caze = 2;}
-                else if (right) { MotorL.setVal(0); MotorR.setVal(80); caze = 3;}
+                else if (right){ MotorL.setVal(80); MotorR.setVal(-80); caze = 2;}
+                else if (left) { MotorL.setVal(-80); MotorR.setVal(80); caze = 3;}
                 else {MotorL.setVal(80); MotorR.setVal(80); caze = 4;}
                 // Robawt.setSteer(lt_rpm, steer);
                 Serial.print("Case: "); Serial.println(caze);
@@ -356,6 +355,7 @@ void loop()
             case EMPTY_LINETRACK:
                 send_pi(Pi::LINETRACK);
                 Robawt.setSteer(rpm, rotation);
+                Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
                 Serial.print("rotation: "); Serial.println(rotation);
                 break;

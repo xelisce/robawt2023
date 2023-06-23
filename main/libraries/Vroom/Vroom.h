@@ -30,7 +30,8 @@ class Motor
             getPin1(), getPin2(),
             getEncVal();
         void resetPID(),
-            resetEnc(); //dont use
+            resetEnc(),
+            resetPWM(); //dont use
             // resetDist();
 
     private:

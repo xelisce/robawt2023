@@ -29,6 +29,7 @@ unsigned long long serialTime;
 double rpm = 0;
 
 void setup(){
+    Serial.begin(115200);
     pinMode(SWTPIN, INPUT);
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
     attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
@@ -40,22 +41,25 @@ void loop() {
     
     if (digitalRead(SWTPIN)){
         
-        for (int i=0; i<100; i=i+5){
-            Robawt.setSteer(i, 0);
-            Serial.println(i);
-            delay(1000);
-        }
-        
+        // for (int i=0; i<100; i=i+5){
+        //     Robawt.setSteer(i, 0);
+        //     Serial.println(i);
+        //     delay(1000);
+        // }
+        // Robawt.setSteer(80, 1);
+        MotorL.setVal(-80);
+        Serial.println("running?");
+
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
     }
 
-    if(millis()>serialTime)
-    {
-        SerialReceive();
-        serialTime+=500;
-    }
+    // if(millis()>serialTime)
+    // {
+    //     SerialReceive();
+    //     serialTime+=500;
+    // }
 
 }
 

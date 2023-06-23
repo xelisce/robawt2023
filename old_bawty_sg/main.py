@@ -346,8 +346,10 @@ def task0_lt():
     frame_org = bot_stream.read()
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(320, 240))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+    # cv2.imshow("frameorg", frame_gray)
 
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
     mask_gs = mask_green.copy()
@@ -544,9 +546,9 @@ def task0_lt():
         mask_supercrop_black[-40:, :] = 0 
         # black_newlinegap_mask[:]
         #& debug masks
-        # cv2.imshow("black mask", mask_black)
-        # cv2.imshow("black uncropped mask", mask_uncropped_black)
-        # cv2.imshow("super cropped mask", mask_supercrop_black)
+        cv2.imshow("black mask", mask_black)
+        cv2.imshow("black uncropped mask", mask_uncropped_black)
+        cv2.imshow("super cropped mask", mask_supercrop_black)
 
         end_line_gap = 0
 
@@ -669,7 +671,7 @@ def task0_lt():
 
             #~ Plain line track
             powered_y = (height_lt-40)/black_line_height if black_line_height != 0 else 1
-            powered_y = powered_y ** 0.5
+            powered_y = powered_y ** 0.3
             powered_y = min(3.5, powered_y) #? prev value: 4
 
         #~ Conditions for ending line sweep:
