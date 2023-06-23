@@ -9,7 +9,7 @@ int pin2 = 13;
 int encPinA = 0;
 int encPinB = 1;
 int _encDir = 1;
-long _begin, _end;
+unsigned long long _begin, _end;
 long _encVal;
 
 

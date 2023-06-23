@@ -49,15 +49,17 @@ void loop()
         //     MotorL.setRpm(i);  
         //     delay(1000);
         // }
-        Serial.println("Still running!");
+        // Serial.println("Still running!");
         MotorL.setRpm(30);
         MotorR.setRpm(30);
+        Serial.print(MotorL.getRpm()); Serial.print("   ");
+        Serial.println(MotorR.getRpm());
     }
     else {
-        Serial.println("Back running!");
+        // Serial.println("Back running!");
         MotorL.setRpm(-30);
         MotorR.setRpm(-30);
-        Serial.println(MotorL.getRpm());
+        Serial.print(MotorL.getRpm()); Serial.print("   ");
         Serial.println(MotorR.getRpm());
     }
 }
