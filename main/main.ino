@@ -28,10 +28,10 @@
 //* SETTINGS
 #define waitForSerial 0
 
-#define debugLoopTime 0
+#define debugLoopTime 1
 #define debugTCSReadings 1
 #define debugWithLED 1
-#define debugSerial 0
+#define debugSerial 1
 #define debugState 1
 
 #define debugAlignSweep 1
@@ -182,11 +182,11 @@ void setup()
     Serial.println("USB serial initialised");
 
     //^ PI SERIAL COMMS
-    // Serial1.setRX(RX0PIN); 
-    // Serial1.setTX(TX0PIN);
-    // Serial1.begin(9600);
-    // while (!Serial1) delay(10); 
-    // Serial.println("Pi serial initialised");
+    Serial1.setRX(RX0PIN); 
+    Serial1.setTX(TX0PIN);
+    Serial1.begin(9600);
+    while (!Serial1) delay(10); 
+    Serial.println("Pi serial initialised");
 
     //^ MULTIPLEXERS
     Wire.setSDA(SDAPIN);
@@ -286,7 +286,7 @@ void loop()
     afterLidarLoopTimeMicros = micros();
     #endif
 
-    //* TCS READINGS
+    // //* TCS READINGS
     #if debugLoopTime
     beforeTCSLoopTimeMicros = micros();
     #endif
@@ -305,13 +305,14 @@ void loop()
     afterTCSLoopTimeMicros = micros();
     #endif
 
+    int caze = 0;
     if (digitalRead(SWTPIN))
     {
         // tcsAnalyse();
-        // serialEvent();
+        serialEvent();
 
         //* ------------------------------------------- PI TASK HANDLED -------------------------------------------
-        /*
+        
         if (curr != STOP) {
             switch (task)
             {
@@ -331,22 +332,32 @@ void loop()
                     }
                     break;
             }
-        }*/
+        }
 
         //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
-
         switch (curr)
         {
             case TCS_LINETRACK: //^ unused
-                left = grayPercent(1);
-                right = grayPercent(2);
-                steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
-                Robawt.setSteer(lt_rpm, steer);
+                // left = grayPercent(1);
+                // right = grayPercent(2);
+                left = isBlack(1);
+                right = isBlack(2);
+                Serial.println("running tcs lt");
+
+                // steer = (left-right)>0 ? pow(left - right, 0.5) : -pow(left - right, 0.5);
+                if (left && right) {MotorL.setVal(80); MotorR.setVal(80); caze = 1;}
+                else if (left){ MotorL.setVal(80); MotorR.setVal(0); caze = 2;}
+                else if (right) { MotorL.setVal(0); MotorR.setVal(80); caze = 3;}
+                else {MotorL.setVal(80); MotorR.setVal(80); caze = 4;}
+                // Robawt.setSteer(lt_rpm, steer);
+                Serial.print("Case: "); Serial.println(caze);
                 break;
 
             case EMPTY_LINETRACK:
                 send_pi(Pi::LINETRACK);
                 Robawt.setSteer(rpm, rotation);
+                Serial.print("rpm: "); Serial.println(rpm);
+                Serial.print("rotation: "); Serial.println(rotation);
                 break;
 
             case LEFT_GREEN:
@@ -594,7 +605,7 @@ void loop()
 //* COMMUNICATIONS
 
 void serialEvent() //Pi to pico serial
-{
+{   
     while (Serial1.available()) 
     {
         int serialData = Serial1.read();
@@ -775,7 +786,7 @@ double grayPercent(int i)
 
 bool isBlack(int i)
 {
-    if (!(tcsSensors[i].green) && !(tcsSensors[i].red) && grayPercent(i) < 0.5) { return true; }
+    if (grayPercent(i) < 0.5) { return true; }
     else { return false; }
 }
 

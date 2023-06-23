@@ -279,19 +279,19 @@ def task0_lt():
                     long_linegap_now = False
 
             #~ When line is ending
-            elif (first_line_height < 68 and black_line_width < 80):
-                # rpm_lt = 0
+            # elif (first_line_height < 68 and black_line_width < 80):
+            #     # rpm_lt = 0
 
-                #~ Trigger short line gap: Jump to next line
-                if (first_line_top - second_line_bottom < 80) and second_line_bottom < first_line_top:
-                    short_linegap_now = True
-                    mask_black = mask_uncropped_black
+            #     #~ Trigger short line gap: Jump to next line
+            #     if (first_line_top - second_line_bottom < 80) and second_line_bottom < first_line_top:
+            #         short_linegap_now = True
+            #         mask_black = mask_uncropped_black
 
-                #~ Trigger long line gap: Align self
-                else:
-                    curr = Task.ALIGN_LINEGAP
-                    long_linegap_now = True
-                    # mask_black = mask_uncropped_black
+            #     #~ Trigger long line gap: Align self
+            #     else:
+            #         curr = Task.ALIGN_LINEGAP
+            #         long_linegap_now = True
+            #         # mask_black = mask_uncropped_black
 
             #~ Ordinary linetrack
             else:

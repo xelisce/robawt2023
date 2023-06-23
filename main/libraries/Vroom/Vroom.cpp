@@ -66,9 +66,9 @@ double Motor::setVal(double rpm)
     _val = rpm;
     if (_val >= 0) { 
         digitalWrite(_pwmPin1, LOW);
-        analogWrite(_pwmPin2, (int)(255*((rpm+30)/210)));
+        analogWrite(_pwmPin2, (int)(rpm));
     } else {
-        analogWrite(_pwmPin1, (int)(255*((rpm+30)/210))); 
+        analogWrite(_pwmPin1, (int)(rpm)); 
         digitalWrite(_pwmPin2, LOW);
     }
     return _val;
@@ -153,7 +153,23 @@ Vroom::Vroom(Motor *l, Motor *r)
 //     }
 // }
 
-void Vroom::setSteer(double rpm, double rotation) 
+// void Vroom::setSteer(double rpm, double rotation) 
+// {
+//     if (rpm > 100) rpm = 100;
+//     if (rpm < -100) rpm = -100;
+//     if (rotation > 1) rotation = 1;
+//     if (rotation < -1) rotation = -1;
+//     double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
+//     if (rotation > 0) {
+//         this->_left->setRpm(rpm);
+//         this->_right->setRpm(slower);
+//     } else {
+//         this->_left->setRpm(slower);
+//         this->_right->setRpm(rpm);
+//     }
+// }
+
+void Vroom::setSteer(double rpm, double rotation)  //^ NO PID
 {
     if (rpm > 100) rpm = 100;
     if (rpm < -100) rpm = -100;

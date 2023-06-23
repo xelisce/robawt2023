@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Vroom.h>
 
-
 #define TCAADR 0x70
 #define L0XADR 0x29
 #define L1XADR 0x29
@@ -17,7 +16,7 @@
 #define SWTPIN 28
 
 
-Motor MotorL(12, 13, 1, 0); 
+Motor MotorL(12, 13, 0, 1); 
 Motor MotorR(11, 10, 19, 18);
 Vroom Robawt(&MotorL, &MotorR);
 
@@ -26,6 +25,8 @@ void ISRLB() { MotorL.readEncB(); }
 void ISRRA() { MotorR.readEncA(); }
 void ISRRB() { MotorR.readEncB(); }
 
+unsigned long long serialTime;
+double rpm = 0;
 
 void setup(){
     pinMode(SWTPIN, INPUT);
@@ -33,15 +34,37 @@ void setup(){
     attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
     attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
     attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
-
+    serialTime = millis();
 }
 void loop() {
-
+    
     if (digitalRead(SWTPIN)){
-        Robawt.setSteer(30, 0);
+        
+        for (int i=0; i<100; i=i+5){
+            Robawt.setSteer(i, 0);
+            Serial.println(i);
+            delay(1000);
+        }
+        
     } else {
         Robawt.setSteer(0, 0);
         Robawt.reset();
     }
 
+    if(millis()>serialTime)
+    {
+        SerialReceive();
+        serialTime+=500;
+    }
+
+}
+
+void SerialReceive()
+{
+  if(Serial.available())
+  {
+   int b = Serial.read(); 
+   Serial.flush(); 
+   Serial.println(b);
+  }
 }
