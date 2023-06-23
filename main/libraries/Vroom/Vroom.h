@@ -38,8 +38,8 @@ class Motor
         int _pwmPin1, _pwmPin2,
             _encPinA, _encPinB,
             _encDir;
-        long int _encVal, _pastEncVal,
-            _begin, _end;
+        long int _encVal, _pastEncVal;
+        unsigned long long _begin, _end;
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _kp = 0.5,

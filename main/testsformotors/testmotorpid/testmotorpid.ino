@@ -1,7 +1,5 @@
 #include <Arduino.h>
-#include <Wire.h>
 #include "Vroom.h"
-#include <Servo.h>
 
 #define default_serial 1
 #define test_pi 0
@@ -13,8 +11,11 @@ const int TX1PIN = 8,
   TX0PIN = 16,
   RX0PIN = 17;
 
-Motor MotorR(12, 13, 0, 1); 
-Motor MotorL(10, 11, 18, 19);
+// Motor MotorR(12, 13, 0, 1); 
+// Motor MotorL(11, 10, 18, 19);
+
+Motor MotorL(12, 13, 0, 1); 
+Motor MotorR(11, 10, 19, 18);
 
 void ISRLA() { MotorL.readEncA(); }
 void ISRLB() { MotorL.readEncB(); }
@@ -49,18 +50,15 @@ void loop()
         //     delay(1000);
         // }
         Serial.println("Still running!");
-        MotorR.setRpm(30);
         MotorL.setRpm(30);
-        Serial.println(MotorL.setRpm(30));
-        Serial.println(MotorR.setRpm(30));
-
+        MotorR.setRpm(30);
     }
     else {
-        Serial.println("No running!");
-        MotorR.setRpm(0);
-        MotorR.resetPID();
-        MotorL.setRpm(0);
-        MotorL.resetPID();
+        Serial.println("Back running!");
+        MotorL.setRpm(-30);
+        MotorR.setRpm(-30);
+        Serial.println(MotorL.getRpm());
+        Serial.println(MotorR.getRpm());
     }
 }
 

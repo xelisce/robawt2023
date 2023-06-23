@@ -1,5 +1,6 @@
 #include <pidautotuner.h>
 #include <PID_v1.h>
+#include <Arduino.h>
 
 double inputRpm, outputRpm, setpointRpm = 30;
 double kp = 0.5, ki = 9, kd = 0;
@@ -27,6 +28,7 @@ void setup() {
     pinMode(encPinA, INPUT_PULLDOWN);
     pinMode(encPinB, INPUT_PULLDOWN);
     motorPID.SetMode(AUTOMATIC);
+    motorPID.SetOutputLimits(-255, 255);
 
     attachInterrupt(encPinA, readEncA, RISING);
     attachInterrupt(encPinB, readEncB, RISING);
@@ -50,7 +52,7 @@ void setup() {
     // Set the output range
     // These are the minimum and maximum possible output values of whatever you are
     // using to control the system (Arduino analogWrite, for example, is 0-255)
-    tuner.setOutputRange(0, 255);
+    tuner.setOutputRange(-255, 255);
 
     // Set the Ziegler-Nichols tuning mode
     // Set it to either PIDAutotuner::ZNModeBasicPID, PIDAutotuner::ZNModeLessOvershoot,
@@ -93,10 +95,11 @@ void setup() {
     kp = tuner.getKp();
     ki = tuner.getKi();
     kd = tuner.getKd();
-    Serial.print("kp: "); Serial.println(k_p);
-    Serial.print("ki: "); Serial.println(k_i);
-    Serial.print("kd: "); Serial.println(k_d);
-    motorPID.SetTunings(kp,ki,kd);
+    Serial.print("kp: "); Serial.println(kp);
+    Serial.print("ki: "); Serial.println(ki);
+    Serial.print("kd: "); Serial.println(kd);
+    delay(2090);
+    // motorPID.SetTunings(kp,ki,kd);
 
 // kp: 5.81
 // ki: 0.98
@@ -127,7 +130,9 @@ void setup() {
 
 void loop() {
     if (digitalRead(28)) {
+        noInterrupts();
         inputRpm = getRpm();
+        interrupts();
         motorPID.Compute();
         setRpm(outputRpm);
         Serial.print(outputRpm);
@@ -172,12 +177,13 @@ double getRpm()
 }
 
 void setRpm(double output) //* rev min^-1
-{
+{   
+
     if (output >= 0) {
         digitalWrite(pin1, LOW);
-        analogWrite(pin2, (int)(output)); 
+        analogWrite(pin2, (int)fabs(output)); 
     } else {
-        analogWrite(pin1, (int)(output));
+        analogWrite(pin1, (int)fabs(output));
         digitalWrite(pin2, LOW);
     }
 }

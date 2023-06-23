@@ -24,6 +24,7 @@ Motor::Motor(int pin1, int pin2, int encPinA, int encPinB)
     // _begin = micros();
     // _end = micros();
     //^ last change before test
+    _motorPID.SetOutputLimits(-255, 255);
 }
 
 double Motor::setSpeed(double speed) //* mm s^-1
@@ -36,33 +37,16 @@ double Motor::setRpm(double rpm) //* rev min^-1
     _realRpm = this->getRpm(); //input
     interrupts();
     _motorPID.Compute();
-    if (rpm >= 0) {
+    if (_neededRpm >= 0) {
         digitalWrite(_pwmPin1, LOW);
-        analogWrite(_pwmPin2, (int)(_neededRpm)); //output
+        analogWrite(_pwmPin2, (int)fabs(_neededRpm)); //output
     } else {
-        analogWrite(_pwmPin1, (int)(_neededRpm));
+        analogWrite(_pwmPin1, (int)fabs(_neededRpm));
         digitalWrite(_pwmPin2, LOW);
     }
     return _neededRpm;
 }
 
-double Motor::setRpmDirectly(double rpm, double realRpm) //* rev min^-1
-//^ XEL: i dont get how this would work wouldnt it infinitely speed up till the motor burns
-{
-    _wantedRpm = fabs(rpm); //setpoint
-    noInterrupts();
-    _realRpm = realRpm; 
-    interrupts();
-    _motorPID.Compute();
-    if (rpm >= 0) {
-        digitalWrite(_pwmPin1, LOW);
-        analogWrite(_pwmPin2, (int)(_neededRpm)); //output
-    } else {
-        analogWrite(_pwmPin1, (int)(_neededRpm));
-        digitalWrite(_pwmPin2, LOW);
-    }
-    return _neededRpm;
-}
 
 //* NO PID
 // double Motor::setRpm(double rpm) //* rev min^-1
