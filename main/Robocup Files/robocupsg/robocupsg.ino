@@ -533,17 +533,6 @@ void loop()
 
             case 11: //^ linegap sweeping
                 // if (curr == 1 || curr == 2 || curr == 3) { break; }
-                Serial.print("lineGapJustTriggered: ");
-                Serial.println(lineGapJustTriggered);
-                Serial.print("millis - startLineGapDelay: ");
-                Serial.println(millis()-startLineGapDelay);
-                if (curr==0 && lineGapJustTriggered){
-                    startLineGapDelay = millis();
-                    lineGapJustTriggered = false;
-                    Serial.print("lineGapJustTriggered: ");
-                    Serial.println(lineGapJustTriggered);
-                }
-                else if(curr==0 && millis()-startLineGapDelay>500){
                     if (curr == 0 && millis() - endLinegapMillis > 500){
                     // if (millis() - LGLastTriggeredTranslations > 4000) { linegapState = -2; } //^ Alt Linegap (move back and forth)
                     // else { linegapState = 0; }  
@@ -554,9 +543,6 @@ void loop()
                     linegap_rotation = 0;
                     curr = 11;
                     }
-                }
-        
-                
                 break;
 
             // case 12: //^ silver seen
