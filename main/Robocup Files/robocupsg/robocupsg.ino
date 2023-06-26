@@ -188,8 +188,11 @@ double linegapTurnLeftDist,
 float linegap_rotation = 0;
 long linegap_millis,
     linegapSilverMillis,
-    endLinegapMillis;
+    endLinegapMillis,
+    startLineGapDelay;
+
 bool endLineGap = false;
+bool lineGapJustTriggered = false;
 
 //! hardcoded vars (for alt linegap ie. move back and forth to detect extensions):
 double linegapStartDistL,
@@ -423,6 +426,7 @@ void loop()
         // if (curr == 50 || curr == 51 || curr == 11 || (curr >= 23 && curr <= 26)){ //^ if not evac or not in linegap or not in rescuekit
         //     curr = curr;
         // } else {
+        if (task != 11){lineGapJustTriggered = true;}
         switch (task) 
         {
 
@@ -529,7 +533,18 @@ void loop()
 
             case 11: //^ linegap sweeping
                 // if (curr == 1 || curr == 2 || curr == 3) { break; }
-                if (curr == 0 && millis() - endLinegapMillis > 500){
+                Serial.print("lineGapJustTriggered: ");
+                Serial.println(lineGapJustTriggered);
+                Serial.print("millis - startLineGapDelay: ");
+                Serial.println(millis()-startLineGapDelay);
+                if (curr==0 && lineGapJustTriggered){
+                    startLineGapDelay = millis();
+                    lineGapJustTriggered = false;
+                    Serial.print("lineGapJustTriggered: ");
+                    Serial.println(lineGapJustTriggered);
+                }
+                else if(curr==0 && millis()-startLineGapDelay>500){
+                    if (curr == 0 && millis() - endLinegapMillis > 500){
                     // if (millis() - LGLastTriggeredTranslations > 4000) { linegapState = -2; } //^ Alt Linegap (move back and forth)
                     // else { linegapState = 0; }  
                     // linegapState = -2;
@@ -538,7 +553,10 @@ void loop()
                     linegapStartDistR = pickMotorDist(1);
                     linegap_rotation = 0;
                     curr = 11;
+                    }
                 }
+        
+                
                 break;
 
             // case 12: //^ silver seen

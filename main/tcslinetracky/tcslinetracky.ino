@@ -102,21 +102,21 @@ void loop()
 
         if (left) {
             if (right) {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
+                analogWrite(pinL1, 0); analogWrite(pinL2, 70);
+                analogWrite(pinR1, 0); analogWrite(pinR2, 70);
             } else {
-                analogWrite(pinL1, 100); analogWrite(pinL2, 0);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
+                analogWrite(pinL1, 70); analogWrite(pinL2, 0);
+                analogWrite(pinR1, 0); analogWrite(pinR2, 70);
                 delay(50);
             }
         } else  {
             if (right) {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 100); analogWrite(pinR2, 0);
+                analogWrite(pinL1, 0); analogWrite(pinL2, 70);
+                analogWrite(pinR1, 70); analogWrite(pinR2, 0);
                 delay(50);
             } else {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
+                analogWrite(pinL1, 0); analogWrite(pinL2, 70);
+                analogWrite(pinR1, 0); analogWrite(pinR2, 70);
             }
         }
     } else {
@@ -133,6 +133,11 @@ void loop()
         Serial.print("V: "); Serial.print(tcsSensors[i].val, DEC); Serial.print(" ");
         // Serial.print("Time: "); Serial.print(afterEachTCSLoopTimeMicros[i] - beforeEachTCSLoopTimeMicros[i]);
         Serial.println();
+        for (int i = 1; i < 3; i++){
+            Serial.print ([i]);
+            Serial.print ("Is black: ");
+            Serial.print (isBlack());
+        }
     }
     }
     endLoopMicros = micros();
