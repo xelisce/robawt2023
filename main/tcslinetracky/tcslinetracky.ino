@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Adafruit_TCS34725.h>
 #include <Wire.h>
-#include 
+#include <Vroom.h>
 
 //* ADDRESSES
 #define TCAADR 0x70
@@ -15,6 +15,14 @@
 #define SCLPIN 5
 #define SDA1PIN 6
 #define SCL1PIN 7
+
+Motor MotorL(12, 13, 0, 1); 
+Motor MotorR(11, 10, 19, 18);
+Vroom Robawt(&MotorL, &MotorR);
+void ISRLA() { MotorL.readEncA(); }
+void ISRLB() { MotorL.readEncB(); }
+void ISRRA() { MotorR.readEncA(); }
+void ISRRB() { MotorR.readEncB(); }
 
 int pinL1 = 12, pinL2 = 13;
 int pinR1 = 11, pinR2 = 10;
@@ -78,11 +86,20 @@ void setup()
         while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
     }
     Serial.println("TCS sensors initialised");
+
+    attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
+    attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
+    attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
+    attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
+    Serial.println("Encoders initialised");
+
 }
 
 void loop()
 {
     startLoopMicros = micros();
+    Serial.print("switch");
+    Serial.println(digitalRead(28));
     if (digitalRead(28)) { 
         for (int i = 1; i < 3; i++) { //^ only using 2 to linetrack right now
             tcaselect2(tcs_pins[i]);
@@ -102,26 +119,19 @@ void loop()
 
         if (left) {
             if (right) {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
+                Robawt.setSteer(40, 0);
             } else {
-                analogWrite(pinL1, 100); analogWrite(pinL2, 0);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
-                delay(50);
+                Robawt.setSteer(40, -1);
             }
         } else  {
             if (right) {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 100); analogWrite(pinR2, 0);
-                delay(50);
+                Robawt.setSteer(40, 1);
             } else {
-                analogWrite(pinL1, 0); analogWrite(pinL2, 100);
-                analogWrite(pinR1, 0); analogWrite(pinR2, 100);
+                Robawt.setSteer(40,0);
             }
         }
     } else {
-        analogWrite(pinL1, 0); analogWrite(pinL2, 0);
-        analogWrite(pinR1, 0); analogWrite(pinR2, 0);
+        Robawt.stop();
         for (int i = 0; i < tcsNum; i++) {
         Serial.print("Sensor "); Serial.print(i); Serial.print("    ");
         Serial.print("R: "); Serial.print(tcsSensors[i].r); Serial.print(" ");
