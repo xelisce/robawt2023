@@ -12,6 +12,7 @@ ser = serial.Serial("/dev/serial0", 9600)
 bot_stream = WebcamStream(stream_id=0)
 bot_stream.start()
 bot_stream_frame = bot_stream.read()
+bot_strean_frame = cv2.pyrDown(bot_stream_frame, dstsize=(320, 240))
 bot_stream_width, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
 print("Bottom camera width:", bot_stream_width, "Camera height:", bot_stream_height_org)
 
