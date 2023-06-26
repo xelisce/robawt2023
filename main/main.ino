@@ -194,11 +194,11 @@ void setup()
     Wire.begin();
     Wire.setClock(400000);
     Serial.println("Top multiplexer initialised");
-    Wire1.setSDA(SDA1PIN);
-    Wire1.setSCL(SCL1PIN);
-    Wire1.begin();
-    Wire1.setClock(400000);
-    Serial.println("Bottom multiplexer initialised");
+    // Wire1.setSDA(SDA1PIN);
+    // Wire1.setSCL(SCL1PIN);
+    // Wire1.begin();
+    // Wire1.setClock(400000);
+    // Serial.println("Bottom multiplexer initialised");
 
     //^ LIDARS
     for (int i = 0; i < L0XNum; i++) {
@@ -225,15 +225,15 @@ void setup()
     }
     Serial.println("Servos initialised");
 
-    //^ TCS
-    // follows the numbering 
-    // | 0 1 2 3 4 |
-    // |    5 6    |
-    for (int i = 1; i < 3; i++) {
-        tcaselect2(tcs_pins[i]);
-        while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
-    }
-    Serial.println("TCS sensors initialised");
+    // //^ TCS
+    // // follows the numbering 
+    // // | 0 1 2 3 4 |
+    // // |    5 6    |
+    // for (int i = 1; i < 3; i++) {
+    //     tcaselect2(tcs_pins[i]);
+    //     while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
+    // }
+    // Serial.println("TCS sensors initialised");
 
     //^ MOTOR ENCODERS
     attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
@@ -287,23 +287,23 @@ void loop()
     #endif
 
     // //* TCS READINGS
-    #if debugLoopTime
-    beforeTCSLoopTimeMicros = micros();
-    #endif
-    for (int i = 1; i < 3; i++) { //^ only using 2 to linetrack right now
-        tcaselect2(tcs_pins[i]);
-        #if debugLoopTime
-        beforeEachTCSLoopTimeMicros[i] = micros();
-        #endif
-        tcs[i].getRawData(&tcsSensors[i].r, &tcsSensors[i].g, &tcsSensors[i].b, &tcsSensors[i].c);
-        rgb_to_hsv(i);
-        #if debugLoopTime
-        afterEachTCSLoopTimeMicros[i] = micros();
-        #endif
-    }
-    #if debugLoopTime
-    afterTCSLoopTimeMicros = micros();
-    #endif
+    // #if debugLoopTime
+    // beforeTCSLoopTimeMicros = micros();
+    // #endif
+    // for (int i = 1; i < 3; i++) { //^ only using 2 to linetrack right now
+    //     tcaselect2(tcs_pins[i]);
+    //     #if debugLoopTime
+    //     beforeEachTCSLoopTimeMicros[i] = micros();
+    //     #endif
+    //     tcs[i].getRawData(&tcsSensors[i].r, &tcsSensors[i].g, &tcsSensors[i].b, &tcsSensors[i].c);
+    //     rgb_to_hsv(i);
+    //     #if debugLoopTime
+    //     afterEachTCSLoopTimeMicros[i] = micros();
+    //     #endif
+    // }
+    // #if debugLoopTime
+    // afterTCSLoopTimeMicros = micros();
+    // #endif
 
     int caze = 0;
     if (digitalRead(SWTPIN))
@@ -354,7 +354,7 @@ void loop()
 
             case EMPTY_LINETRACK:
                 send_pi(Pi::LINETRACK);
-                Robawt.setSteer(rpm, rotation);
+                Robawt.setSteer(80, rotation);
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
                 Serial.print("rotation: "); Serial.println(rotation);
@@ -564,7 +564,7 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        curr = TCS_LINETRACK;
+        curr = EMPTY_LINETRACK;
         alignSweepState = 0;
     }
 

@@ -174,22 +174,6 @@ void Vroom::setSteer(double rpm, double rotation)
 //     }
 // }
 
-void Vroom::setSteer(double rpm, double rotation)  //^ NO PID
-{
-    if (rpm > 100) rpm = 100;
-    if (rpm < -100) rpm = -100;
-    if (rotation > 1) rotation = 1;
-    if (rotation < -1) rotation = -1;
-    double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
-    if (rotation > 0) {
-        this->_left->setRpm(rpm);
-        this->_right->setRpm(slower);
-    } else {
-        this->_left->setRpm(slower);
-        this->_right->setRpm(rpm);
-    }
-}
-
 void Vroom::reset() 
 {
     _left->resetPID();
