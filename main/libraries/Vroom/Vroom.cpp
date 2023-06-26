@@ -61,6 +61,19 @@ double Motor::setRpm(double rpm) //* rev min^-1
 //     return rpm;
 // }
 
+double Motor::setVal(double rpm)
+{
+    _val = rpm;
+    if (_val >= 0) { 
+        digitalWrite(_pwmPin1, LOW);
+        analogWrite(_pwmPin2, (int)fabs(rpm));
+    } else {
+        analogWrite(_pwmPin1, (int)fabs(rpm)); 
+        digitalWrite(_pwmPin2, LOW);
+    }
+    return _val;
+}
+
 double Motor::getRpm() 
 {
     if (_begin && _end) {
@@ -118,29 +131,34 @@ void Motor::resetEnc()
     _encVal = 0;
 }
 
+void Motor::resetPWM(){
+    analogWrite(_pwmPin1, (int)fabs(0)); 
+    analogWrite(_pwmPin2, (int)fabs(0)); 
+}
+
 Vroom::Vroom(Motor *l, Motor *r) 
 {
     this->_left = l;
     this->_right = r;
 }
 
-// void Vroom::setSteer(double rpm, double rotation) 
-// {
-//     if (rpm > 100) rpm = 100;
-//     if (rpm < -100) rpm = -100;
-//     if (rotation > 1) rotation = 1;
-//     if (rotation < -1) rotation = -1;
-//     double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
-//     if (rotation > 0) {
-//         this->_left->setRpm(rpm);
-//         this->_right->setRpm(slower);
-//     } else {
-//         this->_left->setRpm(slower);
-//         this->_right->setRpm(rpm);
-//     }
-// }
+void Vroom::setSteer(double rpm, double rotation) 
+{
+    if (rpm > 100) rpm = 100;
+    if (rpm < -100) rpm = -100;
+    if (rotation > 1) rotation = 1;
+    if (rotation < -1) rotation = -1;
+    double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
+    if (rotation > 0) {
+        this->_left->setRpm(rpm);
+        this->_right->setRpm(slower);
+    } else {
+        this->_left->setRpm(slower);
+        this->_right->setRpm(rpm);
+    }
+}
 
-// void Vroom::setSteer(double rpm, double rotation) 
+// void Vroom::setSteer(double rpm, double rotation)  //^ NO PID
 // {
 //     if (rpm > 100) rpm = 100;
 //     if (rpm < -100) rpm = -100;
@@ -148,11 +166,11 @@ Vroom::Vroom(Motor *l, Motor *r)
 //     if (rotation < -1) rotation = -1;
 //     double slower = rpm*(1-2*fabs(rotation)); //^ change to int when have time?? maybe
 //     if (rotation > 0) {
-//         this->_left->setRpm(rpm);
-//         this->_right->setRpm(slower);
+//         this->_left->setVal(rpm);
+//         this->_right->setVal(slower);
 //     } else {
-//         this->_left->setRpm(slower);
-//         this->_right->setRpm(rpm);
+//         this->_left->setVal(slower);
+//         this->_right->setVal(rpm);
 //     }
 // }
 
@@ -184,6 +202,8 @@ void Vroom::resetPID()
 {
     _left->resetPID();
     _right->resetPID();
+    _left->resetPWM();
+    _right->resetPWM();
 }
 
 void Vroom::stop()
@@ -191,3 +211,4 @@ void Vroom::stop()
     this->setSteer(0, 0);
     this->resetPID();
 }
+

@@ -16,10 +16,10 @@ const int TX1PIN = 8,
 Motor MotorL(12, 13, 0, 1); 
 Motor MotorR(11, 10, 19, 18);
   
-void ISRLA() { MotorL.readEncA(); }
-void ISRLB() { MotorL.readEncB(); }
-void ISRRA() { MotorR.readEncA(); }
-void ISRRB() { MotorR.readEncB(); }
+// void ISRLA() { MotorL.readEncA(); }
+// void ISRLB() { MotorL.readEncB(); }
+// void ISRRA() { MotorR.readEncA(); }
+// void ISRRB() { MotorR.readEncB(); }
 
 void setup() 
 {
@@ -28,24 +28,24 @@ void setup()
     Serial.println("USB Serial initialised!");
     #endif
     pinMode(28, INPUT);
-    attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
-    attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
-    attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
-    attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
+    // attachInterrupt(MotorL.getEncAPin(), ISRLA, RISING);
+    // attachInterrupt(MotorL.getEncBPin(), ISRLB, RISING);
+    // attachInterrupt(MotorR.getEncAPin(), ISRRA, RISING);
+    // attachInterrupt(MotorR.getEncBPin(), ISRRB, RISING);
 }
 
 void loop() 
 {
     if (!digitalRead(28))
     {
-      analogWrite(MotorR.getPin1(), 80);
-      digitalWrite(MotorR.getPin2(), LOW);
+      analogWrite(MotorL.getPin1(), 80);
+      digitalWrite(MotorL.getPin2(), LOW);
       Serial.println("Backward");
     }
     else
     {
-      analogWrite(MotorR.getPin2(), 80);
-      digitalWrite(MotorR.getPin1(), LOW);
+      analogWrite(MotorL.getPin2(), 80);
+      digitalWrite(MotorL.getPin1(), LOW);
       Serial.println("Forward");
     }
     
