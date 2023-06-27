@@ -9,7 +9,7 @@
 
 #define TCAADDR 0x70
 
-#define WIRE Wire1
+#define WIRE Wire
 
 void tcaselect(uint8_t i) {
   if (i > 7) return;

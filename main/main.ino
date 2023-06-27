@@ -26,7 +26,7 @@
 #define SWTPIN 28
 
 //* SETTINGS
-#define waitForSerial 0
+#define waitForSerial 1
 
 #define debugLoopTime 1
 #define debugTCSReadings 1
@@ -69,10 +69,10 @@ const int defaultLidarReading = 200;
 const int L0XNum = 4;
 VL53L0X lidarsl0x[L0XNum];
 int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {1, 5, 6, 0};
+const int l0x_pins[L0XNum] = {3, 5, 6, 0};
 String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "}; //for print debugging
 namespace L0X {
-    enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
+    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT };
 }
 //^ VL53L1X
 const int L1XNum = 1;
@@ -189,16 +189,16 @@ void setup()
     Serial.println("Pi serial initialised");
 
     //^ MULTIPLEXERS
-    Wire.setSDA(SDAPIN);
-    Wire.setSCL(SCLPIN);
-    Wire.begin();
-    Wire.setClock(400000);
-    Serial.println("Top multiplexer initialised");
-    // Wire1.setSDA(SDA1PIN);
-    // Wire1.setSCL(SCL1PIN);
-    // Wire1.begin();
-    // Wire1.setClock(400000);
+    // Wire.setSDA(SDAPIN);
+    // Wire.setSCL(SCLPIN);
+    // Wire.begin();
+    // Wire.setClock(400000);
     // Serial.println("Bottom multiplexer initialised");
+    Wire1.setSDA(SDA1PIN);
+    Wire1.setSCL(SCL1PIN);
+    Wire1.begin();
+    Wire1.setClock(400000);
+    Serial.println("Top multiplexer initialised");
 
     //^ LIDARS
     for (int i = 0; i < L0XNum; i++) {
@@ -306,10 +306,11 @@ void loop()
     // #endif
 
     int caze = 0;
-    if (digitalRead(SWTPIN))
-    {
+    // if (!digitalRead(SWTPIN))
+    // {
         // tcsAnalyse();
         serialEvent();
+        // ledOn = true;
 
         //* ------------------------------------------- PI TASK HANDLED -------------------------------------------
         
@@ -354,7 +355,7 @@ void loop()
 
             case EMPTY_LINETRACK:
                 send_pi(Pi::LINETRACK);
-                Robawt.setSteer(80, rotation);
+                Robawt.setSteer(rpm, rotation);
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
                 Serial.print("rotation: "); Serial.println(rotation);
@@ -559,14 +560,15 @@ void loop()
         Serial.print("alignSweepState: "); Serial.println(alignSweepState);
         #endif
 
-    } else {
-        //* ------------------------------------------- SWITCH OFF -------------------------------------------
+    // } else {
+        // //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
-        Robawt.setSteer(0, 0);
-        Robawt.resetPID();
-        curr = EMPTY_LINETRACK;
-        alignSweepState = 0;
-    }
+        // Robawt.setSteer(0, 0);
+        // Robawt.resetPID();
+        // curr = EMPTY_LINETRACK;
+        // alignSweepState = 0;
+        // ledOn = false;
+    // }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
 

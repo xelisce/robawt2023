@@ -2,6 +2,7 @@ import cv2
 from MultiThread import WebcamStream
 import serial
 import numpy as np
+np.set_printoptions(threshold=np.inf)
 import enum
 import math
 
@@ -31,7 +32,7 @@ centre_x_lt = width_lt//2
 black_kernel = np.ones((3, 3), np.uint8)
 
 #~ PID
-rpm_setptlt = 40
+rpm_setptlt = 45
 
 #~ Trapezium-ish mask 
 # to mask out robot
@@ -55,8 +56,8 @@ y_com = np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt)])
 # x_com *= x_com_scale
 #~ Same but bumped up to remove cropped out
 x_com_scale = 1 - np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt-higher_crop_triangle_h)])
-x_com_scale = x_com_scale ** 1.7
-x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
+x_com_scale = x_com_scale ** 1.4
+x_com_scale = np.concatenate((x_com_scale, np.array([[0] * width_lt for i in range(higher_crop_triangle_h)])))
 x_com *= x_com_scale
 #^ Kenneth's method:
 #~ Powering x component
@@ -214,6 +215,8 @@ def task0_lt():
         mask_black[:crop_lt_h, :] = 0
         mask_supercrop_black[:supercrop_lt_h, :] = 0
 
+        # cv2.imshow("mask black", mask_black)
+
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
             black_rows = np.amax(mask_uncropped_black, axis=1)
@@ -296,30 +299,30 @@ def task0_lt():
             #~ Ordinary linetrack
             else:
                 rpm_lt = rpm_setptlt
-                #~ Line continuation:
-                #^ Contour method
-                # cv2.imshow("before contours", mask_black)
-                contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
-                # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
-                # cv2.imshow("with contours", frame_org)
-                # print(contours)
-                cnts = []
-                for cnt in contours:
-                    x,y,w,h = cv2.boundingRect(cnt)
-                    cnts.append({
-                        "x": x,
-                        "y": y,
-                        "w": w,
-                        "h": h
-                    })
-                if len(cnts):
-                    closest_contour = max(cnts, key=lambda x: x["y"]+x["h"])
-                    contour_mask = np.zeros([height_lt, width_lt], dtype="uint8")
-                    cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
-                    # cv2.imshow("contours", contour_mask)
-                    mask_black = cv2.bitwise_and(mask_black, contour_mask)
+                # #~ Line continuation:
+                # #^ Contour method
+                # # cv2.imshow("before contours", mask_black)
+                # contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
+                # # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
+                # # cv2.imshow("with contours", frame_org)
+                # # print(contours)
+                # cnts = []
+                # for cnt in contours:
+                #     x,y,w,h = cv2.boundingRect(cnt)
+                #     cnts.append({
+                #         "x": x,
+                #         "y": y,
+                #         "w": w,
+                #         "h": h
+                #     })
+                # if len(cnts):
+                #     closest_contour = max(cnts, key=lambda x: x["y"]+x["h"])
+                #     contour_mask = np.zeros([height_lt, width_lt], dtype="uint8")
+                #     cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
+                #     # cv2.imshow("contours", contour_mask)
+                #     mask_black = cv2.bitwise_and(mask_black, contour_mask)
                 #^ Index method
-                # mask_black[:first_line_top, :] = 0
+                mask_black[:first_line_top, :] = 0
                 # cv2.imshow("black mask", mask_black)
 
             #~ Powers and components
@@ -344,8 +347,11 @@ def task0_lt():
             #^ Method 2: Powering the mean
             y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
             x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
+            # print(mask_black)
+            # print(x_black[x_black!=0])
             y_resultant = np.mean(y_black) ** powered_y
-            x_resultant = np.mean(x_black[x_black!=0])
+            x_black_nonzero = x_black[x_black!=0]
+            x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
             #& debug
             print("power:", powered_y)
             # cv2.imshow("yframe", y_black)
@@ -354,6 +360,7 @@ def task0_lt():
 
             #~ Formatting data for transfer
             angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
+            print("angle:", angle)
             rotation = angle * kp_lt
             print("rotation:", rotation)
         
@@ -413,11 +420,11 @@ while True:
     # elif pico_task == 6:
     #     print("Obstacle turning right, looking at left of camera for line")
     #     task6_rightlookleft()
-    # elif pico_task == 9:
-    #     print("Switch off")
-    #     task0_lt()
-    # else:
-    #     print("Pico task unknown:", pico_task)
+    elif pico_task == 9:
+        print("Switch off")
+        task0_lt()
+    else:
+        print("Pico task unknown:", pico_task)
 
     #! remove b4 comp for optimisation
     key = cv2.waitKey(1)
