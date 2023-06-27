@@ -43,7 +43,7 @@ class Motor
         double _neededRpm, _wantedRpm, _realRpm,
             _neededSpeed, _wantedSpeed, _realSpeed,
             _kp = 1.1,
-            _ki = 12, // 23
+            _ki = 8, //12
             _kd = 0,
             _val, //this is the pwm direct value
             _rpm;

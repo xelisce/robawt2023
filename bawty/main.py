@@ -12,7 +12,7 @@ ser = serial.Serial("/dev/serial0", 9600)
 bot_stream = WebcamStream(stream_id=0)
 bot_stream.start()
 bot_stream_frame = bot_stream.read()
-bot_strean_frame = cv2.pyrDown(bot_stream_frame, dstsize=(320, 240))
+bot_stream_frame = cv2.pyrDown(bot_stream_frame, dstsize=(320, 240))
 bot_stream_width, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
 print("Bottom camera width:", bot_stream_width, "Camera height:", bot_stream_height_org)
 
@@ -24,8 +24,8 @@ print("Top camera width:", top_stream_width, "Camera height:", top_stream_height
 
 #* LINE TRACK CONSTANTS
 kp_lt = 1
-height_lt = bot_stream_height_org/2
-centre_x_lt = bot_stream_width/2/2
+height_lt = bot_stream_height_org
+centre_x_lt = bot_stream_width//2
 
 black_kernel = np.ones((7, 7), np.uint8)
 black_linegap_kernel = np.ones((10, 10), np.uint8)
@@ -728,7 +728,7 @@ def task0_lt():
             powered_y = min(3.5, powered_y) #^ constraint the power to a maximum value of 3.5
 
         #* POWERING LINETRACK
-        
+
         #~ Vectorizing the black components
         #^ Ancillary: Powering xcom
         # x_com[:, :int(centre/2)] *= -1
