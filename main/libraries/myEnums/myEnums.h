@@ -11,5 +11,8 @@ enum currType { //what the pico needs to do
     //^ Forced stuff
     STOP = 100,
     MOVE_DIST = 101,
-    TURN_ANGLE = 102
+    TURN_ANGLE = 102,
+    TURN_TIME = 103,
+    //^ POST SHIT
+    POST_DOUBLE_GREEN = 200
 };

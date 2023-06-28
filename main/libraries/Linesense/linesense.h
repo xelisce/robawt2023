@@ -14,9 +14,9 @@
 class LineSense {
 
     public:
-        InitSense(uint8_t start=0, uint8_t end=tcsNum);
-        void update(uint8_t start=0, uint8_t end=tcsNum);
-        void debugRaw(uint8_t start=0, uint8_t end=tcsNum);
+        void InitSense(uint8_t start=0, uint8_t end=6);
+        void update(uint8_t start=0, uint8_t end=6);
+        void debugRaw(uint8_t start=0, uint8_t end=6);
         struct tcsSensor
         {
             uint16_t r;

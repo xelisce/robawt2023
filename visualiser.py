@@ -30,7 +30,7 @@ def callback(x):
     global a, mask_trapeziums
     a = cv2.getTrackbarPos('x power (divide by 100)', 'controls')
 
-    x_com_scale = 1 - np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt-higher_crop_triangle_h)])
+    x_com_scale = np.array([[i] * width_lt for i in np.linspace(0, 1., height_lt-higher_crop_triangle_h)]) #? removed the nasty 1 - np.array
     x_com_scale = x_com_scale ** (a/100)
     x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 
@@ -44,14 +44,14 @@ def callback(x):
 x_com = np.tile(np.concatenate((np.linspace(1., 0, width_lt//2),np.linspace(0, 1., width_lt//2)),axis=0), (height_lt, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt)])
 
-x_com_scale = 1 - np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt-higher_crop_triangle_h)])
+x_com_scale = np.array([[i] * width_lt for i in np.linspace(0, 1., height_lt-higher_crop_triangle_h)]) #? same here
 x_com_scale = x_com_scale ** (a/100)
 x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 
 final_x = x_com * x_com_scale
 
 cv2.namedWindow('controls', 2)
-cv2.resizeWindow('controls', 550, 10)
+cv2.resizeWindow('controls', 550, 50)
 cv2.createTrackbar('x power (divide by 100)', 'controls', 0, 1000, callback)
 
 cv2.imshow("y_com", y_com)

@@ -9,7 +9,7 @@
 #define SCL1PIN 7
 
 
-LineSense::InitSense(uint8_t start, uint8_t end){
+void LineSense::InitSense(uint8_t start, uint8_t end){
     Wire1.setSDA(SDA1PIN);
     Wire1.setSCL(SCL1PIN);
     Wire1.setClock(400000);

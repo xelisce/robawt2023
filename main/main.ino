@@ -29,17 +29,18 @@
 #define waitForSerial 0
 
 #define debugLoopTime 1
-#define debugTCSReadings 1
+#define debugTCSReadings 0
 #define debugWithLED 1
-#define debugSerial 1
+#define debugSerial 0
 #define debugState 1
 
 #define debugAlignSweep 1
 
 //* FUNCTION HEADERS
-void turnAngle(double rot, double angleOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE);
-void turnDist(double rot, double distOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE);
-void moveDist(double dir, double distOfMove, enum currType postState, enum currType afterInitState=MOVE_DIST);
+void turnAngle(double rot, double angleOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE);
+void turnDist(double rot, double distOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE);
+void turnByTime(double rot, long timeOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState=TURN_TIME);
+void moveDist(double dir, double distOfMove, double speedOfTurn, enum currType postState, enum currType afterInitState=MOVE_DIST);
 
 //* ------------------------------------------- OBJECT INITIALISATIONS -------------------------------------------
 
@@ -134,7 +135,7 @@ long lastSerialPiSendMillis = millis();
 //^ ESSENTIALS
 currType curr = TCS_LINETRACK;
 double steer = 0, rotation = 0;
-double rpm = 30, lt_rpm = 30;
+double rpm = 100, lt_rpm = 100;
 int serialState = 0, task = 0;
 namespace Pi {
     enum Pi
@@ -153,6 +154,8 @@ currType postForcedDistCase = EMPTY_LINETRACK;
 double startForcedDistL, startForcedDistR, currForcedDist;
 double wantedForcedDist = 0;
 double forcedDirection = 0;
+double forcedSpeed = 0;
+long forcedTurnTime = 0, startTurnTime;
 
 //^ ALIGNING SWEEP LINE GAP
 int alignSweepState = 0;
@@ -185,7 +188,7 @@ void setup()
     //^ PI SERIAL COMMS
     Serial1.setRX(RX0PIN); 
     Serial1.setTX(TX0PIN);
-    Serial1.begin(9600);
+    Serial1.begin(115200);
     while (!Serial1) delay(10); 
     Serial.println("Pi serial initialised");
 
@@ -306,8 +309,8 @@ void loop()
     // afterTCSLoopTimeMicros = micros();
     // #endif
 
-    // if (!digitalRead(SWTPIN))
-    // {
+    if (!digitalRead(SWTPIN)) 
+    {
         // tcsAnalyse();
         serialEvent();
         // ledOn = true;
@@ -320,8 +323,32 @@ void loop()
                 case 0: //EMPTY LINETRACK
                     if (((curr == MOVE_DIST && postForcedDistCase == EMPTY_LINETRACK) || curr == AFTER_ALIGN_SWEEP) && endLineGap) { curr = EMPTY_LINETRACK; }
                     if (curr == ALIGN_SWEEP || curr == AFTER_ALIGN_SWEEP) { break; }
-                    if (curr == MOVE_DIST || curr == TURN_ANGLE) { break; }
+                    if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     curr = EMPTY_LINETRACK;
+                    break;
+
+                case 1:
+                    // curr = STOP;
+                    if (curr == EMPTY_LINETRACK){
+                        moveDist(1, 3*3, 100, LEFT_GREEN);
+                    }
+                    break;
+
+                case 2:
+                    // curr = STOP;
+                    if (curr == EMPTY_LINETRACK){
+                        moveDist(1, 3*3, 100, RIGHT_GREEN);
+                    }
+                    break;
+
+                case 3:
+                    if (curr == EMPTY_LINETRACK){
+                        moveDist(1, 3*3, 100, DOUBLE_GREEN);
+                    }
+                    break;
+
+                case 4:
+                    curr = RED;
                     break;
 
                 case 10:
@@ -362,18 +389,26 @@ void loop()
                 break;
 
             case LEFT_GREEN:
-                turnAngle(-0.8, 75, STOP);
+                // turnAngle(-0.8, 225, 100, STOP);
+                turnByTime(-0.8, 1000, 100, STOP);
                 break;
 
             case RIGHT_GREEN:
-                turnAngle(0.8, 75, STOP);
+                // turnAngle(0.8, 225, 100, STOP);
+                turnByTime(0.8, 1000, 100, STOP);
                 break;
 
             case DOUBLE_GREEN:
-                turnAngle(1, 180, STOP);
+                turnAngle(1, 207*3, 200, POST_DOUBLE_GREEN);
+                break;
+
+            case POST_DOUBLE_GREEN:
+                Robawt.resetPID();
+                curr = EMPTY_LINETRACK;
                 break;
 
             case RED:
+                // moveDist(1, 3*3, 100, STOP);
                 curr = STOP;
                 break;
 
@@ -506,11 +541,11 @@ void loop()
                                     curr = STOP;
                                     break;
                                 case -1:
-                                    turnDist(-1, prevTurnedAlignSweepDistL/2, STOP);
+                                    turnDist(-1, prevTurnedAlignSweepDistL/2, 100, STOP);
                                     alignSweepRotation = 0;
                                     break;
                                 case 1:
-                                    turnDist(-1, prevTurnedAlignSweepDistR/2, STOP);
+                                    turnDist(-1, prevTurnedAlignSweepDistR/2, 100, STOP);
                                     alignSweepRotation = 0;
                                     break;
                             }
@@ -525,7 +560,7 @@ void loop()
                 ledOn = true;
                 #endif
                 send_pi(Pi::LINETRACK);
-                moveDist(1, 20, EMPTY_LINETRACK);
+                moveDist(1, 20, 100, EMPTY_LINETRACK);
                 afterGapMillis = millis();
                 break;
 
@@ -536,15 +571,21 @@ void loop()
                 break;
 
             case MOVE_DIST:
+                ledOn = true;
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
-                else { Robawt.setSteer(forcedDirection*30, 0); }
+                else { Robawt.setSteer(forcedDirection * forcedSpeed, 0); }
                 break;
 
             case TURN_ANGLE:
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
-                else { Robawt.setSteer(30, forcedDirection); }
+                else { Robawt.setSteer(forcedSpeed, forcedDirection); }
+                break;
+
+            case TURN_TIME:
+                if (millis() - startTurnTime > forcedTurnTime) curr = postForcedDistCase;
+                else Robawt.setSteer(forcedSpeed, forcedDirection);
                 break;
 
             default:
@@ -560,15 +601,16 @@ void loop()
         Serial.print("alignSweepState: "); Serial.println(alignSweepState);
         #endif
 
-    // } else {
-        // //* ------------------------------------------- SWITCH OFF -------------------------------------------
+    } else {
+        //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
-        // Robawt.setSteer(0, 0);
-        // Robawt.resetPID();
+        Robawt.setSteer(0, 0);
+        Robawt.resetPID();
         // curr = EMPTY_LINETRACK;
-        // alignSweepState = 0;
-        // ledOn = false;
-    // }
+        turnByTime(0.8, 1000, 100, STOP);
+        alignSweepState = 0;
+        ledOn = false;
+    }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
 
@@ -831,10 +873,11 @@ double constraint(double val, double minVal, double maxVal)
     return min(max(val, minVal), maxVal);
 }
 
-void turnAngle(double rot, double angleOfTurn, enum currType postState, enum currType afterInitState) //in degrees
+void turnAngle(double rot, double angleOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState) //in degrees
 {
     //only support: 0.5 OR 1 rot, speed 30 rpm, < 180 degrees. note: angle is always positive
     forcedDirection = rot;
+    forcedSpeed = speedOfTurn;
     startForcedDistL = MotorL.getDist();
     startForcedDistR = MotorR.getDist();
     curr = afterInitState;
@@ -848,9 +891,19 @@ void turnAngle(double rot, double angleOfTurn, enum currType postState, enum cur
     postForcedDistCase = postState;
 }
 
-void turnDist(double rot, double distOfTurn, enum currType postState, enum currType afterInitState)
+void turnByTime(double rot, long timeOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState){
+    forcedDirection = rot;
+    forcedTurnTime = timeOfTurn;
+    startTurnTime = millis();
+    forcedSpeed = speedOfTurn;
+    curr = afterInitState;
+    postForcedDistCase = postState;
+}
+
+void turnDist(double rot, double distOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState)
 {
     forcedDirection = rot;
+    forcedSpeed = speedOfTurn;
     startForcedDistL = MotorL.getDist();
     startForcedDistR = MotorR.getDist();
     curr = afterInitState;
@@ -858,9 +911,10 @@ void turnDist(double rot, double distOfTurn, enum currType postState, enum currT
     postForcedDistCase = postState;
 }
 
-void moveDist(double dir, double distOfMove, enum currType postState, enum currType afterInitState) //in cm
+void moveDist(double dir, double distOfMove, double speedOfTurn, enum currType postState, enum currType afterInitState) //in cm
 {
     //only support: speed 30 rpm. note: put .0 if whole number, or problems will happen
+    forcedSpeed = speedOfTurn;
     forcedDirection = dir; //1 or -1 for forward and backward respectively
     startForcedDistL = MotorL.getDist();
     startForcedDistR = MotorR.getDist();
