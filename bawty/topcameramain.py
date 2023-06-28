@@ -38,7 +38,7 @@ centre_x_lt = width_lt//2
 black_kernel = np.ones((2, 2), np.uint8)
 
 #~ PID
-rpm_setptlt = 90
+rpm_setptlt = 100
 
 #~ Trapezium-ish mask 
 # to mask out robot
@@ -123,11 +123,12 @@ class Task(enum.Enum):
     DOUBLE_GREEN = 3
     ALIGN_LINEGAP = 10
     RED = 4
+    LINEGAP = 12
 #     TURN_LEFT = 5
 #     TURN_RIGHT = 6
 #     TURN_BLUE = 7
 #     BLUE = 8
-#     LINEGAP = 11
+
 #     # SILVER = 12
 #     #~ Evac
 #     NOBALL = 20
@@ -180,6 +181,30 @@ def receive_pico() -> str:
             return -1 #\x00 is the only byte
     else:
         return -1 #no info
+    
+#* ---------------------------------- LINETRACK FUNCTIONS ----------------------------------
+
+def contoursCalc(frame_org, mask_black,):
+    contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
+    # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
+    # cv2.imshow("with contours", frame_org)
+    # print(contours)
+    cnts = []
+    for cnt in contours:
+        x,y,w,h = cv2.boundingRect(cnt)
+        cnts.append({
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h
+        })
+    if len(cnts):
+        closest_contour = max(cnts, key=lambda x: x["y"]+x["h"])
+        contour_mask = np.zeros([height_lt, width_lt], dtype="uint8")
+        cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
+        # cv2.imshow("contours", contour_mask)
+        mask_black = cv2.bitwise_and(mask_black, contour_mask)
+        return mask_black
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -220,6 +245,9 @@ def task0_lt():
     mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
     mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+    cv2.namedWindow('black mask', 2)
+    cv2.resizeWindow('black mask', 550, 50)
+    cv2.imshow("black mask", mask_black_org) #& debug green square mask
     # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
 
 
@@ -324,7 +352,7 @@ def task0_lt():
 
     elif gs_sum > 100: #! arbitrary number
 
-        gs_blacksample_offset = 5 #! arbitrary number
+        gs_blacksample_offset = 0 #! arbitrary number
         gs_blacksample_h = 10 #! arbitrary number
         GS_MIN_BKPCT = 0.20 #! arbitrary number
 
@@ -345,10 +373,11 @@ def task0_lt():
         print("GS_width: ", gs_width)
 
         #~ Test if below or above line (percentage of black above green)
-        gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top - gs_blacksample_h, gs_left: gs_right]
-        gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width)
+        gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top-gs_blacksample_offset, gs_left: gs_right]
+        gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
         cv2.namedWindow('bk_above', 2)
         cv2.resizeWindow('bk_above', 550, 50)
+        # if gs_bkabove:
         cv2.imshow("bk_above", gs_bkabove)
         print("Percentage of black above green: ", gs_bkpct)  
 
@@ -420,7 +449,7 @@ def task0_lt():
 
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
-            black_rows = np.amax(mask_uncropped_black, axis=1)
+            black_rows = np.amax(mask_uncropped_black, axis=1); 
             black_indices_v = np.where(black_rows == 255)
             first_line_bottom = black_indices_v[0][-1] if len(black_indices_v[0]) else 0
             black_rows[first_line_bottom:] = 255 #coloring black below the first line
@@ -447,40 +476,40 @@ def task0_lt():
             black_line_width = black_right_x - black_left_x
             print("x width:", black_line_width) #& debug width of line
 
-            #~ End long line gap sequence but runs every code
-            if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 160:
-                end_line_gap = 1 # to end the linegap move forward
-                print(r"%%%%%%%%%%% MOVE FORWARD %%%%%%%%%%%")
-            else:
-                end_line_gap = 0
-            if black_line_width < 34 and first_line_height < 68 and first_line_bottom > 175:
-                tip_of_line = mask_black[first_line_top:first_line_top+10, black_left_x:black_right_x]
-                tip_of_line_black_percentage = np.sum(tip_of_line)/(10*black_line_width*255)
-                print("percentage of tip:", tip_of_line_black_percentage)
-                if tip_of_line_black_percentage > 0.70:
-                    see_thin_line = 1
-                    print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10) #? why the hell are you printing this 10 times :skul:
-                else:
-                    see_thin_line = 0
-            else:
-                see_thin_line = 0
+            # #~ End long line gap sequence but runs every code
+            # if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70: # prev values: 68, 60, 160
+            #     end_line_gap = 1 # to end the linegap move forward
+            #     print(r"%%%%%%%%%%% MOVE FORWARD %%%%%%%%%%%")
+            # else:
+            #     end_line_gap = 0
+            # if black_line_width < 34 and first_line_height < 40 and first_line_bottom > 70:
+            #     tip_of_line = mask_black[first_line_top:first_line_top+10, black_left_x:black_right_x]
+            #     tip_of_line_black_percentage = np.sum(tip_of_line)/(10*black_line_width*255)
+            #     print("percentage of tip:", tip_of_line_black_percentage)
+            #     if tip_of_line_black_percentage > 0.70:
+            #         see_thin_line = 1
+            #         print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10) #? why the hell are you printing this 10 times :skul:
+            #     else:
+            #         see_thin_line = 0
+            # else:
+            #     see_thin_line = 0
 
-            #~ Short line gap, use entire frame
-            if short_linegap_now:
-                rpm_lt = rpm_setptlt
-                print("---SHORT LINE GAP NOW---")
-                mask_black = mask_uncropped_black
-                if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-                    short_linegap_now = False
+            # #~ Short line gap, use entire frame
+            # if short_linegap_now:
+            #     rpm_lt = rpm_setptlt
+            #     print("---SHORT LINE GAP NOW---")
+            #     mask_black = mask_uncropped_black
+            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
+            #         short_linegap_now = False
 
-            #~ Long line gap, use entire frame
-            elif long_linegap_now:
-                curr = Task.ALIGN_LINEGAP
-                rpm_lt = rpm_setptlt
-                print("--------LONG LINE GAP NOW--------")
-                mask_black = mask_uncropped_black
-                if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-                    long_linegap_now = False
+            # #~ Long line gap, use entire frame
+            # elif long_linegap_now:
+            #     curr = Task.ALIGN_LINEGAP
+            #     rpm_lt = rpm_setptlt
+            #     print("--------LONG LINE GAP NOW--------")
+            #     mask_black = mask_uncropped_black
+            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
+            #         long_linegap_now = False
 
             #~ When line is ending
             # elif (first_line_height < 68 and black_line_width < 80):
@@ -498,33 +527,23 @@ def task0_lt():
             #         # mask_black = mask_uncropped_black
 
             #~ Ordinary linetrack
+            # else:
+            if (first_line_top > 80):
+                curr = Task.LINEGAP
+
+            if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70:
+                end_line_gap = 1 # to end the linegap move forward
             else:
-                rpm_lt = rpm_setptlt
-                #~ Line continuation:
-                #^ Contour method
-                # cv2.imshow("before contours", mask_black)
-                contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
-                cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
-                # cv2.imshow("with contours", frame_org)
-                # print(contours)
-                cnts = []
-                for cnt in contours:
-                    x,y,w,h = cv2.boundingRect(cnt)
-                    cnts.append({
-                        "x": x,
-                        "y": y,
-                        "w": w,
-                        "h": h
-                    })
-                if len(cnts):
-                    closest_contour = max(cnts, key=lambda x: x["y"]+x["h"])
-                    contour_mask = np.zeros([height_lt, width_lt], dtype="uint8")
-                    cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
-                    # cv2.imshow("contours", contour_mask)
-                    mask_black = cv2.bitwise_and(mask_black, contour_mask)
-                #^ Index method
-                # mask_black[:first_line_top, :] = 0
-                # cv2.imshow("black mask", mask_black)
+                end_line_gap = 0
+
+            
+            rpm_lt = rpm_setptlt
+            #~ Line continuation:
+            #^ Contour method
+            mask_black = contoursCalc(frame_org, mask_black)
+            #^ Index method
+            # mask_black[:first_line_top, :] = 0
+            # cv2.imshow("black mask", mask_black)
 
             #~ Powers and components
             # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
@@ -623,6 +642,7 @@ while True:
     #     task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
+        gsVotes = [0, 0, 0]
         task0_lt()
     else:
         print("Pico task unknown:", pico_task)

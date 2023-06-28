@@ -8,6 +8,7 @@ enum currType { //what the pico needs to do
     RED = 4,
     ALIGN_SWEEP = 10,
     AFTER_ALIGN_SWEEP = 11,
+    LINEGAP = 12,
     //^ Forced stuff
     STOP = 100,
     MOVE_DIST = 101,
