@@ -26,7 +26,7 @@
 #define SWTPIN 28
 
 //* SETTINGS
-#define waitForSerial 1
+#define waitForSerial 0
 
 #define debugLoopTime 1
 #define debugTCSReadings 1
@@ -144,6 +144,7 @@ namespace Pi {
 }
 
 //^ LINETRACK VARIABLES
+int caze = 0;
 double left = 1, right = 1;
 
 //^ FORCED VARIABLES
@@ -189,34 +190,34 @@ void setup()
     Serial.println("Pi serial initialised");
 
     //^ MULTIPLEXERS
-    // Wire.setSDA(SDAPIN);
-    // Wire.setSCL(SCLPIN);
-    // Wire.begin();
-    // Wire.setClock(400000);
-    // Serial.println("Bottom multiplexer initialised");
-    Wire1.setSDA(SDA1PIN);
-    Wire1.setSCL(SCL1PIN);
-    Wire1.begin();
-    Wire1.setClock(400000);
+    Wire.setSDA(SDAPIN);
+    Wire.setSCL(SCLPIN);
+    Wire.begin();
+    Wire.setClock(400000);
     Serial.println("Top multiplexer initialised");
+    // Wire1.setSDA(SDA1PIN);
+    // Wire1.setSCL(SCL1PIN);
+    // Wire1.begin();
+    // Wire1.setClock(400000);
+    // Serial.println("Bottom multiplexer initialised");
 
     //^ LIDARS
-    for (int i = 0; i < L0XNum; i++) {
-        tcaselect(l0x_pins[i]);
-        Serial.println(i);
-        lidarsl0x[i].setTimeout(500);
-        while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
-        lidarsl0x[i].startContinuous();
-    }
-    for (int i = 0; i < L1XNum; i++) {
-        tcaselect(l1x_pins[i]);
-        Serial.println(i);
-        lidarsl1x[i].setTimeout(500);
-        while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
-        lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
-        lidarsl1x[i].startContinuous(20);
-    }
-    Serial.println("Lidars initialised");
+    // for (int i = 0; i < L0XNum; i++) {
+    //     tcaselect(l0x_pins[i]);
+    //     Serial.println(i);
+    //     lidarsl0x[i].setTimeout(500);
+    //     while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
+    //     lidarsl0x[i].startContinuous();
+    // }
+    // for (int i = 0; i < L1XNum; i++) {
+    //     tcaselect(l1x_pins[i]);
+    //     Serial.println(i);
+    //     lidarsl1x[i].setTimeout(500);
+    //     while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
+    //     lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
+    //     lidarsl1x[i].startContinuous(20);
+    // }
+    // Serial.println("Lidars initialised");
 
     //^ SERVOS
     for (int i = 0; i < servosNum; i++) {
@@ -269,22 +270,22 @@ void loop()
     }
 
     //* LIDAR READINGS
-    #if debugLoopTime
-    beforeLidarLoopTimeMicros = micros();
-    #endif
-    for (int i = 0; i < L0XNum; i++) 
-    {
-        tcaselect(l0x_pins[i]);
-        if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
-    }
-    for (int i = 0; i < L1XNum; i++) 
-    {
-        tcaselect(l1x_pins[i]);
-        if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
-    }
-    #if debugLoopTime
-    afterLidarLoopTimeMicros = micros();
-    #endif
+    // #if debugLoopTime
+    // beforeLidarLoopTimeMicros = micros();
+    // #endif
+    // for (int i = 0; i < L0XNum; i++) 
+    // {
+    //     tcaselect(l0x_pins[i]);
+    //     if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
+    // }
+    // for (int i = 0; i < L1XNum; i++) 
+    // {
+    //     tcaselect(l1x_pins[i]);
+    //     if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
+    // }
+    // #if debugLoopTime
+    // afterLidarLoopTimeMicros = micros();
+    // #endif
 
     // //* TCS READINGS
     // #if debugLoopTime
@@ -305,7 +306,6 @@ void loop()
     // afterTCSLoopTimeMicros = micros();
     // #endif
 
-    int caze = 0;
     // if (!digitalRead(SWTPIN))
     // {
         // tcsAnalyse();
