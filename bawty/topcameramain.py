@@ -322,7 +322,7 @@ def task0_lt():
     #         print("Green in a faraway land: ", gs_prev_sum)
 
 
-    elif gs_sum > 100: #! arbitrary number
+    elif not gs_now and gs_sum > 100: #! arbitrary number
 
         gs_blacksample_offset = 5 #! arbitrary number
         gs_blacksample_h = 10 #! arbitrary number
@@ -374,7 +374,7 @@ def task0_lt():
             print("Left Votes: ", gsVotes[0], " ||  Right Votes: ", gsVotes[1], " ||  Double Votes: ", gsVotes[2])
 
             #~ Wait for green to reach near the bottom of frame
-            if gs_bot > 75: 
+            if gs_bot > 65: 
                 dir = gsVotes.index(max(gsVotes))
 
                 if dir == 2:

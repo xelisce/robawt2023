@@ -128,6 +128,7 @@ long beforeEachTCSLoopTimeMicros[tcsNum], afterEachTCSLoopTimeMicros[tcsNum];
 double debugLDist, debugRDist;
 long testTimerMillis;
 bool ledOn = false;
+int greenState;
 
 //^ LOGIC TIMINGS
 long lastSerialPiSendMillis = millis();
@@ -321,14 +322,16 @@ void loop()
             switch (task)
             {
                 case 0: //EMPTY LINETRACK
-                    if (((curr == MOVE_DIST && postForcedDistCase == EMPTY_LINETRACK) || curr == AFTER_ALIGN_SWEEP) && endLineGap) { curr = EMPTY_LINETRACK; }
+                    // if (((curr == MOVE_DIST && postForcedDistCase == EMPTY_LINETRACK) || curr == AFTER_ALIGN_SWEEP) && endLineGap) { curr = EMPTY_LINETRACK; }
                     if (curr == ALIGN_SWEEP || curr == AFTER_ALIGN_SWEEP) { break; }
                     if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
+                    if (curr == LEFT_GREEN || curr == RIGHT_GREEN || curr == DOUBLE_GREEN) { break; }
                     curr = EMPTY_LINETRACK;
                     break;
 
                 case 1:
                     // curr = STOP;
+                    if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     if (curr == EMPTY_LINETRACK){
                         moveDist(1, 3*3, 100, LEFT_GREEN);
                     }
@@ -336,12 +339,15 @@ void loop()
 
                 case 2:
                     // curr = STOP;
+                    if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     if (curr == EMPTY_LINETRACK){
+                        // greenState = 0;
                         moveDist(1, 3*3, 100, RIGHT_GREEN);
                     }
                     break;
 
                 case 3:
+                    if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     if (curr == EMPTY_LINETRACK){
                         moveDist(1, 3*3, 100, DOUBLE_GREEN);
                     }
@@ -394,6 +400,20 @@ void loop()
                 break;
 
             case RIGHT_GREEN:
+                // switch (greenState) {
+                //     case 0:
+                //         startTurnTime = millis();
+                //         greenState ++;
+                //         break;
+
+                //     case 1:
+                //         if (millis() - startTurnTime > 1000) {
+                //             curr = STOP;
+                //         }
+                //         else { Robawt.setSteer(100, 0.80); }
+                //         break;
+                // }
+
                 // turnAngle(0.8, 225, 100, STOP);
                 turnByTime(0.8, 1000, 100, STOP);
                 break;
@@ -584,8 +604,8 @@ void loop()
                 break;
 
             case TURN_TIME:
-                if (millis() - startTurnTime > forcedTurnTime) curr = postForcedDistCase;
-                else Robawt.setSteer(forcedSpeed, forcedDirection);
+                if (millis() - startTurnTime > forcedTurnTime) { curr = postForcedDistCase; }
+                else { Robawt.setSteer(forcedSpeed, forcedDirection); } 
                 break;
 
             default:
@@ -606,8 +626,8 @@ void loop()
 
         Robawt.setSteer(0, 0);
         Robawt.resetPID();
-        // curr = EMPTY_LINETRACK;
-        turnByTime(0.8, 1000, 100, STOP);
+        curr = EMPTY_LINETRACK;
+        // turnByTime(0.8, 1000, 100, STOP);
         alignSweepState = 0;
         ledOn = false;
     }
