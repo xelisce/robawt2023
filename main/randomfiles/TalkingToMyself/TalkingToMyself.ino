@@ -8,10 +8,10 @@
 #include <Wire.h>
 #include "VL53L0X.h"
 
-#define SDAPIN 6
-#define SCLPIN 7
+#define SDAPIN 4
+#define SCLPIN 5
 #define TCAADDR 0x70
-#define WIRE Wire1
+#define WIRE Wire
 
 // VL53L0X lidarsl0x;
 

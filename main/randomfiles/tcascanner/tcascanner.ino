@@ -9,7 +9,7 @@
 
 #define TCAADDR 0x70
 
-#define WIRE Wire1
+#define WIRE Wire
 
 void tcaselect(uint8_t i) {
   if (i > 7) return;
@@ -23,17 +23,17 @@ void tcaselect(uint8_t i) {
 // standard Arduino setup()
 void setup()
 {
-    while (!Serial);
+    Serial.begin(9600);
+    while (!Serial) delay(10);
     delay(1000);
 
     WIRE.setSDA(6);
     WIRE.setSCL(7);
     WIRE.begin();
     
-    Serial.begin(9600);
     Serial.println("\nTCAScanner ready!");
     
-    for (uint8_t t=0; t<8; t++) {
+    for (uint8_t t=0; t<1; t++) {
       tcaselect(t);
       Serial.print("TCA Port #"); Serial.println(t);
 

@@ -59,20 +59,20 @@ void ISRRA() { MotorR.readEncA(); }
 void ISRRB() { MotorR.readEncB(); }
 
 //* LIDARS SETUP
-//^ VL53L0X
-int l0x_readings[4] = {200, 0, 0, 0};
-const int l0x_pins[4] = {1, 5, 6, 0};
-String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
-namespace L0X {
-    enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
-}
-//^ VL53L1X
-int l1x_readings[1] = {0};
-const int l1x_pins[1] = {4};
-String l1x_labels[1] = {"FRONT BOTTOM: "};
-namespace L1X {
-    enum L1X { FRONT_BOTTOM };
-}
+// //^ VL53L0X
+// int l0x_readings[4] = {200, 0, 0, 0};
+// const int l0x_pins[4] = {3, 5, 6, 0};
+// String l0x_labels[4] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "};
+// namespace L0X {
+//     enum L0X { FRONT, FRONT_LEFT, LEFT, RIGHT };
+// }
+// //^ VL53L1X
+// int l1x_readings[1] = {0};
+// const int l1x_pins[1] = {4};
+// String l1x_labels[1] = {"FRONT BOTTOM: "};
+// namespace L1X {
+//     enum L1X { FRONT_BOTTOM };
+// }
 //^ Debugging Lidars
 const int l0x_start = L0X::FRONT, //first lidar
     l0x_stop = L0X::RIGHT; //last l0x lidar
@@ -328,33 +328,33 @@ void setup()
     Wire.setClock(400000); 
 
     //^ LIDAR INITIALISATIONS
-    for (int i = l0x_start; i != (l0x_stop+1); i++) 
-    {
-        tcaselect(l0x_pins[i]);
-        lidarsl0x[i].setTimeout(500);
-        while (!lidarsl0x[i].init()) {
-            Serial.print(l0x_labels[i]);
-            Serial.print("at pin ");
-            Serial.print(l0x_pins[i]);
-            Serial.print(" - ");
-            Serial.println("L0X failed to initialise");
-        }
-        lidarsl0x[i].startContinuous();
-    }
-    for (int i = l1x_start; i != (l1x_stop+1); i++) 
-    {
-        tcaselect(l1x_pins[i]);
-        lidarsl1x[i].setTimeout(500);
-        while (!lidarsl1x[i].init()) {
-            Serial.print(l1x_labels[i]);
-            Serial.print("at pin ");
-            Serial.print(l1x_pins[i]);
-            Serial.print(" - ");
-            Serial.println("L1X failed to initialise");
-        }
-        lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
-        lidarsl1x[i].startContinuous(20);
-    }
+    // for (int i = l1x_start; i != (l1x_stop+1); i++) 
+    // {
+    //     tcaselect(l1x_pins[i]);
+    //     lidarsl1x[i].setTimeout(500);
+    //     //while (!lidarsl1x[i].init()) {
+    //         Serial.print(l1x_labels[i]);
+    //         Serial.print("at pin ");
+    //         Serial.print(l1x_pins[i]);
+    //         Serial.print(" - ");
+    //         Serial.println("L1X failed to initialise");
+    //     }
+    //     lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
+    //     lidarsl1x[i].startContinuous(20);
+    // }
+    // for (int i = l0x_start; i != (l0x_stop+1); i++) 
+    // {
+    //     tcaselect(l0x_pins[i]);
+    //     lidarsl0x[i].setTimeout(500);
+    //     //while (!lidarsl0x[i].init()) {
+    //         Serial.print(l0x_labels[i]);
+    //         Serial.print("at pin ");
+    //         Serial.print(l0x_pins[i]);
+    //         Serial.print(" - ");
+    //         Serial.println("L0X failed to initialise");
+    //     }
+    //     lidarsl0x[i].startContinuous();
+    // }
 
     //^ SERVO INITIALISATIONS
     for (int i = servos_start; i != (servos_stop+1); i++) {

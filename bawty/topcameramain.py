@@ -2,6 +2,7 @@ import cv2
 from MultiThread import WebcamStream
 import serial
 import numpy as np
+np.set_printoptions(threshold=1000) #^ to print entire array, use this np.inf and to truncate the array when printing, use the default 1000 or any length preferred
 import enum
 import math
 
@@ -22,24 +23,24 @@ top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_str
 print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_height_org)
 
 #* LINE TRACK CONSTANTS
-crop_lt_h = 30
+crop_lt_h = 40
 supercrop_lt_h = 140
 kp_lt = 1
-width_lt = top_stream_width_org // 2
-height_lt = top_stream_height_org // 2
+width_lt = top_stream_width_org // 4
+height_lt = top_stream_height_org // 4
 centre_x_lt = width_lt//2
-black_kernel = np.ones((3, 3), np.uint8)
+black_kernel = np.ones((2, 2), np.uint8)
 
 #~ PID
-rpm_setptlt = 40
+rpm_setptlt = 70
 
 #~ Trapezium-ish mask 
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
-crop_bot_h = 60
-higher_crop_triangle_h = 72
-higher_crop_triangle_w = 75
-higher_crop_triangle_gap_w = 35
+crop_bot_h = 62//2
+higher_crop_triangle_h = 72//2
+higher_crop_triangle_w = 75//2
+higher_crop_triangle_gap_w = 35//2
 left_triangle_pts = np.array([[0, height_lt - crop_bot_h], [0, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w - higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 right_triangle_pts = np.array([[width_lt, height_lt - crop_bot_h], [width_lt, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w + higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 bottom_rectangle_pts = np.array([[0, height_lt], [0, height_lt - crop_bot_h], [width_lt, height_lt - crop_bot_h], [width_lt, height_lt]])
@@ -49,23 +50,22 @@ mask_trapeziums = cv2.bitwise_not(mask_trapeziums)
 #~ Vectors (use visualiser.py to understand better)
 x_com = np.tile(np.linspace(-1., 1., width_lt), (height_lt, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt)])
+#^ Kenneth's method:
+#~ Powering x component
+# x_com[:, :int(width_lt/2)] *= -1
+# x_com = x_com ** 0.8
+# x_com[:, :int(width_lt/2)] *= -1
+#~ Powering y component
+# y_com = y_com ** 2
 #^ Glenda's method: 
 #~ Powering x component with respect to y
 # x_com_scale = ((1-y_com) ** 0.3)
 # x_com *= x_com_scale
 #~ Same but bumped up to remove cropped out
 x_com_scale = 1 - np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt-higher_crop_triangle_h)])
-x_com_scale = x_com_scale ** 1.7
+x_com_scale = x_com_scale ** 3
 x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 x_com *= x_com_scale
-#^ Kenneth's method:
-#~ Powering x component
-# x_com[:, :int(bot_stream_width/2)] *= -1
-# x_com = x_com ** 1
-# x_com[:, :int(bot_stream_width/2)] *= -1
-#~ Powering y component
-# y_com = y_com ** 2
-
 
 
 #* IMAGE THRESHOLDS
@@ -100,7 +100,7 @@ min_radius = 65
 max_radius = 88
 
 u_blackforball = 49
-u_black_lt = 80
+u_black_lt = 102
 u_black_lineforltfromevac = 55
 
 #* VARIABLE INITIALISATIONS
@@ -178,6 +178,7 @@ def task0_lt():
 
     #~ Basic conversion of color spaces
     frame_org = top_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -213,6 +214,8 @@ def task0_lt():
 
         mask_black[:crop_lt_h, :] = 0
         mask_supercrop_black[:supercrop_lt_h, :] = 0
+
+        cv2.imshow("mask black", mask_black)
 
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
@@ -300,7 +303,7 @@ def task0_lt():
                 #^ Contour method
                 # cv2.imshow("before contours", mask_black)
                 contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
-                # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
+                cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
                 # cv2.imshow("with contours", frame_org)
                 # print(contours)
                 cnts = []
@@ -344,8 +347,11 @@ def task0_lt():
             #^ Method 2: Powering the mean
             y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
             x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
+            # print(mask_black)
+            # print(x_black[x_black!=0])
             y_resultant = np.mean(y_black) ** powered_y
-            x_resultant = np.mean(x_black[x_black!=0])
+            x_black_nonzero = x_black[x_black!=0]
+            x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
             #& debug
             print("power:", powered_y)
             # cv2.imshow("yframe", y_black)
@@ -354,6 +360,7 @@ def task0_lt():
 
             #~ Formatting data for transfer
             angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
+            print("angle:", angle)
             rotation = angle * kp_lt
             print("rotation:", rotation)
         
@@ -413,11 +420,11 @@ while True:
     # elif pico_task == 6:
     #     print("Obstacle turning right, looking at left of camera for line")
     #     task6_rightlookleft()
-    # elif pico_task == 9:
-    #     print("Switch off")
-    #     task0_lt()
-    # else:
-    #     print("Pico task unknown:", pico_task)
+    elif pico_task == 9:
+        print("Switch off")
+        task0_lt()
+    else:
+        print("Pico task unknown:", pico_task)
 
     #! remove b4 comp for optimisation
     key = cv2.waitKey(1)
