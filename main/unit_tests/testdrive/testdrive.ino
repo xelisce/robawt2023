@@ -51,8 +51,7 @@ void loop() {
         Serial.println("running?");
 
     } else {
-        Robawt.setSteer(0, 0);
-        Robawt.reset();
+        MotorL.setVal(0);
     }
 
     // if(millis()>serialTime)

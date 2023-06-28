@@ -1,291 +1,91 @@
 #include <Arduino.h>
 #include "linesense.h"
+#include <Wire.h>
 
-#define TCAADDR 0x70
+#define TCAADR 0x70
+#define TCSADR 0x29
 
-struct hsv
-{
-    int hue;
-    int sat;
-    int val;
-};
+#define SDA1PIN 6
+#define SCL1PIN 7
 
-struct hsv rgb_to_hsv(float r, float g, float b)
-{
+
+LineSense::InitSense(uint8_t start, uint8_t end){
+    Wire1.setSDA(SDA1PIN);
+    Wire1.setSCL(SCL1PIN);
+    Wire1.setClock(400000);
+    Wire1.begin();
+    for (uint8_t i = start; i < end + 1; i++){
+        tcaselect2(tcs_pins[i]);
+        while (!tcs[i].begin(TCSADR, &Wire1)) { Serial.println("ERROR: TCS34725 No. "); Serial.print(i); Serial.println(" NOT FOUND!"); }
+    }
+}
+
+void LineSense::update(uint8_t start, uint8_t end) {
+    for (int i = start; i < end + 1; i++){
+        tcaselect2(tcs_pins[i]);
+        tcs[i].getRawData(&tcsSensors[i].r, &tcsSensors[i].g, &tcsSensors[i].b, &tcsSensors[i].c);
+        rgb_to_hsv(&tcsSensors[i]);
+    }
+}
+
+void LineSense::debugRaw(uint8_t start, uint8_t end){
+    for (int i = start; i < end + 1; i++){
+        tcaselect2(tcs_pins[i]);
+        Serial.print("Sensor "); Serial.print(i); Serial.print("    ");
+        Serial.print("R: "); Serial.print(tcsSensors[i].r); Serial.print(" ");
+        Serial.print("G: "); Serial.print(tcsSensors[i].g); Serial.print(" ");
+        Serial.print("B: "); Serial.print(tcsSensors[i].b); Serial.print(" ");
+        Serial.print("C: "); Serial.print(tcsSensors[i].c); Serial.print(" ");
+        Serial.print("H: "); Serial.print(tcsSensors[i].hue, DEC); Serial.print(" ");
+        Serial.print("S: "); Serial.print(tcsSensors[i].sat, DEC); Serial.print(" ");
+        Serial.print("V: "); Serial.print(tcsSensors[i].val, DEC); Serial.print(" ");
+    }
+
+    Serial.println();
+    for (uint8_t i = 1; i <end; i++){
+        Serial.print(i);
+        Serial.print("Is black: ");
+        Serial.print(isBlack(i));
+    }
+}
+
+void rgb_to_hsv(LineSense::tcsSensor* currentTCS){
     // R, G, B values are divided by 255
     // to change the range from 0..255 to 0..1:
-    float h, s, v;
-    r /= 255.0;
-    g /= 255.0;
-    b /= 255.0;
+    float r = currentTCS->r / 255.0;
+    float g = currentTCS->g / 255.0;
+    float b = currentTCS->b / 255.0;
     float cmax = max(r, max(g, b)); // maximum of r, g, b
     float cmin = min(r, min(g, b)); // minimum of r, g, b
     float diff = cmax - cmin;       // diff of cmax and cmin.
     if (cmax == cmin)
-        h = 0;
+        currentTCS->hue = 0;
     else if (cmax == r)
-        h = fmod((60 * ((g - b) / diff) + 360), 360.0);
+        currentTCS->hue = fmod((60 * ((g - b) / diff) + 360), 360.0);
     else if (cmax == g)
-        h = fmod((60 * ((b - r) / diff) + 120), 360.0);
+        currentTCS->hue = fmod((60 * ((b - r) / diff) + 120), 360.0);
     else if (cmax == b)
-        h = fmod((60 * ((r - g) / diff) + 240), 360.0);
+        currentTCS->hue = fmod((60 * ((r - g) / diff) + 240), 360.0);
     // if cmax equal zero
     if (cmax == 0)
-        s = 0;
+        currentTCS->sat = 0;
     else
-        s = (diff / cmax) * 100;
+        currentTCS->sat = (diff / cmax) * 100;
     // compute v
-    v = cmax * 100;
-
-    struct hsv curr;
-    curr.hue = h;
-    curr.sat = s;
-    curr.val = v;
-    return curr;
+    currentTCS->val = cmax * 100;
 }
 
-void tcaselect(uint8_t i)
+void tcaselect2(uint8_t i) //I2C Bottom Multiplexer: TCA9548A
 {
-    if (i > 7)
-        return;
-    Wire1.beginTransmission(TCAADDR);
-    Wire1.write(1 << i);
-    Wire1.endTransmission();
-}
-
-LineSense::LineSense()
-{
-    Wire1.begin();
-    for (uint8_t t = 0; t < 6; t++)
-    {
-        tcaselect(_tcs_pins[t]);
-        tcs[t].begin();
+    if (i > 0 && i < 7) {
+        Wire1.beginTransmission(TCAADR);
+        Wire1.write(1 << i);
+        Wire1.endTransmission();
     }
 }
 
-void LineSense::update()
+bool isBlack(int i)
 {
-    tcaselect(0);
-    _tcs.getRawData(&_r, &_g, &_b, &_c);
-    _backlefthue = rgb_to_hsv(_r, _g, _b).hue;
-    _backleftsat = rgb_to_hsv(_r, _g, _b).sat;
-
-    tcaselect(1);
-    _tcs.getRawData(&_r, &_g, &_b, &_c);
-    _backrighthue = rgb_to_hsv(_r, _g, _b).hue;
-    _backrightsat = rgb_to_hsv(_r, _g, _b).sat;
-
-    for (uint8_t t = 2; t < 8; t++)
-    {
-        int val;
-        tcaselect(t);
-        _tcs.getRawData(&_r, &_g, &_b, &_c);
-        _g = max(_g, (uint16_t)_frontblackreadings[t - 2]);
-        _g = min(_g, (uint16_t)_frontwhitereadings[t - 2]);
-        _frontreadings[t - 2] = ((double)(_g - _frontblackreadings[t - 2]) / ((double)(_frontwhitereadings[t - 2] - _frontblackreadings[t - 2])));
-        _frontsat[t - 2] = rgb_to_hsv(_r, _g, _b).sat;
-        // normalise reading
-    }
-}
-
-void LineSense::debugRaw(int port)
-{
-    tcaselect(port);
-    // _tcs.getRawData(&_r, &_g, &_b, &_c);
-    Serial.print("R ");
-    Serial.print(_r);
-    Serial.print(" G ");
-    Serial.print(_g);
-    Serial.print(" B ");
-    Serial.print(_b);
-    Serial.print(" C ");
-    Serial.println(_c);
-}
-
-void LineSense::calibrateSensors()
-{
-    int sum = 0;
-    long start_time;
-    for (uint8_t t = 0; t < 6; t++)
-    {
-        tcaselect(_tcs_pins[t]);                                
-        start_time = millis();
-        tcs[t].getRawData(&_r, &_g, &_b, &_c);
-        Serial.print(t);
-        Serial.print(":");
-        Serial.print(millis() - start_time);
-        
-        Serial.print(" ");
-        Serial.print(_c);
-        Serial.print(",");
-        Serial.print(rgb_to_hsv(_r, _g, _b).hue);
-        Serial.print(",");
-        Serial.print(rgb_to_hsv(_r, _g, _b).sat);
-        Serial.print(",");
-        Serial.print(rgb_to_hsv(_r, _g, _b).val);
-        Serial.print(" ");
-        sum += (rgb_to_hsv(_r, _g, _b).sat);
-        Serial.print(" ");
-        
-    }
-    // delay(50);
-    // Serial.print(sum);
-    Serial.println();
-}
-
-// void LineSense::debugRawColor(int color)
-// {
-//     for (uint8_t t = 0; t < 8; t++)
-//     {
-//         tcaselect(t);
-//         // _tcs.getRawData(&_r, &_g, &_b, &_c);
-//         if (color == 0)
-//         {
-//             Serial.print("R");
-//             Serial.print(t);
-//             Serial.print(" ");
-//             Serial.print(_r);
-//         }
-//         else if (color == 1)
-//         {
-//             Serial.print("G");
-//             Serial.print(t);
-//             Serial.print(" ");
-//             Serial.print(_g);
-//         }
-//         else if (color == 2)
-//         {
-//             Serial.print("B");
-//             Serial.print(t);
-//             Serial.print(" ");
-//             Serial.print(_b);
-//         }
-//         else if (color == 4)
-//         {
-//             Serial.print("C");
-//             Serial.print(t);
-//             Serial.print(" ");
-//             Serial.print(_c);
-//         }
-//         Serial.print(" ");
-//     }
-//     Serial.println();
-// }
-
-int LineSense::get135()
-{
-    double black_thresh = 0.25;
-    _weights[0] = (_frontreadings[0] < black_thresh);
-    _weights[1] = (_frontreadings[1] < black_thresh);
-    _weights[2] = (_frontreadings[2] < black_thresh);
-    _weights[3] = (_frontreadings[3] < black_thresh);
-    _weights[4] = (_frontreadings[4] < black_thresh);
-    _weights[5] = (_frontreadings[5] < black_thresh);
-
-    if (_weights[0] && !_weights[1] && (_weights[2] || _weights[3]) && !_weights[4] && !_weights[5])
-    {
-        return 1;
-    }
-    else if (!_weights[0] && !_weights[1] && (_weights[2] || _weights[3]) && !_weights[4] && _weights[5])
-    {
-        return -1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-bool LineSense::getevac()
-{
-    int sum = 0;
-    for (uint8_t t = 0; t < 8; t++)
-    {
-        tcaselect(t);
-        _tcs.getRawData(&_r, &_g, &_b, &_c);
-        sum += (rgb_to_hsv(_r, _g, _b).sat);
-    }
-    if (sum < 170)
-        return true;
-    else
-        return false;
-}
-
-void LineSense::debugNorm()
-{
-    Serial.println(_frontreadings[2] - _frontreadings[3]);
-}
-
-double LineSense::getBlack(bool forcedtrack)
-{
-    _weights[0] = 1 * (_frontreadings[0] < 0.5);
-    _weights[1] = 1 * (_frontreadings[1] < 0.5);
-    _weights[2] = 1 * (_frontreadings[2] < 0.5);
-    _weights[3] = -1 * (_frontreadings[3] < 0.5);
-    _weights[4] = -1 * (_frontreadings[4] < 0.5);
-    _weights[5] = -1 * (_frontreadings[5] < 0.5);
-
-    // for (uint8_t t = 0; t < 6; t++)
-    // {
-    //     if (_frontsat[t] > 40)
-    //     {
-    //         _frontreadings[t] = 0.25;
-    //         _weights[t] = 0;
-    //     }
-    // }
-
-    // double finalweight = _weights[0] + _weights[1] + _weights[2] + _weights[3] + _weights[4] + _weights[5];
-    double intersection = _weights[0] + _weights[1] + _weights[2] - _weights[3] - _weights[4] - _weights[5];
-    // double mid = _weights[1] + _weights[2] - _weights[3] - _weights[4];
-
-    double blackthresh = 0.5;
-    // Serial.println(intersection);
-
-    // sat left, right: black 39, 35  to green 64, 60
-    // hue left, right 152, 156
-    if (!forcedtrack)
-    {
-        _backleftgreen = _backleftsat > 54 && _backlefthue < 170;
-        _backrightgreen = _backrightsat > 50 && _backrighthue < 170;
-        Serial.print(",");
-        Serial.print(_backleftgreen);
-        Serial.print(_backrightgreen);
-
-        if (_backleftgreen && _backrightgreen && intersection >= 4) // double green
-            return 50;
-        else if (_backleftgreen && intersection >= 2)
-            return -40;
-        else if (_backrightgreen && intersection >= 2)
-            return 40;
-    }
-
-    if (_frontreadings[5] < blackthresh && _frontreadings[0] < blackthresh)
-        return 30;
-    if (_frontreadings[5] < blackthresh && _frontreadings[0] > blackthresh)
-        return -20;
-    else if (_frontreadings[5] > blackthresh && _frontreadings[0] < blackthresh)
-        return 20;
-
-    if (_frontreadings[4] < blackthresh && _frontreadings[1] < blackthresh)
-        return 30;
-    else if (_frontreadings[4] < blackthresh)
-        return -10;
-    else if (_frontreadings[1] < blackthresh)
-        return 10;
-    // if (finalweight >= 2 && _frontreadings[0] < blackthresh)
-    //     return 10;
-    // else if (finalweight <= -2 && _frontreadings[5] < blackthresh)
-    //     return -10;
-
-    // if (finalweight >= 1 && _frontreadings[1] > blackthresh && _frontreadings[0] < blackthresh) // 135
-    //     return 40;
-    // else if (finalweight <= -1 && _frontreadings[4] > blackthresh && _frontreadings[5] < blackthresh)
-    //     return -40;
-
-    _error = _frontreadings[2] - _frontreadings[3];
-    _allerrorever += _error;
-    _steering = _kp * _error + _kd * (_error - _preverror) + _ki * _allerrorever;
-    _preverror = _error;
-
-    return _steering;
+    if (!(LineSense::tcsSensors[i].green) && !(LineSense::tcsSensors[i].red) && grayPercent(i) < 0.5) { return true; }
+    else { return false; }
 }

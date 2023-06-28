@@ -144,9 +144,9 @@ void loop()
         // Serial.print("Time: "); Serial.print(afterEachTCSLoopTimeMicros[i] - beforeEachTCSLoopTimeMicros[i]);
         Serial.println();
         for (int i = 1; i < 3; i++){
-            Serial.print ([i]);
-            Serial.print ("Is black: ");
-            Serial.print (isBlack());
+            Serial.print(i);
+            Serial.print("Is black: ");
+            Serial.print(isBlack(i));
         }
     }
     }

@@ -1,52 +1,56 @@
-#include "Wire.h"
-#include "Adafruit_TCS34725.h"
+/* 
+* linesense.cpp
+* contains library for tcssensors
+* created 26/6/23
+* Reorganised by Dom
+*/
+
+#include <Adafruit_TCS34725.h>
 #include <Arduino.h>
 
 #ifndef linesense_h
 #define linesense_h
 
-#define BLACK_THRESHOLD 0.5
-#define GREEN_HUE_THRESHOLD 0
+class LineSense {
 
-class LineSense
-{
-public:
-    LineSense();
-    void debugRaw(int port);
-    // void debugRawColor(int color);
-    void debugNorm();
-    void update();
-    void calibrateSensors();
-    bool getevac();
-    double getBlack(bool forcedtrack = false);
-    int get135();
-    // int[2] getGreen();
-
-private:
-    double _error, _preverror, _preverrortime, _steering, _kp = 0.3, _ki = 0.001, _kd = 0, _allerrorever;
-    uint16_t _r, _b, _g, _c;
-    // int _frontblackreadings[6] = {20, 25, 21, 25, 26, 23}; // val
-    // int _frontwhitereadings[6] = {95, 133, 149, 147, 131, 109};
-    int _frontblackreadings[6] = {39, 65, 58, 57, 59, 42}; // green value
-    int _frontwhitereadings[6] = {234, 334, 402, 402, 328, 276};
-    const int _tcs_pins[6] = {0,1,2,4,5,6};
-    // int _frontsilverthresh[6] = {19, 20, 21, 19, 19, 19}
-    // double _frontgreenreadings[6] = {1.7, 1.8, 1.8, 1.9, 1.8, 1.8}; //sat
-    // green: 2.11, 2.22, 2.33, 2.48, 2.20, 2.45
-    // blacc: 1.32, 1.47, 1,45, 1.60, 1.44, 1.44
-    // white:
-    double _weights[6] = {2, 1.5, 1, -1, -1.5, -2};
-    double _frontreadings[6];
-    double _frontsat[6];
-    double _backlefthue, _backrighthue, _backleftsat, _backrightsat;
-    int _backleftgreen, _backrightgreen;
-    Adafruit_TCS34725 _tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X);
-    Adafruit_TCS34725 tcs[6] = {Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
+    public:
+        InitSense(uint8_t start=0, uint8_t end=tcsNum);
+        void update(uint8_t start=0, uint8_t end=tcsNum);
+        void debugRaw(uint8_t start=0, uint8_t end=tcsNum);
+        struct tcsSensor
+        {
+            uint16_t r;
+            uint16_t g;
+            uint16_t b;
+            uint16_t c;
+            int hue;
+            int sat;
+            int val;
+            bool green = false;
+            bool red = false;
+            bool black = false;
+            bool silver = false;
+        };
+        struct tcsSensor tcsSensors[6];
+    private:
+        const int tcsNum = 6;
+        Adafruit_TCS34725 tcs[6] = {Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X),
                            Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X)};
+        const int tcs_pins[tcsNum] = {5, 4, 2, 1, 6, 0}; //from left to right, then second row with robot facing forward
+
+        const int tcs_black[tcsNum] = {0, 104, 124, 0, 0, 0};
+        const int tcs_white[tcsNum] = {0, 331, 410, 0, 0, 0};
+        const int tcs_lgreen[tcsNum] = {0, 0, 0, 0, 0, 0};
+        const int tcs_ugreen[tcsNum] = {0, 0, 0, 0, 0, 0};
+        const int tcs_lred1[tcsNum] = {0, 0, 0, 0, 0, 0};
+        const int tcs_ured1[tcsNum] = {0, 0, 0, 0, 0, 0};
+        const int tcs_lred2[tcsNum] = {0, 0, 0, 0, 0, 0};
+        const int tcs_ured2[tcsNum] = {0, 0, 0, 0, 0, 0};
+
 };
 
 #endif
