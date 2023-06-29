@@ -30,6 +30,7 @@
 
 #define debugLoopTime 1
 #define debugTCSReadings 0
+#define debugLidarReadings 1
 #define debugWithLED 1
 #define debugSerial 0
 #define debugState 1
@@ -68,13 +69,13 @@ namespace Servos {
 //* LIDARS SETUP
 const int defaultLidarReading = 200;
 //^ VL53L0X
-const int L0XNum = 4;
+const int L0XNum = 5;
 VL53L0X lidarsl0x[L0XNum];
-int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {3, 5, 6, 0};
-String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "}; //for print debugging
+int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
+const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2};
+String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: "}; //for print debugging
 namespace L0X {
-    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT };
+    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT };
 }
 //^ VL53L1X
 const int L1XNum = 1;
@@ -142,7 +143,8 @@ int serialState = 0, task = 0;
 namespace Pi {
     enum Pi
     {
-        LINETRACK = 0
+        LINETRACK = 0,
+        SWITCH_OFF = 9
     };
 }
 
@@ -213,22 +215,22 @@ void setup()
     // Serial.println("Bottom multiplexer initialised");
 
     //^ LIDARS
-    // for (int i = 0; i < L0XNum; i++) {
-    //     tcaselect(l0x_pins[i]);
-    //     Serial.println(i);
-    //     lidarsl0x[i].setTimeout(500);
-    //     while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
-    //     lidarsl0x[i].startContinuous();
-    // }
-    // for (int i = 0; i < L1XNum; i++) {
-    //     tcaselect(l1x_pins[i]);
-    //     Serial.println(i);
-    //     lidarsl1x[i].setTimeout(500);
-    //     while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
-    //     lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
-    //     lidarsl1x[i].startContinuous(20);
-    // }
-    // Serial.println("Lidars initialised");
+    for (int i = 0; i < L0XNum; i++) {
+        tcaselect(l0x_pins[i]);
+        Serial.println(i);
+        lidarsl0x[i].setTimeout(500);
+        while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
+        lidarsl0x[i].startContinuous();
+    }
+    for (int i = 0; i < L1XNum; i++) {
+        tcaselect(l1x_pins[i]);
+        Serial.println(i);
+        lidarsl1x[i].setTimeout(500);
+        while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
+        lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
+        lidarsl1x[i].startContinuous(20);
+    }
+    Serial.println("Lidars initialised");
 
     //^ SERVOS
     for (int i = 0; i < servosNum; i++) {
@@ -281,22 +283,22 @@ void loop()
     }
 
     //* LIDAR READINGS
-    // #if debugLoopTime
-    // beforeLidarLoopTimeMicros = micros();
-    // #endif
-    // for (int i = 0; i < L0XNum; i++) 
-    // {
-    //     tcaselect(l0x_pins[i]);
-    //     if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
-    // }
-    // for (int i = 0; i < L1XNum; i++) 
-    // {
-    //     tcaselect(l1x_pins[i]);
-    //     if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
-    // }
-    // #if debugLoopTime
-    // afterLidarLoopTimeMicros = micros();
-    // #endif
+    #if debugLoopTime
+    beforeLidarLoopTimeMicros = micros();
+    #endif
+    for (int i = 0; i < L0XNum; i++) 
+    {
+        tcaselect(l0x_pins[i]);
+        if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
+    }
+    for (int i = 0; i < L1XNum; i++) 
+    {
+        tcaselect(l1x_pins[i]);
+        if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
+    }
+    #if debugLoopTime
+    afterLidarLoopTimeMicros = micros();
+    #endif
 
     // //* TCS READINGS
     // #if debugLoopTime
@@ -600,9 +602,9 @@ void loop()
                 #if debugLinegapSweep
                 Serial.print("end line gap: "); Serial.print(endLineGap);
                 #endif
-                #if debugWithLED
-                ledOn = true;
-                #endif
+                // #if debugWithLED
+                // ledOn = true;
+                // #endif
                 switch (linegapSweepState)
                 {
                     case 0: //^ left turn
@@ -656,7 +658,7 @@ void loop()
                         // }
 
                     case 4: //^ right turn
-                        lineAligned = false;
+                        endLineGap = false;
                         turnDist(1, prevTurnedLinegapSweepDistL, 100, LINEGAP, LINEGAP);
                         // if (millis() - testTimerMillis > 500) { 
                         linegapSweepState++; 
@@ -709,21 +711,21 @@ void loop()
 
                     case 8: //^ turn to required position
                         endLineGap = false;
-                            switch ((int)linegapSweepRotation)
-                            {
-                                case 0:
-                                    Robawt.setSteer(rpm, 0);
-                                    curr = STOP;
-                                    break;
-                                case -1:
-                                    turnDist(-1, prevTurnedLinegapSweepDistL/2, 100, STOP);
-                                    linegapSweepRotation = 0;
-                                    break;
-                                case 1:
-                                    turnDist(-1, prevTurnedLinegapSweepDistR/2, 100, STOP);
-                                    linegapSweepRotation = 0;
-                                    break;
-                            }
+                        switch ((int)linegapSweepRotation)
+                        {
+                            case 0:
+                                Robawt.setSteer(rpm, 0);
+                                curr = STOP;
+                                break;
+                            case -1:
+                                turnDist(-1, prevTurnedLinegapSweepDistL/2, 100, STOP);
+                                linegapSweepRotation = 0;
+                                break;
+                            case 1:
+                                turnDist(-1, prevTurnedLinegapSweepDistR/2, 100, STOP);
+                                linegapSweepRotation = 0;
+                                break;
+                        }
                         // }
                         break;
                 }
@@ -736,19 +738,27 @@ void loop()
                 break;
 
             case MOVE_DIST:
+                #if debugWithLED
                 ledOn = true;
+                #endif
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedDirection * forcedSpeed, 0); }
                 break;
 
             case TURN_ANGLE:
+                #if debugWithLED
+                ledOn = true;
+                #endif
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedSpeed, forcedDirection); }
                 break;
 
             case TURN_TIME:
+                #if debugWithLED
+                ledOn = true;
+                #endif
                 if (millis() - startTurnTime > forcedTurnTime) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedSpeed, forcedDirection); } 
                 break;
@@ -774,6 +784,7 @@ void loop()
         curr = EMPTY_LINETRACK;
         alignSweepState = 0;
         ledOn = false;
+        send_pi(Pi::SWITCH_OFF);
     }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
@@ -805,6 +816,18 @@ void loop()
         Serial.print("Time: "); Serial.print(afterEachTCSLoopTimeMicros[i] - beforeEachTCSLoopTimeMicros[i]);
         Serial.println();
     }
+    #endif
+
+    #if debugLidarReadings
+    for (int i = 0; i < L0XNum; i++) {
+        Serial.print(l0x_labels[i]); 
+        Serial.print(l0x_readings[i]); Serial.print(" | ");
+    }
+    for (int i = 0; i < L1XNum; i++) {
+        Serial.print(l1x_labels[i]);
+        Serial.print(l1x_readings[i]); Serial.print("\t");
+    }
+    Serial.println();
     #endif
 }
 
