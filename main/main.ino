@@ -640,7 +640,7 @@ void loop()
                         // [[fallthrough]];
                         break;
                     case 3:
-                        lineAligned = false;
+                        endLineGap = false;
                         Robawt.setSteer(forcedSpeed, forcedDirection);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                         #if debugLinegapSweep
@@ -668,7 +668,7 @@ void loop()
                     case 5:
                         Robawt.setSteer(forcedSpeed, forcedDirection);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
+                        #if debugLinegapSweep
                         Serial.print(" curr dist: "); Serial.print(currForcedDist);
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif
@@ -698,7 +698,7 @@ void loop()
                         endLineGap = false;
                         Robawt.setSteer(forcedSpeed, forcedDirection);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
+                        #if debugLingapSweep
                         Serial.print(" curr dist: "); Serial.print(currForcedDist);
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif

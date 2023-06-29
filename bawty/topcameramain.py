@@ -86,7 +86,8 @@ l_red2lt = np.array([170, 50, 50], np.uint8)
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
 l_greenlt = np.array([60, 90, 90], np.uint8) #alternate values: 50,50,90
-u_greenlt = np.array([80, 255, 255], np.uint8)
+# u_greenlt = np.array([80, 255, 255], np.uint8)
+u_greenlt = np.array([90, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
 u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
 
@@ -265,91 +266,6 @@ def task0_lt():
 
 
     #* GREEN SQUARES
-    # elif gs_sum > 100: #! arbitrary number
-
-    #     #~ Find y position of green
-    #     green_row = np.amax(mask_gs, axis=1)
-    #     gs_vertical_indices = np.where(green_row==255)
-    #     gs_top = gs_vertical_indices[0][0]
-    #     gs_bot = gs_vertical_indices[0][-1]
-    #     print("GS_top: ", gs_top, " |  GS_bot: ", gs_bot)
-
-    #     #~ Debug ROI and blacksample_offset 
-    #     # green_col = np.amax(mask_gs, axis=0)
-    #     # gs_horizontal_indices = np.where(green_col==255)
-    #     # gs_left = gs_horizontal_indices[0][0]
-    #     # gs_right = gs_horizontal_indices[0][-1]
-    #     # gs_width = gs_right - gs_left 
-    #     # print("GS_width: ", gs_width)
-        
-    #     gs_blacksample_offset = 58 #! arbitrary number
-    #     gs_blacksample_h = 10 #! arbitrary number
-    #     GS_MIN_BKPCT = 0.20 #! arbitrary number
-    #     # gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #     # cv2.namedWindow('controls', 2)
-    #     # cv2.resizeWindow('controls', 550, 50)
-    #     # cv2.imshow("controls", gs_bkabove)
-    #     # gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_right-gs_width)
-    #     # print("Percentage of black above green: ", gs_bkpct)
-
-    #     #~ Wait for green to reach last 5 pixels
-    #     if gs_bot > 75: 
-    #         green_col = np.amax(mask_gs, axis=0)
-    #         gs_horizontal_indices = np.where(green_col==255)
-    #         gs_left = gs_horizontal_indices[0][0]
-    #         gs_right = gs_horizontal_indices[0][-1]
-    #         gs_width = gs_right - gs_left 
-    #         print("GS_width: ", gs_width)
-
-    #         #~ Test if below or above line (percentage of black above green)
-    #         gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #         gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width)
-    #         cv2.namedWindow('bk_above', 2)
-    #         cv2.resizeWindow('bk_above', 550, 50)
-    #         cv2.imshow("bk_above", gs_bkabove)
-    #         print("Percentage of black above green: ", gs_bkpct)    
-
-    #         if gs_bkpct > GS_MIN_BKPCT:
-
-    #             #~ Find centre position of green
-    #             gs_centre = (gs_left + gs_right) / 2
-
-    #             #~ Find centre position of black
-                
-    #             gs_bkbeside = mask_black_org[58: 82] #! arbitrary number (previously top: bot)
-    #             gs_bkbeside[:, :30] = 0
-    #             gs_bkbeside[:, -30:] = 0
-    #             gs_black_moments = cv2.moments(gs_bkbeside)
-    #             cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
-    #             cv2.namedWindow('bkbeside', 2)
-    #             cv2.resizeWindow('bkbeside', 550, 50)
-    #             cv2.imshow('bkbeside', gs_bkbeside)
-    #             print("Cx_Black: ", cx_black)
-    #             print("Left: ", gs_left, " | right: ", gs_right)
-                
-    #             #~ Identify type of green square
-    #             if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
-    #                 curr = Task.DOUBLE_GREEN 
-    #                 gs_now = True
-    #                 print(">" * 15, "Double green ", "<" * 15)
-    #             elif cx_black > gs_centre:
-    #                 curr = Task.LEFT_GREEN
-    #                 gs_now = True
-    #                 print("<" * 40, "left green")
-    #             elif cx_black < gs_centre:
-    #                 curr = Task.RIGHT_GREEN
-    #                 gs_now = True
-    #                 print("right green", ">" * 40)
-    #             else:
-    #                 print("ERROR: Green found but case indeterminate.")
-    #                 top_stream.stop()
-    #                 return 0
-                
-    #     else:
-    #         gs_prev_sum = np.sum(mask_gs[gs_top: gs_bot]) / 255
-    #         print("Green in a faraway land: ", gs_prev_sum)
-
-
     elif not gs_now and gs_sum > 100: #! arbitrary number
 
         gs_blacksample_offset = 0 #! arbitrary number
@@ -428,7 +344,6 @@ def task0_lt():
         gsVotes = [0, 0, 0]
 
 
-
     #* LINETRACK    
 
     if not gs_now and not red_now and not blue_now:
@@ -476,61 +391,11 @@ def task0_lt():
             black_line_width = black_right_x - black_left_x
             print("x width:", black_line_width) #& debug width of line
 
-            # #~ End long line gap sequence but runs every code
-            # if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70: # prev values: 68, 60, 160
-            #     end_line_gap = 1 # to end the linegap move forward
-            #     print(r"%%%%%%%%%%% MOVE FORWARD %%%%%%%%%%%")
-            # else:
-            #     end_line_gap = 0
-            # if black_line_width < 34 and first_line_height < 40 and first_line_bottom > 70:
-            #     tip_of_line = mask_black[first_line_top:first_line_top+10, black_left_x:black_right_x]
-            #     tip_of_line_black_percentage = np.sum(tip_of_line)/(10*black_line_width*255)
-            #     print("percentage of tip:", tip_of_line_black_percentage)
-            #     if tip_of_line_black_percentage > 0.70:
-            #         see_thin_line = 1
-            #         print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10) #? why the hell are you printing this 10 times :skul:
-            #     else:
-            #         see_thin_line = 0
-            # else:
-            #     see_thin_line = 0
-
-            # #~ Short line gap, use entire frame
-            # if short_linegap_now:
-            #     rpm_lt = rpm_setptlt
-            #     print("---SHORT LINE GAP NOW---")
-            #     mask_black = mask_uncropped_black
-            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-            #         short_linegap_now = False
-
-            # #~ Long line gap, use entire frame
-            # elif long_linegap_now:
-            #     curr = Task.ALIGN_LINEGAP
-            #     rpm_lt = rpm_setptlt
-            #     print("--------LONG LINE GAP NOW--------")
-            #     mask_black = mask_uncropped_black
-            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-            #         long_linegap_now = False
-
-            #~ When line is ending
-            # elif (first_line_height < 68 and black_line_width < 80):
-            #     # rpm_lt = 0
-
-            #     #~ Trigger short line gap: Jump to next line
-            #     if (first_line_top - second_line_bottom < 80) and second_line_bottom < first_line_top:
-            #         short_linegap_now = True
-            #         mask_black = mask_uncropped_black
-
-            #     #~ Trigger long line gap: Align self
-            #     else:
-            #         curr = Task.ALIGN_LINEGAP
-            #         long_linegap_now = True
-            #         # mask_black = mask_uncropped_black
-
-            #~ Ordinary linetrack
-            # else:
+            #~ Trigger line gap
             if (first_line_top > 80):
                 curr = Task.LINEGAP
 
+            #~ Trigger end line gap
             if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70:
                 end_line_gap = 1 # to end the linegap move forward
             else:
