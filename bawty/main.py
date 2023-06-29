@@ -246,7 +246,7 @@ class Task(enum.Enum):
     TURN_RIGHT = 6
     TURN_BLUE = 7
     BLUE = 8
-    LINEGAP = 11
+    LINEGAP = 12
     # SILVER = 12
     #~ Evac
     NOBALL = 20
