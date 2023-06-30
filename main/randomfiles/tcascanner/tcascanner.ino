@@ -26,14 +26,16 @@ void setup()
     Serial.begin(9600);
     while (!Serial) delay(10);
     delay(1000);
+    Serial.println("Serial initialised");
 
-    WIRE.setSDA(6);
-    WIRE.setSCL(7);
+    WIRE.setSDA(4);
+    WIRE.setSCL(5);
+    WIRE.setClock(400000);
     WIRE.begin();
     
     Serial.println("\nTCAScanner ready!");
     
-    for (uint8_t t=0; t<1; t++) {
+    for (uint8_t t=0; t<8; t++) {
       tcaselect(t);
       Serial.print("TCA Port #"); Serial.println(t);
 

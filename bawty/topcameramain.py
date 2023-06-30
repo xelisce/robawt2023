@@ -30,7 +30,7 @@ gsVotes = [0, 0, 0]
 
 #* LINE TRACK CONSTANTS
 crop_lt_h = 40
-supercrop_lt_h = 140
+supercrop_lt_h = 72//2 + 5
 kp_lt = 1
 width_lt = top_stream_width_org // 4
 height_lt = top_stream_height_org // 4
@@ -86,7 +86,8 @@ l_red2lt = np.array([170, 50, 50], np.uint8)
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
 l_greenlt = np.array([60, 90, 90], np.uint8) #alternate values: 50,50,90
-u_greenlt = np.array([80, 255, 255], np.uint8)
+# u_greenlt = np.array([80, 255, 255], np.uint8)
+u_greenlt = np.array([90, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
 u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
 
@@ -123,12 +124,12 @@ class Task(enum.Enum):
     DOUBLE_GREEN = 3
     ALIGN_LINEGAP = 10
     RED = 4
+    TURN_BLUE = 7
+    BLUE = 8
     LINEGAP = 12
 #     TURN_LEFT = 5
 #     TURN_RIGHT = 6
-#     TURN_BLUE = 7
-#     BLUE = 8
-
+       
 #     # SILVER = 12
 #     #~ Evac
 #     NOBALL = 20
@@ -142,7 +143,7 @@ class Task(enum.Enum):
 rotation = 0
 curr = Task.EMPTY
 rpm_lt = rpm_setptlt
-see_thin_line = 0
+see_thin_line = 0 #unused
 # ball_type = 1
 # silver_line = 0
 end_line_gap = 0
@@ -152,9 +153,10 @@ end_line_gap = 0
 red_now = False
 gs_now = False
 blue_now = False
-short_linegap_now = False
+linegap_now = False
+short_linegap_now = False #unused
 # align_long_linegap_now = False
-long_linegap_now = False
+long_linegap_now = False #unused
 
 pico_task = 0
 
@@ -210,7 +212,7 @@ def contoursCalc(frame_org, mask_black,):
 
 def task0_lt():
     global rotation, rpm_lt, see_thin_line, end_line_gap, curr
-    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now
+    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now, linegap_now
     global gsVotes
 
     #~ Basic conversion of color spaces
@@ -241,6 +243,14 @@ def task0_lt():
     cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
+    #~ Masking out blue
+    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue)
+    blue_sum = np.sum(mask_blue) / 255
+    cv2.namedWindow('blue mask', 2)
+    cv2.resizeWindow('blue mask', 550, 100)
+    cv2.imshow("blue mask", mask_blue) #& debug blue mask
+    print("Blue sum:", blue_sum) #& debug blue pixels
+
     #~ Masking out black
     mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
     mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
@@ -251,7 +261,7 @@ def task0_lt():
     # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
 
 
-    print(curr.name)
+    
 
     if red_sum > 2200: #^ measured values: ~2500
         red_now = True
@@ -265,92 +275,7 @@ def task0_lt():
 
 
     #* GREEN SQUARES
-    # elif gs_sum > 100: #! arbitrary number
-
-    #     #~ Find y position of green
-    #     green_row = np.amax(mask_gs, axis=1)
-    #     gs_vertical_indices = np.where(green_row==255)
-    #     gs_top = gs_vertical_indices[0][0]
-    #     gs_bot = gs_vertical_indices[0][-1]
-    #     print("GS_top: ", gs_top, " |  GS_bot: ", gs_bot)
-
-    #     #~ Debug ROI and blacksample_offset 
-    #     # green_col = np.amax(mask_gs, axis=0)
-    #     # gs_horizontal_indices = np.where(green_col==255)
-    #     # gs_left = gs_horizontal_indices[0][0]
-    #     # gs_right = gs_horizontal_indices[0][-1]
-    #     # gs_width = gs_right - gs_left 
-    #     # print("GS_width: ", gs_width)
-        
-    #     gs_blacksample_offset = 58 #! arbitrary number
-    #     gs_blacksample_h = 10 #! arbitrary number
-    #     GS_MIN_BKPCT = 0.20 #! arbitrary number
-    #     # gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #     # cv2.namedWindow('controls', 2)
-    #     # cv2.resizeWindow('controls', 550, 50)
-    #     # cv2.imshow("controls", gs_bkabove)
-    #     # gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_right-gs_width)
-    #     # print("Percentage of black above green: ", gs_bkpct)
-
-    #     #~ Wait for green to reach last 5 pixels
-    #     if gs_bot > 75: 
-    #         green_col = np.amax(mask_gs, axis=0)
-    #         gs_horizontal_indices = np.where(green_col==255)
-    #         gs_left = gs_horizontal_indices[0][0]
-    #         gs_right = gs_horizontal_indices[0][-1]
-    #         gs_width = gs_right - gs_left 
-    #         print("GS_width: ", gs_width)
-
-    #         #~ Test if below or above line (percentage of black above green)
-    #         gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #         gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width)
-    #         cv2.namedWindow('bk_above', 2)
-    #         cv2.resizeWindow('bk_above', 550, 50)
-    #         cv2.imshow("bk_above", gs_bkabove)
-    #         print("Percentage of black above green: ", gs_bkpct)    
-
-    #         if gs_bkpct > GS_MIN_BKPCT:
-
-    #             #~ Find centre position of green
-    #             gs_centre = (gs_left + gs_right) / 2
-
-    #             #~ Find centre position of black
-                
-    #             gs_bkbeside = mask_black_org[58: 82] #! arbitrary number (previously top: bot)
-    #             gs_bkbeside[:, :30] = 0
-    #             gs_bkbeside[:, -30:] = 0
-    #             gs_black_moments = cv2.moments(gs_bkbeside)
-    #             cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
-    #             cv2.namedWindow('bkbeside', 2)
-    #             cv2.resizeWindow('bkbeside', 550, 50)
-    #             cv2.imshow('bkbeside', gs_bkbeside)
-    #             print("Cx_Black: ", cx_black)
-    #             print("Left: ", gs_left, " | right: ", gs_right)
-                
-    #             #~ Identify type of green square
-    #             if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
-    #                 curr = Task.DOUBLE_GREEN 
-    #                 gs_now = True
-    #                 print(">" * 15, "Double green ", "<" * 15)
-    #             elif cx_black > gs_centre:
-    #                 curr = Task.LEFT_GREEN
-    #                 gs_now = True
-    #                 print("<" * 40, "left green")
-    #             elif cx_black < gs_centre:
-    #                 curr = Task.RIGHT_GREEN
-    #                 gs_now = True
-    #                 print("right green", ">" * 40)
-    #             else:
-    #                 print("ERROR: Green found but case indeterminate.")
-    #                 top_stream.stop()
-    #                 return 0
-                
-    #     else:
-    #         gs_prev_sum = np.sum(mask_gs[gs_top: gs_bot]) / 255
-    #         print("Green in a faraway land: ", gs_prev_sum)
-
-
-    elif gs_sum > 100: #! arbitrary number
+    elif not gs_now and gs_sum > 100: #! arbitrary number
 
         gs_blacksample_offset = 0 #! arbitrary number
         gs_blacksample_h = 10 #! arbitrary number
@@ -381,8 +306,10 @@ def task0_lt():
         cv2.imshow("bk_above", gs_bkabove)
         print("Percentage of black above green: ", gs_bkpct)  
 
+        #~ Test if green is left or right of black
+        #TODO might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
         if gs_bkpct > GS_MIN_BKPCT:
-            gs_bkbeside = mask_black_org[gs_top: gs_bot] #! arbitrary number (previously top: bot)
+            gs_bkbeside = mask_black_org[gs_top: gs_bot]
             gs_bkbeside[:, :30] = 0
             gs_bkbeside[:, -30:] = 0
             gs_black_moments = cv2.moments(gs_bkbeside)
@@ -393,6 +320,7 @@ def task0_lt():
             print("Cx_Black: ", cx_black)
             print("Left: ", gs_left, " | right: ", gs_right)
             
+            #~ Confidence votes
             if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
                 gsVotes[2] += 1            
             elif cx_black > gs_centre: #left
@@ -403,7 +331,7 @@ def task0_lt():
             print("Left Votes: ", gsVotes[0], " ||  Right Votes: ", gsVotes[1], " ||  Double Votes: ", gsVotes[2])
 
             #~ Wait for green to reach near the bottom of frame
-            if gs_bot > 75: 
+            if gs_bot > 65: 
                 dir = gsVotes.index(max(gsVotes))
 
                 if dir == 2:
@@ -424,17 +352,51 @@ def task0_lt():
             gsVotes[1] -= 1
             gsVotes[2] -= 1
     
+    #~ Reset green votes
     elif gs_sum < 100:
         gsVotes = [0, 0, 0]
 
+    #* RESCUE KIT
+
+    b_minarea = 400 #! arbitrary number
+    #~ Rescue kit spotted:
+    if blue_sum >= b_minarea:
+        blue_now = True
+        if (curr.name != "BLUE"):
+            curr = Task.TURN_BLUE
+
+        #~ Find x and y positions of rescue kit
+        blueM = cv2.moments(mask_blue)
+        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        finalx = cx_blue - centre_x_lt
+
+        #~ If the block isn't centred
+        if abs(finalx) >= 5: #! arbitrary number
+            if cx_blue < centre_x_lt: #if rescue kit is to the left of the centre of the frame
+                rotation = -45 # fixed rotation of the bot
+                rpm_lt = 80
+            elif cx_blue > centre_x_lt: #to the right
+                rotation = 45
+                rpm_lt = 80
+
+        #~ Else if the block is (relatively) centred:
+        else:
+            curr = Task.BLUE
+
+    #~ No longer sees the rescue kit
+    elif blue_now and blue_sum < 20: #! arbitrary number
+        blue_now = False
+        rpm_lt = rpm_setptlt
 
 
     #* LINETRACK    
 
-    if not gs_now and not red_now and not blue_now:
+    if not red_now and not blue_now:
 
         #~ Image processing erode-dilate
-        curr = Task.EMPTY
+        if not gs_now:
+            curr = Task.EMPTY
         mask_black = mask_black_org.copy()
         mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
         mask_black = cv2.erode(mask_black, black_kernel)
@@ -476,116 +438,72 @@ def task0_lt():
             black_line_width = black_right_x - black_left_x
             print("x width:", black_line_width) #& debug width of line
 
-            # #~ End long line gap sequence but runs every code
-            # if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70: # prev values: 68, 60, 160
-            #     end_line_gap = 1 # to end the linegap move forward
-            #     print(r"%%%%%%%%%%% MOVE FORWARD %%%%%%%%%%%")
-            # else:
-            #     end_line_gap = 0
-            # if black_line_width < 34 and first_line_height < 40 and first_line_bottom > 70:
-            #     tip_of_line = mask_black[first_line_top:first_line_top+10, black_left_x:black_right_x]
-            #     tip_of_line_black_percentage = np.sum(tip_of_line)/(10*black_line_width*255)
-            #     print("percentage of tip:", tip_of_line_black_percentage)
-            #     if tip_of_line_black_percentage > 0.70:
-            #         see_thin_line = 1
-            #         print("||||||||||||| SEE THIN LINE |||||||||||||\n"*10) #? why the hell are you printing this 10 times :skul:
-            #     else:
-            #         see_thin_line = 0
-            # else:
-            #     see_thin_line = 0
-
-            # #~ Short line gap, use entire frame
-            # if short_linegap_now:
-            #     rpm_lt = rpm_setptlt
-            #     print("---SHORT LINE GAP NOW---")
-            #     mask_black = mask_uncropped_black
-            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-            #         short_linegap_now = False
-
-            # #~ Long line gap, use entire frame
-            # elif long_linegap_now:
-            #     curr = Task.ALIGN_LINEGAP
-            #     rpm_lt = rpm_setptlt
-            #     print("--------LONG LINE GAP NOW--------")
-            #     mask_black = mask_uncropped_black
-            #     if (first_line_height > 68 or black_line_width > 60) and first_line_bottom > 175:
-            #         long_linegap_now = False
-
-            #~ When line is ending
-            # elif (first_line_height < 68 and black_line_width < 80):
-            #     # rpm_lt = 0
-
-            #     #~ Trigger short line gap: Jump to next line
-            #     if (first_line_top - second_line_bottom < 80) and second_line_bottom < first_line_top:
-            #         short_linegap_now = True
-            #         mask_black = mask_uncropped_black
-
-            #     #~ Trigger long line gap: Align self
-            #     else:
-            #         curr = Task.ALIGN_LINEGAP
-            #         long_linegap_now = True
-            #         # mask_black = mask_uncropped_black
-
-            #~ Ordinary linetrack
-            # else:
-            if (first_line_top > 80):
+            #~ Trigger line gap
+            if (first_line_top > 80) and not gs_now:
                 curr = Task.LINEGAP
+                linegap_now = True
 
-            if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70:
+            #~ Trigger end line gap 
+            #^ This happens even in green squares
+            if first_line_height > 32 and first_line_bottom > 65: #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
+                linegap_now = False
             else:
                 end_line_gap = 0
 
-            
-            rpm_lt = rpm_setptlt
-            #~ Line continuation:
-            #^ Contour method
-            mask_black = contoursCalc(frame_org, mask_black)
-            #^ Index method
-            # mask_black[:first_line_top, :] = 0
-            # cv2.imshow("black mask", mask_black)
+            if not gs_now:
+                rpm_lt = rpm_setptlt
+                #~ Line continuation:
+                #^ Contour method
+                mask_black = contoursCalc(frame_org, mask_black)
+                #^ Index method
+                # mask_black[:first_line_top, :] = 0
+                # cv2.imshow("black mask", mask_black)
 
-            #~ Powers and components
-            # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
-            # powered_y = powered_y ** 0.01 #? prev value: 0.5
-            # powered_y = min(3.5, powered_y) #? prev value: 4
-            powered_y = 0.5
-            x_black_com = x_com
+                #~ Powers and components
+                # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
+                # powered_y = powered_y ** 0.01 #? prev value: 0.5
+                # powered_y = min(3.5, powered_y) #? prev value: 4
+                powered_y = 0.5
+                x_black_com = x_com
 
-            #~ Vectorizing the black components
-            #^ Ancillary: Powering xcom
-            # x_com[:, :int(centre/2)] *= -1
-            # x_com = x_com ** 1
-            # x_com[:, :int(width/2)] *= -1
-            #^ Method 1: Powering ycom
-            # powered_y = 2
-            # y_com = y_com ** powered_y
-            # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
-            # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
-            # y_resultant = np.mean(y_black)
-            # x_resultant = np.mean(x_black)
-            #^ Method 2: Powering the mean
-            y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
-            x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
-            # print(mask_black)
-            # print(x_black[x_black!=0])
-            y_resultant = np.mean(y_black) ** powered_y
-            x_black_nonzero = x_black[x_black!=0]
-            x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
-            #& debug
-            print("power:", powered_y)
-            # cv2.imshow("yframe", y_black)
-            # cv2.imshow("xframe", x_black)
-            print("y_resultant:", y_resultant, "x_resultant:", x_resultant)
+                #~ Vectorizing the black components
+                #^ Ancillary: Powering xcom
+                # x_com[:, :int(centre/2)] *= -1
+                # x_com = x_com ** 1
+                # x_com[:, :int(width/2)] *= -1
+                #^ Method 1: Powering ycom
+                # powered_y = 2
+                # y_com = y_com ** powered_y
+                # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+                # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
+                # y_resultant = np.mean(y_black)
+                # x_resultant = np.mean(x_black)
+                #^ Method 2: Powering the mean
+                y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+                x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
+                # print(mask_black)
+                # print(x_black[x_black!=0])
+                y_resultant = np.mean(y_black) ** powered_y
+                x_black_nonzero = x_black[x_black!=0]
+                x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
+                #& debug
+                print("power:", powered_y)
+                # cv2.imshow("yframe", y_black)
+                # cv2.imshow("xframe", x_black)
+                print("y_resultant:", y_resultant, "x_resultant:", x_resultant)
 
-            #~ Formatting data for transfer
-            angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
-            print("angle:", angle)
-            rotation = angle * kp_lt
-            print("rotation:", rotation)
+                #~ Formatting data for transfer
+                angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
+                print("angle:", angle)
+                rotation = angle * kp_lt
+                print("rotation:", rotation)
         
-        else:
+        elif not gs_now:
             print("NO BLACK DETECTED")
+            curr = Task.LINEGAP
+            end_line_gap = 0
+            linegap_now = True
 
     if rotation > 90:
         rotation = 90
@@ -605,6 +523,106 @@ def task0_lt():
                 251, end_line_gap]
     # print(to_pico)
     ser.write(to_pico)
+    print(curr.name)
+
+#* MAIN FUNCTION ---------------------------- LINETRACK SEE LINE ON LEFT WHEN TURN RIGHT ------------------------------------------------
+def task5_leftlookright():
+    global curr, rotation, rpm_lt, see_line
+
+    frame_org = top_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    out.write(frame_org)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+
+    mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
+    mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
+    obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+
+    if obstacle_line_pixels > 625:
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        # obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("end x", obs_line_end_x)
+        if obs_line_end_x > 610:
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
+
+#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
+
+def task6_rightlookleft():
+    global curr, rotation, rpm_lt, see_line
+
+    frame_org = top_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    out.write(frame_org)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+
+    mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
+    mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+    print("obstacle_line_pixels")
+
+    if obstacle_line_pixels > 625: #change later
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        # obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("start x", obs_line_start_x)
+        if obs_line_start_x < :
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
+
+
 
 #* ------------------------ RESPOND TO PICO ----------------------------------
 
@@ -640,7 +658,17 @@ while True:
     # elif pico_task == 6:
     #     print("Obstacle turning right, looking at left of camera for line")
     #     task6_rightlookleft()
+<<<<<<< HEAD
     elif pico_task == 9:  #? pfff i know why gsVotes aren't resetting its cuz you didnt do pico send LOL
+=======
+    elif pico_task == 5:
+        print("Obstacle turning left, looking at right of camera for line")
+        task5_leftlookright()
+    elif pico_task == 6:
+        print("Obstacle turning right, looking at left of camera for line")
+        task6_rightlookleft()
+    elif pico_task == 9:
+>>>>>>> e49613cf36280b673e4c2807c0ea1b7cd13ff36a
         print("Switch off")
         gsVotes = [0, 0, 0]
         task0_lt()
@@ -650,7 +678,7 @@ while True:
     end = time.time()
     print("Loop time: ", end-start)
 
-    #! remove b4 comp for optimisation
+    #! remove b4 comp for optimisation and the video stream too
     key = cv2.waitKey(1)
     if key == ord('q'):
         break

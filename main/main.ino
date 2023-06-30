@@ -30,12 +30,12 @@
 
 #define debugLoopTime 1
 #define debugTCSReadings 0
+#define debugLidarReadings 1
 #define debugWithLED 1
 #define debugSerial 0
 #define debugState 1
 
-#define debugAlignSweep 1
-#define debugLinegapSweep 0
+#define debugLinegapSweep 1
 
 //* FUNCTION HEADERS
 void turnAngle(double rot, double angleOfTurn, double speedOfTurn, enum currType postState, enum currType afterInitState=TURN_ANGLE);
@@ -68,13 +68,13 @@ namespace Servos {
 //* LIDARS SETUP
 const int defaultLidarReading = 200;
 //^ VL53L0X
-const int L0XNum = 4;
+const int L0XNum = 5;
 VL53L0X lidarsl0x[L0XNum];
-int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {3, 5, 6, 0};
-String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: "}; //for print debugging
+int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
+const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2};
+String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: "}; //for print debugging
 namespace L0X {
-    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT };
+    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT };
 }
 //^ VL53L1X
 const int L1XNum = 1;
@@ -122,16 +122,17 @@ const int tcs_ured2[tcsNum] = {0, 0, 0, 0, 0, 0};
 //* ------------------------------------------- USER-DEFINED VARIABLES -------------------------------------------
 
 //^ DEBUG
-long beforeEntireLoopTimeMicros, afterEntireLoopTimeMicros;
-long beforeLidarLoopTimeMicros, afterLidarLoopTimeMicros;
-long beforeTCSLoopTimeMicros, afterTCSLoopTimeMicros;
-long beforeEachTCSLoopTimeMicros[tcsNum], afterEachTCSLoopTimeMicros[tcsNum];
+unsigned long long beforeEntireLoopTimeMicros, afterEntireLoopTimeMicros;
+unsigned long long beforeLidarLoopTimeMicros, afterLidarLoopTimeMicros;
+unsigned long long beforeTCSLoopTimeMicros, afterTCSLoopTimeMicros;
+unsigned long long beforeEachTCSLoopTimeMicros[tcsNum], afterEachTCSLoopTimeMicros[tcsNum];
 double debugLDist, debugRDist;
-long testTimerMillis;
+unsigned long testTimerMillis;
 bool ledOn = false;
+int greenState;
 
 //^ LOGIC TIMINGS
-long lastSerialPiSendMillis = millis();
+unsigned long lastSerialPiSendMillis = millis();
 
 //^ ESSENTIALS
 currType curr = TCS_LINETRACK;
@@ -141,7 +142,10 @@ int serialState = 0, task = 0;
 namespace Pi {
     enum Pi
     {
-        LINETRACK = 0
+        LINETRACK = 0,
+        OBSTACLE_ON_RIGHT = 5,
+        OBSTACLE_ON_LEFT = 6,
+        SWITCH_OFF = 9
     };
 }
 
@@ -156,20 +160,50 @@ double startForcedDistL, startForcedDistR, currForcedDist;
 double wantedForcedDist = 0;
 double forcedDirection = 0;
 double forcedSpeed = 0;
-long forcedTurnTime = 0, startTurnTime;
+unsigned long forcedTurnTime = 0, startTurnTime;
 
-//^ ALIGNING SWEEP LINE GAP
+//^ ALIGNING SWEEP LINE GAP -- unused
 int alignSweepState = 0;
 bool lineAligned = true;
 // bool endLineGap = true;
-long afterGapMillis;
+unsigned long afterGapMillis;
 double prevTurnedAlignSweepDistL, prevTurnedAlignSweepDistR;
 double alignSweepRotation;
 
+//^ LINEGAP SWEEP
 int linegapSweepState = 0;
 double prevTurnedLinegapSweepDistL, prevTurnedLinegapSweepDistR;
 bool endLineGap = true;
+unsigned long linegapDebugWaitMillis;
 double linegapSweepRotation;
+
+//^ OBSTACLE
+int turn_dir,
+    obstState;
+int* sideObstDist;
+double obstDist,
+    obstDistL,
+    obstDistR,
+    obstDistTravelled,
+    obstStartTurnBackDist,
+    obstCurrDist;
+float o_rotation = 0.5; //obstacle fixed rotation
+long obst_time_start;
+bool see_line = false;
+
+//^ Blue cube
+double prev_kit_rotation,
+    kitStartDist,
+    kitBeforeStraightDist,
+    kitDistToReverse = 0,
+    kitStartReverseDist,
+    kitStartTurnBackDist,
+    kitTurnBackDist,
+    kit_distToTurn;
+long endBlueMillis = millis(),
+    pickupKitStateTimer;
+int pickupKitState;
+int afterKitState;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -212,22 +246,22 @@ void setup()
     // Serial.println("Bottom multiplexer initialised");
 
     //^ LIDARS
-    // for (int i = 0; i < L0XNum; i++) {
-    //     tcaselect(l0x_pins[i]);
-    //     Serial.println(i);
-    //     lidarsl0x[i].setTimeout(500);
-    //     while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
-    //     lidarsl0x[i].startContinuous();
-    // }
-    // for (int i = 0; i < L1XNum; i++) {
-    //     tcaselect(l1x_pins[i]);
-    //     Serial.println(i);
-    //     lidarsl1x[i].setTimeout(500);
-    //     while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
-    //     lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
-    //     lidarsl1x[i].startContinuous(20);
-    // }
-    // Serial.println("Lidars initialised");
+    for (int i = 0; i < L0XNum; i++) {
+        tcaselect(l0x_pins[i]);
+        Serial.println(i);
+        lidarsl0x[i].setTimeout(500);
+        while (!lidarsl0x[i].init()) { Serial.print("ERROR: "); Serial.print(l0x_labels[i]); Serial.print("at pin "); Serial.print(l0x_pins[i]); Serial.println(" - L0X failed to initialise"); }
+        lidarsl0x[i].startContinuous();
+    }
+    for (int i = 0; i < L1XNum; i++) {
+        tcaselect(l1x_pins[i]);
+        Serial.println(i);
+        lidarsl1x[i].setTimeout(500);
+        while (!lidarsl1x[i].init()) { Serial.print("ERROR: "); Serial.print(l1x_labels[i]); Serial.print("at pin "); Serial.print(l1x_pins[i]); Serial.print(" - L1X failed to initialise"); }
+        lidarsl1x[i].setDistanceMode(VL53L1X::Medium);
+        lidarsl1x[i].startContinuous(20);
+    }
+    Serial.println("Lidars initialised");
 
     //^ SERVOS
     for (int i = 0; i < servosNum; i++) {
@@ -280,22 +314,22 @@ void loop()
     }
 
     //* LIDAR READINGS
-    // #if debugLoopTime
-    // beforeLidarLoopTimeMicros = micros();
-    // #endif
-    // for (int i = 0; i < L0XNum; i++) 
-    // {
-    //     tcaselect(l0x_pins[i]);
-    //     if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
-    // }
-    // for (int i = 0; i < L1XNum; i++) 
-    // {
-    //     tcaselect(l1x_pins[i]);
-    //     if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
-    // }
-    // #if debugLoopTime
-    // afterLidarLoopTimeMicros = micros();
-    // #endif
+    #if debugLoopTime
+    beforeLidarLoopTimeMicros = micros();
+    #endif
+    for (int i = 0; i < L0XNum; i++) 
+    {
+        tcaselect(l0x_pins[i]);
+        if (lidarsl0x[i].available()) { l0x_readings[i] = lidarsl0x[i].readRangeMillimeters(); }
+    }
+    for (int i = 0; i < L1XNum; i++) 
+    {
+        tcaselect(l1x_pins[i]);
+        if (lidarsl1x[i].dataReady()) { l1x_readings[i] = lidarsl1x[i].read(false); }
+    }
+    #if debugLoopTime
+    afterLidarLoopTimeMicros = micros();
+    #endif
 
     // //* TCS READINGS
     // #if debugLoopTime
@@ -328,44 +362,46 @@ void loop()
             switch (task)
             {
                 case 0: //EMPTY LINETRACK
-                    // if (((curr == MOVE_DIST && postForcedDistCase == EMPTY_LINETRACK) || curr == AFTER_ALIGN_SWEEP) && endLineGap) { curr = EMPTY_LINETRACK; }
+                    if (curr == BEFORE_BLUE_TURN || curr == BLUE || curr == BLUE_PICKUP || curr == AFTER_BLUE_INIT || curr == AFTER_BLUE_REVERSE || curr == AFTER_BLUE_TURN) { break; }
+                    if (curr == BEFORE_OBSTACLE_REVERSE || curr == BEFORE_OBSTACLE_TURN || curr == OBSTACLE || curr == AFTER_OBSTACLE_TURN) { break; }
                     if (curr == LINEGAP) { break; }
-                    if (curr == ALIGN_SWEEP || curr == AFTER_ALIGN_SWEEP) { break; }
                     if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
+                    if (curr == LEFT_GREEN || curr == RIGHT_GREEN || curr == DOUBLE_GREEN) { break; }
                     curr = EMPTY_LINETRACK;
                     break;
 
                 case 1:
-                    // curr = STOP;
-                    if (curr == EMPTY_LINETRACK || curr == LINEGAP){
-                        moveDist(1, 3*3, 100, LEFT_GREEN);
+                    if (curr == EMPTY_LINETRACK){
+                        moveDist(1, 4*3, 100, LEFT_GREEN);
                     }
                     break;
 
                 case 2:
-                    // curr = STOP;
-                    if (curr == EMPTY_LINETRACK || curr == LINEGAP){
-                        moveDist(1, 3*3, 100, RIGHT_GREEN);
+                    if (curr == EMPTY_LINETRACK) {
+                        moveDist(1, 4*3, 100, RIGHT_GREEN);
                     }
                     break;
 
                 case 3:
-                    if (curr == EMPTY_LINETRACK || curr == LINEGAP){
+                    if (curr == EMPTY_LINETRACK) {
                         moveDist(1, 3*3, 100, DOUBLE_GREEN);
                     }
                     break;
 
                 case 4:
-                    curr = RED;
-                    break;
-
-                case 10:
-                    if (curr == ALIGN_SWEEP || curr == AFTER_ALIGN_SWEEP) { break; }
-                    if (curr == MOVE_DIST || curr == TURN_ANGLE) { break; }
-                    if (millis() - afterGapMillis > 200) {
-                        curr = ALIGN_SWEEP;
-                        alignSweepState = 0;
+                    if (curr == EMPTY_LINETRACK) {
+                        curr = RED;
                     }
+                    break;
+                
+                case 7:
+                    if (curr == EMPTY_LINETRACK){
+                        curr = BEFORE_BLUE_TURN;
+                    }
+                    break;
+                
+                case 8:
+                    curr = BLUE;
                     break;
 
                 case 12:
@@ -402,6 +438,12 @@ void loop()
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
                 Serial.print("rotation: "); Serial.println(rotation);
+                if (obstacle_present() && (millis() - endBlueMillis > 2000)) {
+                    curr = BEFORE_OBSTACLE_REVERSE;
+                    turn_dir = l0x_readings[L0X::LEFT] > l0x_readings[L0X::RIGHT] ? -1 : 1;
+                    obstDist = MotorL.getDist();
+                    see_line = false;
+                }
                 break;
 
             case LEFT_GREEN:
@@ -428,172 +470,122 @@ void loop()
                 curr = STOP;
                 break;
 
-            case ALIGN_SWEEP:
-                #if debugAlignSweep
-                Serial.print("aligned line: "); Serial.print(lineAligned);
-                #endif
-                #if debugWithLED
-                ledOn = true;
-                #endif
-                switch (alignSweepState)
-                {
-                    case 0: //^ left turn
-                        lineAligned = false;
-                        turnAngle(-1, 80, ALIGN_SWEEP, ALIGN_SWEEP);
-                        alignSweepState++;
-                        // [[fallthrough]];
-                        break;
-                    case 1:
-                        Robawt.setSteer(30, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) {
-                            alignSweepRotation = 0;
-                            prevTurnedAlignSweepDistL = currForcedDist;
-                            alignSweepState++;
-                            // [[fallthrough]];
-                        } else if (lineAligned) {
-                            curr = STOP;
-                            Robawt.stop();
-                            alignSweepRotation = -1;
-                            prevTurnedAlignSweepDistL = currForcedDist;
-                            alignSweepState++; 
-                            // [[fallthrough]];
-                        // } else {
-                        }
-                        break;
-                        // }
+            //* ---------------------- RESCUE KIT ----------------------
 
-                    case 2: //^ turn back right to the original position
-                        turnDist(1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, ALIGN_SWEEP);
-                        alignSweepState++;
-                        // [[fallthrough]];
-                        break;
-                    case 3:
-                        lineAligned = false;
-                        Robawt.setSteer(30, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) { 
-                            // Robawt.stop();
-                            alignSweepState++; 
-                            // testTimerMillis = millis();
-                            // [[fallthrough]];
-                        }
-                        // } else {
-                        break;
-                        // }
-
-                    case 4: //^ right turn
-                        // Robawt.setSteer(0, 0);
-                        lineAligned = false;
-                        turnDist(1, prevTurnedAlignSweepDistL, ALIGN_SWEEP, ALIGN_SWEEP);
-                        // if (millis() - testTimerMillis > 500) { 
-                        alignSweepState++; 
-                        // }
-                        // [[fallthrough]];
-                        break;
-                    case 5:
-                        Robawt.setSteer(30, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) {
-                            prevTurnedAlignSweepDistR = currForcedDist;
-                            alignSweepState++;
-                            // [[fallthrough]];
-                        } else if (lineAligned) { 
-                            curr = STOP;
-                            Robawt.stop();
-                            alignSweepRotation = 1;
-                            prevTurnedAlignSweepDistR = currForcedDist;
-                            alignSweepState = 8; 
-                            // testTimerMillis = millis();
-                            // break;
-                        }
-                        // } else {
-                        break;
-                        // }
-
-                    case 6: //^ turn back left to original position
-                        turnDist(-1, prevTurnedAlignSweepDistR, ALIGN_SWEEP, ALIGN_SWEEP);
-                        alignSweepState++;
-                        // [[fallthrough]];
-                        break;
-                    case 7:
-                        lineAligned = false;
-                        Robawt.setSteer(30, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) { 
-                            // Robawt.stop();
-                            alignSweepState++;
-                            // testTimerMillis = millis();
-                            // [[fallthrough]];
-                        }
-                        // } else {
-                        break;
-                        // }
-
-                    case 8: //^ turn to required position
-                        lineAligned = false;
-                        // Robawt.setSteer(0, 0);
-                        // if (millis() - testTimerMillis > 500) {
-                            switch ((int)alignSweepRotation)
-                            {
-                                case 0:
-                                    Robawt.setSteer(rpm, 0);
-                                    curr = STOP;
-                                    break;
-                                case -1:
-                                    turnDist(-1, prevTurnedAlignSweepDistL/2, 100, STOP);
-                                    alignSweepRotation = 0;
-                                    break;
-                                case 1:
-                                    turnDist(-1, prevTurnedAlignSweepDistR/2, 100, STOP);
-                                    alignSweepRotation = 0;
-                                    break;
-                            }
-                        // }
-                        break;
+            case BEFORE_BLUE_TURN:
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(rpm, rotation);
+                claw_down();
+                claw_halfclose();
+                kitBeforeStraightDist = pickMotorDist(prev_kit_rotation); // chooses between L or R motor encoder vals based on previous rotation
+                if (ball_present()) {
+                    pickupKitState = 0;
+                    curr = BLUE_PICKUP; 
+                } else if (obstacle_present()) {
+                    curr = AFTER_BLUE_REVERSE;
                 }
                 break;
 
-            case AFTER_ALIGN_SWEEP:
-                // curr = STOP;
+            case BLUE:
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(120, 0);
+                claw_down();
+                claw_halfclose();
+                if (ball_present()) { 
+                    pickupKitState = 0;
+                    Robawt.stop();
+                    curr = BLUE_PICKUP;
+                } 
+                break;
+
+            case BLUE_PICKUP:
+                send_pi(Pi::LINETRACK);
+                switch (pickupKitState)
+                {
+                    case 0:
+                        pickupKitStateTimer = millis();
+                        pickupKitState ++;
+                        sort_alive();
+                        break;
+
+                    case 1:
+                        claw_close_cube();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 2:
+                        claw_up();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 3: 
+                        claw_open();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 4:
+                        claw_down();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState = 0; 
+                            curr = AFTER_BLUE_REVERSE; 
+                        }
+                        break;
+                }
+                Robawt.stop();
+                break;
+
+            case AFTER_BLUE_REVERSE:
+                send_pi(Pi::LINETRACK);
                 #if debugWithLED
                 ledOn = true;
                 #endif
-                send_pi(Pi::LINETRACK);
-                moveDist(1, 20, 100, EMPTY_LINETRACK);
-                afterGapMillis = millis();
+                Robawt.setSteer(-120, 0);
+                if (fabs(pickMotorDist(prev_kit_rotation) - kitStartReverseDist) > kitDistToReverse) { 
+                    kit_distToTurn = kitBeforeStraightDist - kitStartDist;
+                    kitStartTurnBackDist = pickMotorDist(prev_kit_rotation);
+                    curr = AFTER_BLUE_TURN; 
+                }
                 break;
 
+            case AFTER_BLUE_TURN:
+                send_pi(Pi::LINETRACK);
+                #if debugWithLED
+                ledOn = true;
+                #endif
+                Robawt.setSteer(-rpm, prev_kit_rotation);
+                kitTurnBackDist =  abs(pickMotorDist(prev_kit_rotation)-kitStartTurnBackDist);
+                if (kitTurnBackDist > kit_distToTurn) { 
+                    endBlueMillis = millis();
+                    curr = EMPTY_LINETRACK; 
+                }
+                break;
+
+            //* ---------------------- LINE GAP ----------------------
             case LINEGAP:
                 #if debugLinegapSweep
                 Serial.print("end line gap: "); Serial.print(endLineGap);
+                Serial.print("linegap state: "); Serial.println(linegapSweepState);
+                Serial.print("linegap rotation: "); Serial.println(linegapSweepRotation);
                 #endif
-                #if debugWithLED
-                ledOn = true;
-                #endif
+                // #if debugWithLED
+                // ledOn = true;
+                // #endif
                 switch (linegapSweepState)
                 {
                     case 0: //^ left turn
                         endLineGap = false;
                         turnAngle(-1, 240, 100, LINEGAP, LINEGAP);
                         linegapSweepState++;
-                        // [[fallthrough]];
                         break;
                     case 1:
                         Robawt.setSteer(forcedSpeed, forcedDirection);
@@ -606,9 +598,7 @@ void loop()
                             linegapSweepRotation = 0;
                             prevTurnedLinegapSweepDistL = currForcedDist;
                             linegapSweepState++;
-                            // [[fallthrough]];
                         } else if (endLineGap) {
-                            curr = STOP;
                             Robawt.stop();
                             linegapSweepRotation = -1;
                             prevTurnedLinegapSweepDistL = currForcedDist;
@@ -619,10 +609,49 @@ void loop()
                     case 2: //^ turn back right to the original position
                         turnDist(1, prevTurnedLinegapSweepDistL, 100, LINEGAP, LINEGAP);
                         linegapSweepState++;
-                        // [[fallthrough]];
                         break;
                     case 3:
-                        lineAligned = false;
+                        endLineGap = false;
+                        Robawt.setSteer(forcedSpeed, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        #if debugLinegapSweep
+                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
+                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
+                        #endif
+                        if (currForcedDist >= wantedForcedDist) {
+                            linegapSweepState++;
+                        }
+                        break;
+
+                    case 4: //^ right turn
+                        endLineGap = false;
+                        turnDist(1, prevTurnedLinegapSweepDistL, 100, LINEGAP, LINEGAP);
+                        linegapSweepState++;
+                        break;
+                    case 5:
+                        Robawt.setSteer(forcedSpeed, forcedDirection);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        #if debugLinegapSweep
+                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
+                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
+                        #endif
+                        if (currForcedDist >= wantedForcedDist) {
+                            prevTurnedLinegapSweepDistR = currForcedDist;
+                            linegapSweepState++;
+                        } else if (endLineGap) {
+                            Robawt.stop();
+                            linegapSweepRotation = 1;
+                            prevTurnedLinegapSweepDistR = currForcedDist;
+                            linegapSweepState = 8; 
+                        }
+                        break;
+
+                    case 6: //^ turn back left to original position
+                        turnDist(-1, prevTurnedLinegapSweepDistR, 100, LINEGAP, LINEGAP);
+                        linegapSweepState++;
+                        break;
+                    case 7:
+                        endLineGap = false;
                         Robawt.setSteer(forcedSpeed, forcedDirection);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                         #if debugLinegapSweep
@@ -630,87 +659,149 @@ void loop()
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif
                         if (currForcedDist >= wantedForcedDist) { 
-                            // Robawt.stop();
-                            linegapSweepState++; 
-                            // testTimerMillis = millis();
-                            // [[fallthrough]];
-                        }
-                        // } else {
-                        break;
-                        // }
-
-                    case 4: //^ right turn
-                        lineAligned = false;
-                        turnDist(1, prevTurnedLinegapSweepDistL, 100, LINEGAP, LINEGAP);
-                        // if (millis() - testTimerMillis > 500) { 
-                        linegapSweepState++; 
-                        // }
-                        // [[fallthrough]];
-                        break;
-                    case 5:
-                        Robawt.setSteer(forcedSpeed, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) {
-                            prevTurnedLinegapSweepDistR = currForcedDist;
-                            linegapSweepState++;
-                            // [[fallthrough]];
-                        } else if (endLineGap) { 
-                            curr = STOP;
-                            Robawt.stop();
-                            linegapSweepRotation = 1;
-                            prevTurnedLinegapSweepDistR = currForcedDist;
-                            linegapSweepState = 8; 
-                            // testTimerMillis = millis();
-                            // break;
-                        }
-                        // } else {
-                        break;
-                        // }
-
-                    case 6: //^ turn back left to original position
-                        turnDist(-1, prevTurnedLinegapSweepDistR, 100, LINEGAP, LINEGAP);
-                        linegapSweepState++;
-                        // [[fallthrough]];
-                        break;
-                    case 7:
-                        endLineGap = false;
-                        Robawt.setSteer(forcedSpeed, forcedDirection);
-                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
-                        #if debugAlignSweep
-                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
-                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
-                        #endif
-                        if (currForcedDist >= wantedForcedDist) { 
                             linegapSweepState++;
                         }
-                        // } else {
                         break;
-                        // }
 
                     case 8: //^ turn to required position
+                        #if debugWithLED
+                        ledOn = true;
+                        #endif
                         endLineGap = false;
-                            switch ((int)linegapSweepRotation)
-                            {
-                                case 0:
-                                    Robawt.setSteer(rpm, 0);
-                                    curr = STOP;
-                                    break;
-                                case -1:
-                                    turnDist(-1, prevTurnedLinegapSweepDistL/2, 100, STOP);
-                                    linegapSweepRotation = 0;
-                                    break;
-                                case 1:
-                                    turnDist(-1, prevTurnedLinegapSweepDistR/2, 100, STOP);
-                                    linegapSweepRotation = 0;
-                                    break;
-                            }
+                        linegapSweepState++; //TODO change this to = 11 directly
+                        Robawt.stop(); //^ prev not here
+                        // switch ((int)linegapSweepRotation)
+                        // {
+                        //     case 0:
+                                // Robawt.setSteer(rpm, 0);
+                        //         break;
+                        //     case -1:
+                        //         turnDist(-1, prevTurnedLinegapSweepDistL/2, 100, LINEGAP);
+                        //         break;
+                        //     case 1:
+                        //         turnDist(-1, prevTurnedLinegapSweepDistR/2, 100, LINEGAP);
+                        //         break;
                         // }
                         break;
+
+                    case 9: //^ wait for a while to debug
+                        Robawt.stop();
+                        linegapDebugWaitMillis = millis();
+                        linegapSweepState++;
+                        break;
+                    case 10:
+                        if (millis() - linegapDebugWaitMillis > 2000) {
+                            if (linegapSweepRotation == 0) { linegapSweepState++; }
+                            else { curr = EMPTY_LINETRACK; }
+                        } else {
+                            Robawt.stop();
+                        }
+                        break;
+
+                    case 11: //^ move forward 25 cm or till see line
+                        moveDist(1, 75, 100, LINEGAP, LINEGAP);
+                        linegapSweepState++;
+                        endLineGap = false;
+                        break;
+                    case 12:
+                        #if debugWithLED
+                        ledOn = true;
+                        #endif
+                        Robawt.setSteer(forcedDirection * forcedSpeed, 0);
+                        currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+                        #if debugLinegapSweep
+                        Serial.print(" curr dist: "); Serial.print(currForcedDist);
+                        Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
+                        #endif
+                        if (currForcedDist >= wantedForcedDist || endLineGap) {
+                            curr = EMPTY_LINETRACK;
+                            linegapSweepState = 0;
+                        }
+                        break;
                 }
+                break;
+            
+            //* ----------------------------- OBSTACLE LOGIC ----------------------------- 
+
+            case BEFORE_OBSTACLE_REVERSE: //^ reversing after detecting obstacle
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(-120, 0);
+                Serial.println(MotorL.getDist() - obstDist);
+                if (fabs(MotorL.getDist() - obstDist) > 67.5) {
+                    obstState = 0;
+                    sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
+                    curr = BEFORE_OBSTACLE_TURN; }
+                break;
+
+            case BEFORE_OBSTACLE_TURN: //^ turning 90 degrees
+                if (turn_dir == 1) { send_pi(Pi::OBSTACLE_ON_LEFT); }
+                else { send_pi(Pi::OBSTACLE_ON_RIGHT); }
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist > 300) { obstState ++; }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist < 300) { obstState ++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(rpm, 0);
+                        obstState = 0;
+                        curr = OBSTACLE;    
+                        obst_time_start = millis();
+                        break;
+                }
+                Serial.print("Turn dir: ");
+                Serial.print(turn_dir);
+                Serial.print(" || Lidar reading: ");
+                Serial.println(*sideObstDist);
+                break;
+
+            case OBSTACLE: //^ going around obstacle
+                if (turn_dir == 1) { send_pi(Pi::OBSTACLE_ON_LEFT); }
+                else { send_pi(Pi::OBSTACLE_ON_RIGHT); }
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, 0);
+                        if (*sideObstDist < 150) { obstState++; }
+                        break;
+                        
+                    case 1:
+                        Robawt.setSteer(rpm, 0);
+                        if (*sideObstDist > 150) { obstState++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(rpm, -o_rotation*turn_dir);
+                        if (*sideObstDist < 150) { obstState++; }
+                        break;
+
+                    case 3:
+                        Robawt.setSteer(rpm, -o_rotation*turn_dir);
+                        if (*sideObstDist > 150) { obstState = 0; }
+                        break;
+                }
+                Serial.print("Obstacle state: ");
+                Serial.println(obstState);
+                //~ Minimum obstacle turn time
+                if (see_line && (millis() - obst_time_start) > 2000){
+                    curr = AFTER_OBSTACLE_TURN;
+                    obst_time_start = millis();
+                    obstState = 0; 
+                    obstStartTurnBackDist = pickMotorDist(turn_dir); 
+                }
+                break;
+
+            case AFTER_OBSTACLE_TURN: //^ turning back to line after obstacle (real one)
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(100, turn_dir*0.7);
+                obstCurrDist = pickMotorDist(turn_dir);
+                if (obstCurrDist - obstStartTurnBackDist > 25) curr = EMPTY_LINETRACK; }
                 break;
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
@@ -720,21 +811,29 @@ void loop()
                 break;
 
             case MOVE_DIST:
+                #if debugWithLED
                 ledOn = true;
+                #endif
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedDirection * forcedSpeed, 0); }
                 break;
 
             case TURN_ANGLE:
+                #if debugWithLED
+                ledOn = true;
+                #endif
                 currForcedDist = getRotated(startForcedDistL, startForcedDistR);
                 if (currForcedDist >= wantedForcedDist) { curr = postForcedDistCase; }
                 else { Robawt.setSteer(forcedSpeed, forcedDirection); }
                 break;
 
             case TURN_TIME:
-                if (millis() - startTurnTime > forcedTurnTime) curr = postForcedDistCase;
-                else Robawt.setSteer(forcedSpeed, forcedDirection);
+                #if debugWithLED
+                ledOn = true;
+                #endif
+                if (millis() - startTurnTime > forcedTurnTime) { curr = postForcedDistCase; }
+                else { Robawt.setSteer(forcedSpeed, forcedDirection); } 
                 break;
 
             default:
@@ -747,17 +846,15 @@ void loop()
 
         #if debugState
         Serial.print("----- curr: "); Serial.print(curr); Serial.print(" task: "); Serial.print(task); Serial.println(" -----");
-        Serial.print("alignSweepState: "); Serial.println(alignSweepState);
         #endif
 
     } else {
         //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
-        Robawt.setSteer(0, 0);
-        Robawt.resetPID();
+        Robawt.stop();
         curr = EMPTY_LINETRACK;
-        alignSweepState = 0;
         ledOn = false;
+        send_pi(Pi::SWITCH_OFF); //? yay you remembered to add this line ~DOM
     }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------
@@ -789,6 +886,18 @@ void loop()
         Serial.print("Time: "); Serial.print(afterEachTCSLoopTimeMicros[i] - beforeEachTCSLoopTimeMicros[i]);
         Serial.println();
     }
+    #endif
+
+    #if debugLidarReadings
+    for (int i = 0; i < L0XNum; i++) {
+        Serial.print(l0x_labels[i]); 
+        Serial.print(l0x_readings[i]); Serial.print(" | ");
+    }
+    for (int i = 0; i < L1XNum; i++) {
+        Serial.print(l1x_labels[i]);
+        Serial.print(l1x_readings[i]); Serial.print("\t");
+    }
+    Serial.println();
     #endif
 }
 

@@ -1102,7 +1102,7 @@ void loop()
                         claw_open();
                         if (millis() - pickupKitStateTimer > 500) {
                             pickupKitStateTimer = millis();
-                            pickupKitState ++; }
+                          pickupKitState ++; }
                         break;
 
                     case 4:
