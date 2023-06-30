@@ -30,7 +30,7 @@ gsVotes = [0, 0, 0]
 
 #* LINE TRACK CONSTANTS
 crop_lt_h = 40
-supercrop_lt_h = 140
+supercrop_lt_h = 72//2 + 5
 kp_lt = 1
 width_lt = top_stream_width_org // 4
 height_lt = top_stream_height_org // 4
@@ -143,7 +143,7 @@ class Task(enum.Enum):
 rotation = 0
 curr = Task.EMPTY
 rpm_lt = rpm_setptlt
-see_thin_line = 0
+see_thin_line = 0 #unused
 # ball_type = 1
 # silver_line = 0
 end_line_gap = 0
@@ -153,9 +153,10 @@ end_line_gap = 0
 red_now = False
 gs_now = False
 blue_now = False
-short_linegap_now = False
+linegap_now = False
+short_linegap_now = False #unused
 # align_long_linegap_now = False
-long_linegap_now = False
+long_linegap_now = False #unused
 
 pico_task = 0
 
@@ -211,7 +212,7 @@ def contoursCalc(frame_org, mask_black,):
 
 def task0_lt():
     global rotation, rpm_lt, see_thin_line, end_line_gap, curr
-    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now
+    global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now, linegap_now
     global gsVotes
 
     #~ Basic conversion of color spaces
@@ -297,8 +298,10 @@ def task0_lt():
         cv2.imshow("bk_above", gs_bkabove)
         print("Percentage of black above green: ", gs_bkpct)  
 
+        #~ Test if green is left or right of black
+        #TODO might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
         if gs_bkpct > GS_MIN_BKPCT:
-            gs_bkbeside = mask_black_org[gs_top: gs_bot] #! arbitrary number (previously top: bot)
+            gs_bkbeside = mask_black_org[gs_top: gs_bot]
             gs_bkbeside[:, :30] = 0
             gs_bkbeside[:, -30:] = 0
             gs_black_moments = cv2.moments(gs_bkbeside)
@@ -309,6 +312,7 @@ def task0_lt():
             print("Cx_Black: ", cx_black)
             print("Left: ", gs_left, " | right: ", gs_right)
             
+            #~ Confidence votes
             if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
                 gsVotes[2] += 1            
             elif cx_black > gs_centre: #left
@@ -340,16 +344,18 @@ def task0_lt():
             gsVotes[1] -= 1
             gsVotes[2] -= 1
     
+    #~ Reset green votes
     elif gs_sum < 100:
         gsVotes = [0, 0, 0]
 
 
     #* LINETRACK    
 
-    if not gs_now and not red_now and not blue_now:
+    if not red_now and not blue_now:
 
         #~ Image processing erode-dilate
-        curr = Task.EMPTY
+        if not gs_now:
+            curr = Task.EMPTY
         mask_black = mask_black_org.copy()
         mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
         mask_black = cv2.erode(mask_black, black_kernel)
@@ -392,65 +398,71 @@ def task0_lt():
             print("x width:", black_line_width) #& debug width of line
 
             #~ Trigger line gap
-            if (first_line_top > 80):
+            if (first_line_top > 80) and not gs_now:
                 curr = Task.LINEGAP
+                linegap_now = True
 
-            #~ Trigger end line gap
-            if (first_line_height > 40 or black_line_width > 60) and first_line_bottom > 70:
+            #~ Trigger end line gap 
+            #^ This happens even in green squares
+            if first_line_height > 32 and first_line_bottom > 65: #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
+                linegap_now = False
             else:
                 end_line_gap = 0
 
-            
-            rpm_lt = rpm_setptlt
-            #~ Line continuation:
-            #^ Contour method
-            mask_black = contoursCalc(frame_org, mask_black)
-            #^ Index method
-            # mask_black[:first_line_top, :] = 0
-            # cv2.imshow("black mask", mask_black)
+            if not gs_now:
+                rpm_lt = rpm_setptlt
+                #~ Line continuation:
+                #^ Contour method
+                mask_black = contoursCalc(frame_org, mask_black)
+                #^ Index method
+                # mask_black[:first_line_top, :] = 0
+                # cv2.imshow("black mask", mask_black)
 
-            #~ Powers and components
-            # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
-            # powered_y = powered_y ** 0.01 #? prev value: 0.5
-            # powered_y = min(3.5, powered_y) #? prev value: 4
-            powered_y = 0.5
-            x_black_com = x_com
+                #~ Powers and components
+                # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
+                # powered_y = powered_y ** 0.01 #? prev value: 0.5
+                # powered_y = min(3.5, powered_y) #? prev value: 4
+                powered_y = 0.5
+                x_black_com = x_com
 
-            #~ Vectorizing the black components
-            #^ Ancillary: Powering xcom
-            # x_com[:, :int(centre/2)] *= -1
-            # x_com = x_com ** 1
-            # x_com[:, :int(width/2)] *= -1
-            #^ Method 1: Powering ycom
-            # powered_y = 2
-            # y_com = y_com ** powered_y
-            # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
-            # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
-            # y_resultant = np.mean(y_black)
-            # x_resultant = np.mean(x_black)
-            #^ Method 2: Powering the mean
-            y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
-            x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
-            # print(mask_black)
-            # print(x_black[x_black!=0])
-            y_resultant = np.mean(y_black) ** powered_y
-            x_black_nonzero = x_black[x_black!=0]
-            x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
-            #& debug
-            print("power:", powered_y)
-            # cv2.imshow("yframe", y_black)
-            # cv2.imshow("xframe", x_black)
-            print("y_resultant:", y_resultant, "x_resultant:", x_resultant)
+                #~ Vectorizing the black components
+                #^ Ancillary: Powering xcom
+                # x_com[:, :int(centre/2)] *= -1
+                # x_com = x_com ** 1
+                # x_com[:, :int(width/2)] *= -1
+                #^ Method 1: Powering ycom
+                # powered_y = 2
+                # y_com = y_com ** powered_y
+                # y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+                # x_black = cv2.bitwise_and(x_com, x_com, mask = mask_black)
+                # y_resultant = np.mean(y_black)
+                # x_resultant = np.mean(x_black)
+                #^ Method 2: Powering the mean
+                y_black = cv2.bitwise_and(y_com, y_com, mask = mask_black)
+                x_black = cv2.bitwise_and(x_black_com, x_black_com, mask=mask_black)
+                # print(mask_black)
+                # print(x_black[x_black!=0])
+                y_resultant = np.mean(y_black) ** powered_y
+                x_black_nonzero = x_black[x_black!=0]
+                x_resultant = np.mean(x_black_nonzero) if len(x_black_nonzero) else 0
+                #& debug
+                print("power:", powered_y)
+                # cv2.imshow("yframe", y_black)
+                # cv2.imshow("xframe", x_black)
+                print("y_resultant:", y_resultant, "x_resultant:", x_resultant)
 
-            #~ Formatting data for transfer
-            angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
-            print("angle:", angle)
-            rotation = angle * kp_lt
-            print("rotation:", rotation)
+                #~ Formatting data for transfer
+                angle = math.atan2(x_resultant, y_resultant) * 180/math.pi if y_resultant != 0 else 0
+                print("angle:", angle)
+                rotation = angle * kp_lt
+                print("rotation:", rotation)
         
-        else:
+        elif not gs_now:
             print("NO BLACK DETECTED")
+            curr = Task.LINEGAP
+            end_line_gap = 0
+            linegap_now = True
 
     if rotation > 90:
         rotation = 90
