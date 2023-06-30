@@ -605,7 +605,7 @@ def task6_rightlookleft():
         # obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
 
         print("start x", obs_line_start_x)
-        if obs_line_start_x < :
+        if obs_line_start_x < 50: #! arbitrary number (where did this come from)
             see_line = 1
             print('|'* 5, "SEE LINE", '|' * 5)
         else:
@@ -658,9 +658,6 @@ while True:
     # elif pico_task == 6:
     #     print("Obstacle turning right, looking at left of camera for line")
     #     task6_rightlookleft()
-<<<<<<< HEAD
-    elif pico_task == 9:  #? pfff i know why gsVotes aren't resetting its cuz you didnt do pico send LOL
-=======
     elif pico_task == 5:
         print("Obstacle turning left, looking at right of camera for line")
         task5_leftlookright()
@@ -668,7 +665,6 @@ while True:
         print("Obstacle turning right, looking at left of camera for line")
         task6_rightlookleft()
     elif pico_task == 9:
->>>>>>> e49613cf36280b673e4c2807c0ea1b7cd13ff36a
         print("Switch off")
         gsVotes = [0, 0, 0]
         task0_lt()
