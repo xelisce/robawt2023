@@ -143,6 +143,8 @@ namespace Pi {
     enum Pi
     {
         LINETRACK = 0,
+        OBSTACLE_ON_RIGHT = 5,
+        OBSTACLE_ON_LEFT = 6,
         SWITCH_OFF = 9
     };
 }
@@ -160,7 +162,7 @@ double forcedDirection = 0;
 double forcedSpeed = 0;
 unsigned long forcedTurnTime = 0, startTurnTime;
 
-//^ ALIGNING SWEEP LINE GAP
+//^ ALIGNING SWEEP LINE GAP -- unused
 int alignSweepState = 0;
 bool lineAligned = true;
 // bool endLineGap = true;
@@ -168,11 +170,40 @@ unsigned long afterGapMillis;
 double prevTurnedAlignSweepDistL, prevTurnedAlignSweepDistR;
 double alignSweepRotation;
 
+//^ LINEGAP SWEEP
 int linegapSweepState = 0;
 double prevTurnedLinegapSweepDistL, prevTurnedLinegapSweepDistR;
 bool endLineGap = true;
 unsigned long linegapDebugWaitMillis;
 double linegapSweepRotation;
+
+//^ OBSTACLE
+int turn_dir,
+    obstState;
+int* sideObstDist;
+double obstDist,
+    obstDistL,
+    obstDistR,
+    obstDistTravelled,
+    obstStartTurnBackDist,
+    obstCurrDist;
+float o_rotation = 0.5; //obstacle fixed rotation
+long obst_time_start;
+bool see_line = false;
+
+//^ Blue cube
+double prev_kit_rotation,
+    kitStartDist,
+    kitBeforeStraightDist,
+    kitDistToReverse = 0,
+    kitStartReverseDist,
+    kitStartTurnBackDist,
+    kitTurnBackDist,
+    kit_distToTurn;
+long endBlueMillis = millis(),
+    pickupKitStateTimer;
+int pickupKitState;
+int afterKitState;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -331,6 +362,8 @@ void loop()
             switch (task)
             {
                 case 0: //EMPTY LINETRACK
+                    if (curr == BEFORE_BLUE_TURN || curr == BLUE || curr == BLUE_PICKUP || curr == AFTER_BLUE_INIT || curr == AFTER_BLUE_REVERSE || curr == AFTER_BLUE_TURN) { break; }
+                    if (curr == BEFORE_OBSTACLE_REVERSE || curr == BEFORE_OBSTACLE_TURN || curr == OBSTACLE || curr == AFTER_OBSTACLE_TURN) { break; }
                     if (curr == LINEGAP) { break; }
                     if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     if (curr == LEFT_GREEN || curr == RIGHT_GREEN || curr == DOUBLE_GREEN) { break; }
@@ -338,21 +371,18 @@ void loop()
                     break;
 
                 case 1:
-                    if (curr == LINEGAP) break;
                     if (curr == EMPTY_LINETRACK){
-                        moveDist(1, 3*3, 100, LEFT_GREEN);
+                        moveDist(1, 4*3, 100, LEFT_GREEN);
                     }
                     break;
 
                 case 2:
-                    if (curr == LINEGAP) break;
                     if (curr == EMPTY_LINETRACK) {
-                        moveDist(1, 3*3, 100, RIGHT_GREEN);
+                        moveDist(1, 4*3, 100, RIGHT_GREEN);
                     }
                     break;
 
                 case 3:
-                    if (curr == LINEGAP) break;
                     if (curr == EMPTY_LINETRACK) {
                         moveDist(1, 3*3, 100, DOUBLE_GREEN);
                     }
@@ -362,6 +392,16 @@ void loop()
                     if (curr == EMPTY_LINETRACK) {
                         curr = RED;
                     }
+                    break;
+                
+                case 7:
+                    if (curr == EMPTY_LINETRACK){
+                        curr = BEFORE_BLUE_TURN;
+                    }
+                    break;
+                
+                case 8:
+                    curr = BLUE;
                     break;
 
                 case 12:
@@ -398,6 +438,12 @@ void loop()
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
                 Serial.print("rotation: "); Serial.println(rotation);
+                if (obstacle_present() && (millis() - endBlueMillis > 2000)) {
+                    curr = BEFORE_OBSTACLE_REVERSE;
+                    turn_dir = l0x_readings[L0X::LEFT] > l0x_readings[L0X::RIGHT] ? -1 : 1;
+                    obstDist = MotorL.getDist();
+                    see_line = false;
+                }
                 break;
 
             case LEFT_GREEN:
@@ -424,7 +470,107 @@ void loop()
                 curr = STOP;
                 break;
 
-            //* LINE GAP
+            //* ---------------------- RESCUE KIT ----------------------
+
+            case BEFORE_BLUE_TURN:
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(rpm, rotation);
+                claw_down();
+                claw_halfclose();
+                kitBeforeStraightDist = pickMotorDist(prev_kit_rotation); // chooses between L or R motor encoder vals based on previous rotation
+                if (ball_present()) {
+                    pickupKitState = 0;
+                    curr = BLUE_PICKUP; 
+                } else if (obstacle_present()) {
+                    curr = AFTER_BLUE_REVERSE;
+                }
+                break;
+
+            case BLUE:
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(120, 0);
+                claw_down();
+                claw_halfclose();
+                if (ball_present()) { 
+                    pickupKitState = 0;
+                    Robawt.stop();
+                    curr = BLUE_PICKUP;
+                } 
+                break;
+
+            case BLUE_PICKUP:
+                send_pi(Pi::LINETRACK);
+                switch (pickupKitState)
+                {
+                    case 0:
+                        pickupKitStateTimer = millis();
+                        pickupKitState ++;
+                        sort_alive();
+                        break;
+
+                    case 1:
+                        claw_close_cube();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 2:
+                        claw_up();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 3: 
+                        claw_open();
+                        if (millis() - pickupKitStateTimer > 500) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState ++; 
+                        }
+                        break;
+
+                    case 4:
+                        claw_down();
+                        if (millis() - pickupKitStateTimer > 1000) {
+                            pickupKitStateTimer = millis();
+                            pickupKitState = 0; 
+                            curr = AFTER_BLUE_REVERSE; 
+                        }
+                        break;
+                }
+                Robawt.stop();
+                break;
+
+            case AFTER_BLUE_REVERSE:
+                send_pi(Pi::LINETRACK);
+                #if debugWithLED
+                ledOn = true;
+                #endif
+                Robawt.setSteer(-120, 0);
+                if (fabs(pickMotorDist(prev_kit_rotation) - kitStartReverseDist) > kitDistToReverse) { 
+                    kit_distToTurn = kitBeforeStraightDist - kitStartDist;
+                    kitStartTurnBackDist = pickMotorDist(prev_kit_rotation);
+                    curr = AFTER_BLUE_TURN; 
+                }
+                break;
+
+            case AFTER_BLUE_TURN:
+                send_pi(Pi::LINETRACK);
+                #if debugWithLED
+                ledOn = true;
+                #endif
+                Robawt.setSteer(-rpm, prev_kit_rotation);
+                kitTurnBackDist =  abs(pickMotorDist(prev_kit_rotation)-kitStartTurnBackDist);
+                if (kitTurnBackDist > kit_distToTurn) { 
+                    endBlueMillis = millis();
+                    curr = EMPTY_LINETRACK; 
+                }
+                break;
+
+            //* ---------------------- LINE GAP ----------------------
             case LINEGAP:
                 #if debugLinegapSweep
                 Serial.print("end line gap: "); Serial.print(endLineGap);
@@ -574,6 +720,89 @@ void loop()
                         break;
                 }
                 break;
+            
+            //* ----------------------------- OBSTACLE LOGIC ----------------------------- 
+
+            case BEFORE_OBSTACLE_REVERSE: //^ reversing after detecting obstacle
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(-120, 0);
+                Serial.println(MotorL.getDist() - obstDist);
+                if (fabs(MotorL.getDist() - obstDist) > 67.5) {
+                    obstState = 0;
+                    sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
+                    curr = BEFORE_OBSTACLE_TURN; }
+                break;
+
+            case BEFORE_OBSTACLE_TURN: //^ turning 90 degrees
+                if (turn_dir == 1) { send_pi(Pi::OBSTACLE_ON_LEFT); }
+                else { send_pi(Pi::OBSTACLE_ON_RIGHT); }
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist > 300) { obstState ++; }
+                        break;
+
+                    case 1:
+                        Robawt.setSteer(rpm, turn_dir);
+                        if (*sideObstDist < 300) { obstState ++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(rpm, 0);
+                        obstState = 0;
+                        curr = OBSTACLE;    
+                        obst_time_start = millis();
+                        break;
+                }
+                Serial.print("Turn dir: ");
+                Serial.print(turn_dir);
+                Serial.print(" || Lidar reading: ");
+                Serial.println(*sideObstDist);
+                break;
+
+            case OBSTACLE: //^ going around obstacle
+                if (turn_dir == 1) { send_pi(Pi::OBSTACLE_ON_LEFT); }
+                else { send_pi(Pi::OBSTACLE_ON_RIGHT); }
+                switch (obstState)
+                {
+                    case 0:
+                        Robawt.setSteer(rpm, 0);
+                        if (*sideObstDist < 150) { obstState++; }
+                        break;
+                        
+                    case 1:
+                        Robawt.setSteer(rpm, 0);
+                        if (*sideObstDist > 150) { obstState++; }
+                        break;
+
+                    case 2:
+                        Robawt.setSteer(rpm, -o_rotation*turn_dir);
+                        if (*sideObstDist < 150) { obstState++; }
+                        break;
+
+                    case 3:
+                        Robawt.setSteer(rpm, -o_rotation*turn_dir);
+                        if (*sideObstDist > 150) { obstState = 0; }
+                        break;
+                }
+                Serial.print("Obstacle state: ");
+                Serial.println(obstState);
+                //~ Minimum obstacle turn time
+                if (see_line && (millis() - obst_time_start) > 2000){
+                    curr = AFTER_OBSTACLE_TURN;
+                    obst_time_start = millis();
+                    obstState = 0; 
+                    obstStartTurnBackDist = pickMotorDist(turn_dir); 
+                }
+                break;
+
+            case AFTER_OBSTACLE_TURN: //^ turning back to line after obstacle (real one)
+                send_pi(Pi::LINETRACK);
+                Robawt.setSteer(100, turn_dir*0.7);
+                obstCurrDist = pickMotorDist(turn_dir);
+                if (obstCurrDist - obstStartTurnBackDist > 25) curr = EMPTY_LINETRACK; }
+                break;
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
                 
@@ -625,7 +854,7 @@ void loop()
         Robawt.stop();
         curr = EMPTY_LINETRACK;
         ledOn = false;
-        send_pi(Pi::SWITCH_OFF);
+        send_pi(Pi::SWITCH_OFF); //? yay you remembered to add this line ~DOM
     }
 
     //* ------------------------------------------- DEBUG PRINTS -------------------------------------------

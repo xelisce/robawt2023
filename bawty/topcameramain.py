@@ -124,12 +124,12 @@ class Task(enum.Enum):
     DOUBLE_GREEN = 3
     ALIGN_LINEGAP = 10
     RED = 4
+    TURN_BLUE = 7
+    BLUE = 8
     LINEGAP = 12
 #     TURN_LEFT = 5
 #     TURN_RIGHT = 6
-#     TURN_BLUE = 7
-#     BLUE = 8
-
+       
 #     # SILVER = 12
 #     #~ Evac
 #     NOBALL = 20
@@ -243,6 +243,14 @@ def task0_lt():
     cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
+    #~ Masking out blue
+    mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue)
+    blue_sum = np.sum(mask_blue) / 255
+    cv2.namedWindow('blue mask', 2)
+    cv2.resizeWindow('blue mask', 550, 100)
+    cv2.imshow("blue mask", mask_blue) #& debug blue mask
+    print("Blue sum:", blue_sum) #& debug blue pixels
+
     #~ Masking out black
     mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
     mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
@@ -253,7 +261,7 @@ def task0_lt():
     # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
 
 
-    print(curr.name)
+    
 
     if red_sum > 2200: #^ measured values: ~2500
         red_now = True
@@ -347,6 +355,39 @@ def task0_lt():
     #~ Reset green votes
     elif gs_sum < 100:
         gsVotes = [0, 0, 0]
+
+    #* RESCUE KIT
+
+    b_minarea = 400 #! arbitrary number
+    #~ Rescue kit spotted:
+    if blue_sum >= b_minarea:
+        blue_now = True
+        if (curr.name != "BLUE"):
+            curr = Task.TURN_BLUE
+
+        #~ Find x and y positions of rescue kit
+        blueM = cv2.moments(mask_blue)
+        cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        finalx = cx_blue - centre_x_lt
+
+        #~ If the block isn't centred
+        if abs(finalx) >= 5: #! arbitrary number
+            if cx_blue < centre_x_lt: #if rescue kit is to the left of the centre of the frame
+                rotation = -45 # fixed rotation of the bot
+                rpm_lt = 80
+            elif cx_blue > centre_x_lt: #to the right
+                rotation = 45
+                rpm_lt = 80
+
+        #~ Else if the block is (relatively) centred:
+        else:
+            curr = Task.BLUE
+
+    #~ No longer sees the rescue kit
+    elif blue_now and blue_sum < 20: #! arbitrary number
+        blue_now = False
+        rpm_lt = rpm_setptlt
 
 
     #* LINETRACK    
@@ -482,6 +523,106 @@ def task0_lt():
                 251, end_line_gap]
     # print(to_pico)
     ser.write(to_pico)
+    print(curr.name)
+
+#* MAIN FUNCTION ---------------------------- LINETRACK SEE LINE ON LEFT WHEN TURN RIGHT ------------------------------------------------
+def task5_leftlookright():
+    global curr, rotation, rpm_lt, see_line
+
+    frame_org = top_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    out.write(frame_org)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+
+    mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
+    mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
+    obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+
+    if obstacle_line_pixels > 625:
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        # obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("end x", obs_line_end_x)
+        if obs_line_end_x > 610:
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
+
+#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
+
+def task6_rightlookleft():
+    global curr, rotation, rpm_lt, see_line
+
+    frame_org = top_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    out.write(frame_org)
+    frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
+
+    mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
+    mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
+    mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+
+    #~ Obstacle see line
+    obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+    print("obstacle_line_pixels")
+
+    if obstacle_line_pixels > 625: #change later
+        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+        obs_line_indices_x = np.where(obs_line_cols==255)
+        obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        # obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+
+        print("start x", obs_line_start_x)
+        if obs_line_start_x < :
+            see_line = 1
+            print('|'* 5, "SEE LINE", '|' * 5)
+        else:
+            see_line = 0
+    else:
+        see_line = 0
+
+    print("See line pixels:", obstacle_line_pixels)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+
+    to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
+                254, rpm_lt,
+                253, curr.value,
+                252, see_line]
+    ser.write(to_pico)
+
+
 
 #* ------------------------ RESPOND TO PICO ----------------------------------
 
@@ -517,6 +658,12 @@ while True:
     # elif pico_task == 6:
     #     print("Obstacle turning right, looking at left of camera for line")
     #     task6_rightlookleft()
+    elif pico_task == 5:
+        print("Obstacle turning left, looking at right of camera for line")
+        task5_leftlookright()
+    elif pico_task == 6:
+        print("Obstacle turning right, looking at left of camera for line")
+        task6_rightlookleft()
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
@@ -527,7 +674,7 @@ while True:
     end = time.time()
     print("Loop time: ", end-start)
 
-    #! remove b4 comp for optimisation
+    #! remove b4 comp for optimisation and the video stream too
     key = cv2.waitKey(1)
     if key == ord('q'):
         break
