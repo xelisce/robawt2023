@@ -557,10 +557,10 @@ def task_1_ball():
     out.write(evac_org)
     # evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV) #? not currently used
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
+    evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
+    evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
     evac_max = np.amax(evac_org, axis=2)
-    
-    # evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
-    # evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
+    evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:evac_height, :]
     
     #* CIRCLE DETECTION
@@ -576,9 +576,9 @@ def task_1_ball():
     # cv2.imshow("frame of ball", evac_max)
     if circles is not None: 
         for x, y, r in circles[0]:
-            mask = np.zeros(evac_org.shape[:2], dtype=np.uint8)
+            mask = np.zeros(evac_max.shape[:2], dtype=np.uint8)
             mask = cv2.circle(mask, (int(x),int(y)), int(r), 255, -1)
-            ball_mask = cv2.inRange(evac_gray, 0, u_blackforball) #? try replacing with evac_max instead?
+            ball_mask = cv2.inRange(evac_max, 0, u_blackforball) 
             ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask)
             # cv2.imshow("ball_circle", mask)
             # cv2.imshow("ball", ball_mask)
@@ -634,10 +634,14 @@ def task_1_ball():
         rotation = -90
     rotation += 90
 
+    curr = Task.NOBALL
+
+    print("rotation", rotation)
+
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_evac, # 0 to 200 MAX, but 100 really damn fast alr
                 253, curr.value,
-                250, ball_type] # 1: black, 0: silver
+                249, ball_type] # 1: black, 0: silver
     
     print(to_pico)
 
@@ -976,7 +980,7 @@ def task7_lt_to_evac():
         # cv2.imshow("new frame max", frame_max)
     
         mask_black_org = mask_black_org - overall_mask
-        # cv2.imshow("new mask black", mask_black_org)
+        cv2.imshow("new mask black", mask_black_org)
         black_sum = np.sum(mask_black_org)/255
         print("new black sum", black_sum)
 

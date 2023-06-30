@@ -30,7 +30,7 @@
 
 #define debugLoopTime 0
 #define debugTCSReadings 0
-#define debugLidarReadings 0
+#define debugLidarReadings 1
 #define debugWithLED 1
 #define debugSerial 0
 #define debugState 1
@@ -237,20 +237,23 @@ double evac_startDist, evac_setdist,
     turnedEvacExitDist,
     depositToExitDist,
     startHeadingToDepositDist,
-    evac_time_constant, evac_rpm = 135;
+    evac_time_constant, evac_rpm = 135, evac_deposit_rpm = 195;
 unsigned long startEvacMillis;
 bool lt2evacSawFL, lt2evacSawFR = false;
 unsigned long lastSawFrontLeft, lastSawFrontRight, 
                evac_settime;
 int pickupState, 
-    afterPickupState,
     evacExitState = 0,
     depositToExitState = 0, balltype,
     OORTurnState, startReverseOORDist,
     wallTurnState, wallGapTurnState;
 
-currType afterTurnEvacState = WALLTRACK;
+currType afterTurnEvacState, afterPickupState;
 
+//^Deposit VARIABLES
+currType afterDepositState;
+int depositState; 
+unsigned long depositStateTimer;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -402,7 +405,7 @@ void loop()
         // tcsAnalyse();
         serialEvent();
         // ledOn = true;
-        if (entered_evac) exit(0);
+        // if (entered_evac) exit(0);
 
         //* ------------------------------------------- PI TASK HANDLED -------------------------------------------
         
@@ -411,11 +414,11 @@ void loop()
             {
                 case 0: //EMPTY LINETRACK
                     if (entered_evac) { 
-                        curr = STOP; 
-                        exit(0);
+                        curr = EVAC_INIT;
                         entered_evac = false;
                         break;
                     }
+                    if (curr == EVAC_INIT || curr == WALLTRACK || curr == EVAC_PICKUP || curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == BALLTRACK) {break;}
                     if (curr == BEFORE_BLUE_TURN || curr == BLUE || curr == BLUE_PICKUP || curr == AFTER_BLUE_INIT || curr == AFTER_BLUE_REVERSE || curr == AFTER_BLUE_TURN) { break; }
                     if (curr == BEFORE_OBSTACLE_REVERSE || curr == BEFORE_OBSTACLE_TURN || curr == OBSTACLE || curr == AFTER_OBSTACLE_TURN) { break; }
                     if (curr == LINEGAP) { break; }
@@ -470,7 +473,19 @@ void loop()
                         linegapSweepRotation = 0;
                     }
                     break;
-            }
+                
+                case 20: //^ no ball --> wall track
+                    if (curr != WALLTRACK && curr != BALLTRACK){ break; }
+                    curr = WALLTRACK;
+                    break;
+                case 21: //^ ball
+                    if (curr != WALLTRACK && curr != BALLTRACK){ break; }
+                    curr = BALLTRACK;
+                    break;
+                
+                case 22: //^ deposit alive
+                    break;
+            }   
         }
 
         //* ------------------------------------------- CURRENT ACTION HANDLED -------------------------------------------
@@ -924,7 +939,7 @@ void loop()
                         Robawt.setSteer(120, 0);
                         // if (left_see_reallyclosewall()) { seeLeftForEvac = true; }
                         // if (right_see_reallyclosewall()) { seeRightForEvac = true; }
-                        if (fabs(pickMotorDist(-1) - evac_startDist) > 36) {
+                        if (fabs(pickMotorDist(-1) - evac_startDist) > 75) { //! arbitrary number
                             // if (seeLeftForEvac && seeRightForEvac) {
                             //     evac_startDist = pickMotorDist(-1);
                             //     enterEvacState++;   
@@ -997,9 +1012,10 @@ void loop()
             #endif
 
             case EVAC_PICKUP:
+                Robawt.stop();
                 break;
 
-            case WALLTRACK:
+            case WALLTRACK: //^ no ball walltrack
                 send_pi(Pi::BALLTRACK);
                 claw_halfclose();
                 // if (startEvacMillis - LineTrackStartTime > 300000) { //5 mins spent, less than 3 mins left
@@ -1020,6 +1036,7 @@ void loop()
                 k_p_wall_rot = 0.008;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * k_p_wall_rot;
                 Robawt.setSteer(evac_rpm, wall_rot);
+                Serial.print("wall_rot "); Serial.println(wall_rot);
                 Serial.print("evac_settime");
                 Serial.println(evac_settime);
                 Serial.print("evac_kp");
@@ -1027,7 +1044,8 @@ void loop()
                 if (ball_present()) { 
                     curr = EVAC_PICKUP;
                     pickupState = 0;
-                    afterPickupState = WALLTRACK; }
+                    afterPickupState = WALLTRACK; 
+                }
                 else if (OOR_present()) {
                     startReverseOORDist = MotorL.getDist();
                     curr = WALLTRACK_OOR;
@@ -1080,7 +1098,7 @@ void loop()
                 switch (wallTurnState)
                 {
                     case 0:
-                        Robawt.setSteer(-30, 0);
+                        Robawt.setSteer(-120, 0);
                         if (fabs(MotorL.getDist() - startReverseOORDist) > 10) { 
                             wallTurnState ++; 
                             startTurnWallDistL = MotorL.getDist();
@@ -1088,7 +1106,7 @@ void loop()
                         break;
 
                     case 1:
-                        Robawt.setSteer(30, 1);
+                        Robawt.setSteer(120, 1);
                         turnWallDist = abs(MotorL.getDist()-startTurnWallDistL) + abs(MotorR.getDist()-startTurnWallDistR);
                         if (turnWallDist > 35) { 
                             wallTurnState = 0;
@@ -1126,6 +1144,7 @@ void loop()
                 led_on = true;
                 #endif
                 // if (rotation < 0.5) { claw_halfclose(); }
+                Serial.print("Ball Track rotation: "); Serial.println(rotation);
                 Robawt.setSteer(evac_rpm, rotation);
                 if (ball_present()) { 
                     curr = EVAC_PICKUP;
@@ -1148,10 +1167,27 @@ void loop()
                     afterTurnEvacState = BALLTRACK; }
                 break;
 
+             
             case HEAD_TO_DEPOSIT:
+                // claw_open();
+                // if (depositType == 1 || depositType == 2) { send_pi(2); }
+                // else { send_pi(3); }
+                // // if (fabs(pickMotorDist(-1) - startHeadingToDepositDist) < 1) { Robawt.setSteer(evac_deposit_rpm, 1); }
+                // // else { Robawt.setSteer(evac_deposit_rpm, rotation); }
+                // Robawt.setSteer(evac_deposit_rpm, rotation);
+                // sort_neutral();
+                // if (ball_present()) { 
+                //     curr = EVAC_PICKUP;
+                //     afterPickupState = 71; }
+                // if ((l1x_readings[L1X::FRONT_BOTTOM] < 60 || l0x_readings[L0X::FRONT] < 25) && !ball_present()) { 
+                //     curr = DEPOSIT;
+                //     afterDepositState = POST_DEPOSIT;
+                //     depositStateTimer = millis();
+                //     depositState = 0; }
                 break;
 
             case DEPOSIT:
+                
                 break;
 
             
@@ -1212,6 +1248,7 @@ void loop()
         ledOn = false;
         send_pi(Pi::SWITCH_OFF); //? yay you remembered to add this line ~DOM
         claw_down();
+        claw_open();
         // claw_close_cube();
     }
 
@@ -1268,7 +1305,7 @@ void serialEvent() //Pi to pico serial
     while (Serial1.available()) 
     {
         int serialData = Serial1.read();
-        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251) {
+        if (serialData == 255 || serialData == 254 || serialData == 253 || serialData == 252 || serialData == 251 || serialData == 250 || serialData == 249) {
             serialState = (int)serialData;
             #if debugSerial
             Serial.print("Serial State: "); Serial.println(serialState);
@@ -1293,6 +1330,9 @@ void serialEvent() //Pi to pico serial
                     break;
                 case 250:
                     entered_evac = (bool)serialData;
+                    break;
+                // case 249:
+                    
             }
             #if debugSerial
             Serial.print("----- Data: "); Serial.print(serialData); Serial.println(" -----");

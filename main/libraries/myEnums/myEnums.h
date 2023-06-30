@@ -17,13 +17,15 @@ enum currType { //what the pico needs to do
     CHECK_FOR_EVAC = 49,
     EVAC_INIT = 50,
     EVAC_PICKUP = 51,
-    WALLTRACK = 60,
+    WALLTRACK = 60, //^ basically no ball walltrack
     WALLTRACK_OOR = 61,
     WALLTRACK_HITWALL = 62,
     WALLTRACK_WALLGAP = 63,
     BALLTRACK = 65,
-    HEAD_TO_DEPOSIT = 72,
+    CENTERING_FOR_DEPOSIT = 70,
+    HEAD_TO_DEPOSIT = 71,
     DEPOSIT = 80,
+    POST_DEPOSIT = 81,
     //^ Forced stuff
     STOP = 100,
     MOVE_DIST = 101,
