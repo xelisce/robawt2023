@@ -13,7 +13,7 @@ def on_trackbar_change(x):
     if ret:
         cv2.imshow("frame", frame_org)
 
-top_stream = cv2.VideoCapture('bawty/output.avi')
+top_stream = cv2.VideoCapture('output.avi')
 _, top_stream_frame = top_stream.read()
 top_stream_width, top_stream_height = top_stream_frame.shape[1], top_stream_frame.shape[0]
 top_stream_width_org = top_stream_width * 4
@@ -22,9 +22,9 @@ print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_he
 
 current_frame = 0
 total_frames = int(top_stream.get(cv2.CAP_PROP_FRAME_COUNT))
-# fps = top_stream.get(cv2.CAP_PROP_FPS)
-print(total_frames)
-# print("seconds:", round(total_frames/fps))
+fps = top_stream.get(cv2.CAP_PROP_FPS)
+print("Total frames: ", total_frames)
+print("seconds:", round(total_frames/fps))
 cv2.namedWindow("frame", 2)
 cv2.resizeWindow("frame", 550, 500)
 cv2.createTrackbar("Frame", "frame", 0, total_frames, on_trackbar_change)

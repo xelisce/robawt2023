@@ -34,6 +34,7 @@ supercrop_lt_h = 72//2 + 5
 kp_lt = 1
 width_lt = top_stream_width_org // 4
 height_lt = top_stream_height_org // 4
+print("width of downscaled image:", width_lt, "height:", height_lt)
 centre_x_lt = width_lt//2
 black_kernel = np.ones((2, 2), np.uint8)
 
@@ -186,7 +187,7 @@ def receive_pico() -> str:
     
 #* ---------------------------------- LINETRACK FUNCTIONS ----------------------------------
 
-def contoursCalc(frame_org, mask_black,):
+def contoursCalc(frame_org, mask_black):
     contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
     # cv2.drawContours(frame_org, contours, -1, (0, 255, 0), 3)
     # cv2.imshow("with contours", frame_org)
@@ -206,7 +207,7 @@ def contoursCalc(frame_org, mask_black,):
         cv2.rectangle(contour_mask,(closest_contour["x"],closest_contour["y"]),(closest_contour["x"]+closest_contour["w"],closest_contour["y"]+closest_contour["h"]), 255 , -1)
         # cv2.imshow("contours", contour_mask)
         mask_black = cv2.bitwise_and(mask_black, contour_mask)
-        return mask_black
+        return (mask_black, closest_contour["y"]) 
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -358,7 +359,7 @@ def task0_lt():
 
     #* RESCUE KIT
 
-    b_minarea = 400 #! arbitrary number
+    b_minarea = 250 #! arbitrary number
     #~ Rescue kit spotted:
     if blue_sum >= b_minarea:
         blue_now = True
@@ -455,7 +456,7 @@ def task0_lt():
                 rpm_lt = rpm_setptlt
                 #~ Line continuation:
                 #^ Contour method
-                mask_black = contoursCalc(frame_org, mask_black)
+                mask_black = contoursCalc(frame_org, mask_black)[0]
                 #^ Index method
                 # mask_black[:first_line_top, :] = 0
                 # cv2.imshow("black mask", mask_black)
@@ -519,13 +520,12 @@ def task0_lt():
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
                 253, curr.value,
-                252, see_thin_line,
                 251, end_line_gap]
     # print(to_pico)
     ser.write(to_pico)
     print(curr.name)
 
-#* MAIN FUNCTION ---------------------------- LINETRACK SEE LINE ON LEFT WHEN TURN RIGHT ------------------------------------------------
+#* MAIN FUNCTION ---------------------------- LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ------------------------------------------------
 def task5_leftlookright():
     global curr, rotation, rpm_lt, see_line
 
@@ -544,19 +544,23 @@ def task5_leftlookright():
 
     #~ Obstacle see line
     obstacle_line_mask = mask_black_org.copy()
+    obstacle_line_mask = cv2.bitwise_and(obstacle_line_mask, mask_trapeziums)
     obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
     obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
-    obstacle_line_mask[:height_lt-60, :] = 0
+    obstacle_line_mask[:40, :] = 0
+    obstacle_line_mask = contoursCalc(frame_org, obstacle_line_mask)
+
     obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
 
-    if obstacle_line_pixels > 625:
+    if obstacle_line_pixels > 600:
         obs_line_cols = np.amax(obstacle_line_mask, axis=0)
         obs_line_indices_x = np.where(obs_line_cols==255)
-        # obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
-        obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+        # obs_line_left = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+        obs_line_right = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
 
-        print("end x", obs_line_end_x)
-        if obs_line_end_x > 610:
+        # print("eft x", obs_line_left)
+        print("end x", obs_line_right)
+        if obs_line_right > 120: 
             see_line = 1
             print('|'* 5, "SEE LINE", '|' * 5)
         else:
@@ -565,7 +569,9 @@ def task5_leftlookright():
         see_line = 0
 
     print("See line pixels:", obstacle_line_pixels)
-    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+    cv2.namedWindow("Line after obstacle", 2)
+    cv2.resizeWindow("Line after obstacle", 550, 100)
+    cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
@@ -574,7 +580,7 @@ def task5_leftlookright():
                 252, see_line]
     ser.write(to_pico)
 
-#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ----------------------------------
+#* MAIN FUNCTION ------------------------ LINETRACK SEE LINE ON LEFT WHEN TURN RIGHT ----------------------------------
 
 def task6_rightlookleft():
     global curr, rotation, rpm_lt, see_line
@@ -594,27 +600,38 @@ def task6_rightlookleft():
 
     #~ Obstacle see line
     obstacle_line_mask = mask_black_org.copy()
-    obstacle_line_mask[:height_lt-60, :] = 0
-    obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
-    print("obstacle_line_pixels")
+    obstacle_line_mask = cv2.bitwise_and(obstacle_line_mask, mask_trapeziums)
+    obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
+    obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
+    # obstacle_line_mask[:40, :] = 0
+    if np.sum(obstacle_line_mask):
+        obstacle_line_mask, obstacle_line_y = contoursCalc(frame_org, obstacle_line_mask)
+        obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+        print("See line pixels:", obstacle_line_pixels)
+        print(obstacle_line_y)
 
-    if obstacle_line_pixels > 625: #change later
-        obs_line_cols = np.amax(obstacle_line_mask, axis=0)
-        obs_line_indices_x = np.where(obs_line_cols==255)
-        obs_line_start_x = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
-        # obs_line_end_x = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
-
-        print("start x", obs_line_start_x)
-        if obs_line_start_x < 50: #! arbitrary number (where did this come from)
-            see_line = 1
-            print('|'* 5, "SEE LINE", '|' * 5)
+        if obstacle_line_pixels > 600 and obstacle_line_y > 55: 
+            obs_line_cols = np.amax(obstacle_line_mask, axis=0)
+            obs_line_indices_x = np.where(obs_line_cols==255)
+            obs_line_left = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+            obs_line_right = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0 
+            obs_line_width = obs_line_right - obs_line_left
+            print("right x", obs_line_right, " ||  obstacle left", obs_line_left)
+        
+            if obs_line_left < 40:
+                see_line = 1
+                print('|'* 5, "SEE LINE", '|' * 5)
+            else:
+                see_line = 0
         else:
             see_line = 0
+
     else:
         see_line = 0
 
-    print("See line pixels:", obstacle_line_pixels)
-    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+    cv2.namedWindow("Line after obstacle", 2)
+    cv2.resizeWindow("Line after obstacle", 550, 100)
+    cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
@@ -667,7 +684,6 @@ while True:
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
-        task0_lt()
     else:
         print("Pico task unknown:", pico_task)
 

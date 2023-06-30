@@ -28,12 +28,12 @@
 //* SETTINGS
 #define waitForSerial 0
 
-#define debugLoopTime 1
+#define debugLoopTime 0
 #define debugTCSReadings 0
-#define debugLidarReadings 1
+#define debugLidarReadings 0
 #define debugWithLED 1
 #define debugSerial 0
-#define debugState 1
+#define debugState 0
 
 #define debugLinegapSweep 1
 
@@ -396,6 +396,9 @@ void loop()
                 
                 case 7:
                     if (curr == EMPTY_LINETRACK){
+                        prev_kit_rotation = rotation;
+                        kitStartDist = pickMotorDist(prev_kit_rotation);
+                        afterKitState = curr;
                         curr = BEFORE_BLUE_TURN;
                     }
                     break;
@@ -542,6 +545,13 @@ void loop()
                         break;
                 }
                 Robawt.stop();
+                break;
+
+            case AFTER_BLUE_INIT:
+                send_pi(Pi::LINETRACK);
+                kitStartReverseDist = pickMotorDist(prev_kit_rotation);
+                kitDistToReverse = pickMotorDist(prev_kit_rotation) - kitBeforeStraightDist;
+                curr = AFTER_BLUE_REVERSE;
                 break;
 
             case AFTER_BLUE_REVERSE:
@@ -727,7 +737,7 @@ void loop()
                 send_pi(Pi::LINETRACK);
                 Robawt.setSteer(-120, 0);
                 Serial.println(MotorL.getDist() - obstDist);
-                if (fabs(MotorL.getDist() - obstDist) > 67.5) {
+                if (fabs(MotorL.getDist() - obstDist) > 27.5) {
                     obstState = 0;
                     sideObstDist = turn_dir == 1 ? &l0x_readings[L0X::LEFT] : &l0x_readings[L0X::RIGHT]; //^ getting address of readings to constantly update the val
                     curr = BEFORE_OBSTACLE_TURN; }
@@ -788,6 +798,7 @@ void loop()
                 }
                 Serial.print("Obstacle state: ");
                 Serial.println(obstState);
+
                 //~ Minimum obstacle turn time
                 if (see_line && (millis() - obst_time_start) > 2000){
                     curr = AFTER_OBSTACLE_TURN;
@@ -795,13 +806,14 @@ void loop()
                     obstState = 0; 
                     obstStartTurnBackDist = pickMotorDist(turn_dir); 
                 }
+                Serial.print("See line: "); Serial.println(see_line);
                 break;
 
             case AFTER_OBSTACLE_TURN: //^ turning back to line after obstacle (real one)
                 send_pi(Pi::LINETRACK);
                 Robawt.setSteer(100, turn_dir*0.7);
                 obstCurrDist = pickMotorDist(turn_dir);
-                if (obstCurrDist - obstStartTurnBackDist > 25) curr = EMPTY_LINETRACK; }
+                if (fabs(obstCurrDist - obstStartTurnBackDist) > 50) { curr = EMPTY_LINETRACK; }
                 break;
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
@@ -928,7 +940,7 @@ void serialEvent() //Pi to pico serial
                     task = (int)serialData;
                     break;
                 case 252:
-                    lineAligned = (bool)serialData;
+                    see_line = (bool)serialData;
                     break;
                 case 251:
                     endLineGap = (bool)serialData;
@@ -947,9 +959,15 @@ void serialEvent() //Pi to pico serial
 // void serialEvent() //Pi to pico serial
 // {   
 //     while (Serial1.available()) 
-//     {
+//     {   
 //         int serialState = (int)Serial1.read();
-
+        
+//         #if debugSerial
+//         Serial.print("Available: "); Serial.println(Serial1.available());
+//         if (!Serial1.available()){
+//             exit(0); 
+//         }
+//         #endif
 //         switch (serialState) 
 //         {
 //             case 255:
@@ -962,7 +980,7 @@ void serialEvent() //Pi to pico serial
 //                 task = (int)Serial1.read();
 //                 break;
 //             case 252:
-//                 lineAligned = (bool)Serial1.read();
+//                 see_line = (bool)Serial1.read();
 //                 break;
 //             case 251:
 //                 endLineGap = (bool)Serial1.read();
@@ -1210,12 +1228,20 @@ void moveDist(double dir, double distOfMove, double speedOfTurn, enum currType p
 
 //* LIDAR FUNCTIONS
 
+bool obstacle_present() {
+    return (l1x_readings[L1X::FRONT_BOTTOM] < 85 && l0x_readings[L0X::FRONT] < 40);
+}
+
+bool far_obstacle_present() {
+    return (l1x_readings[L1X::FRONT_BOTTOM] < 165 && l0x_readings[L0X::FRONT] < 120);
+}
+
 //~ Inside evac
 
-// bool ball_present() {
-//     //+45 for the diff sensors' offset physically
-//     return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 80);
-// }
+bool ball_present() {
+    //+45 for the diff sensors' offset physically
+    return ((l0x_readings[L0X::FRONT]+45 - l1x_readings[L1X::FRONT_BOTTOM]) > 30 && l1x_readings[L1X::FRONT_BOTTOM] < 80);
+}
 
 // bool wall_present() {
 //     return (l0x_readings[L0X::FRONT]+45 < 90 && l1x_readings[L1X::FRONT_BOTTOM] < 90);
