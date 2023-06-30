@@ -1,27 +1,38 @@
-import cv2
-from MultiThread import WebcamStream
-import serial
+import cv2 
 import numpy as np
 np.set_printoptions(threshold=1000) #^ to print entire array, use this np.inf and to truncate the array when printing, use the default 1000 or any length preferred
 import enum
 import math
-import time
 
-#* SERIAL
-ser = serial.Serial("/dev/serial0", 115200)
+#* ----------------------------------------------=Initialising Video Analyser=---------------------------------------------------------
+def on_trackbar_change(x):
+    global current_frame
+    current_frame = x
+    top_stream.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
+    ret, frame_org = top_stream.read()
+    if ret:
+        cv2.imshow("frame", frame_org)
 
-#* CAMERAS START
-# bot_stream = WebcamStream(stream_id=0)
-# bot_stream.start()
-# bot_stream_frame = bot_stream.read()
-# bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
-# print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
-
-top_stream = WebcamStream(stream_id=2)
-top_stream.start()
-top_stream_frame = top_stream.read()
-top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_stream_frame.shape[0]
+top_stream = cv2.VideoCapture('bawty/output.avi')
+_, top_stream_frame = top_stream.read()
+top_stream_width, top_stream_height = top_stream_frame.shape[1], top_stream_frame.shape[0]
+top_stream_width_org = top_stream_width * 4
+top_stream_height_org = top_stream_height * 4
 print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_height_org)
+
+current_frame = 0
+total_frames = int(top_stream.get(cv2.CAP_PROP_FRAME_COUNT))
+# fps = top_stream.get(cv2.CAP_PROP_FPS)
+print(total_frames)
+# print("seconds:", round(total_frames/fps))
+cv2.namedWindow("frame", 2)
+cv2.resizeWindow("frame", 550, 500)
+cv2.createTrackbar("Frame", "frame", 0, total_frames, on_trackbar_change)
+
+#* -----------------------------------==========END INITIALISATION OF VIDEO ANALYSER=========--------------------------------------
+
+
+#* --------------------------------------------------Initialising VARIABLES ----------------------------------------------------
 
 #* GREEN SQUARES CONSTANTS
 gs_roi_h = 40 #! arbitrary number
@@ -37,10 +48,10 @@ height_lt = top_stream_height_org // 4
 centre_x_lt = width_lt//2
 black_kernel = np.ones((2, 2), np.uint8)
 
-#~ PID
+#* PID
 rpm_setptlt = 100
 
-#~ Trapezium-ish mask 
+#* TRAPEZIUM-ISH MASK 
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
 crop_bot_h = 62//2
@@ -53,7 +64,7 @@ bottom_rectangle_pts = np.array([[0, height_lt], [0, height_lt - crop_bot_h], [w
 cv2.fillPoly(mask_trapeziums, [left_triangle_pts, right_triangle_pts, bottom_rectangle_pts], 255)
 mask_trapeziums = cv2.bitwise_not(mask_trapeziums)
 
-#~ Vectors (use visualiser.py to understand better)
+#* VECTORS (use visualiser.py to understand better)
 x_com = np.tile(np.linspace(-1., 1., width_lt), (height_lt, 1)) #reps is (outside, inside)
 y_com = np.array([[i] * width_lt for i in np.linspace(1., 0, height_lt)])
 #^ Kenneth's method:
@@ -73,9 +84,7 @@ x_com_scale = x_com_scale ** 3
 x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 x_com *= x_com_scale
 
-
 #* IMAGE THRESHOLDS
-
 #~ Xel's house values
 l_blue = np.array([100, 135, 40], np.uint8)
 u_blue = np.array([115, 255, 255], np.uint8)
@@ -109,11 +118,6 @@ u_blackforball = 49
 u_black_lt = 102
 u_black_lineforltfromevac = 55
 
-#* VIDEO STREAM
-
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (width_lt ,height_lt))
-
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
     #~ Linetrack
@@ -138,7 +142,6 @@ class Task(enum.Enum):
 #     EMPTYEVAC = 24
 #     FINDINGLINE = 25
 
-
 rotation = 0
 curr = Task.EMPTY
 rpm_lt = rpm_setptlt
@@ -156,33 +159,10 @@ short_linegap_now = False
 # align_long_linegap_now = False
 long_linegap_now = False
 
-pico_task = 0
+#* -----------------------------------==========END INITIALISATION OF VIDEO ANALYSER=========------------------------------------------
 
-# pi_start = True
 
-#* FUNCTIONS
-
-def receive_pico() -> str:
-    if(ser.in_waiting > 0):
-        received_data = ser.read()
-        data_left = ser.inWaiting()
-        received_data += ser.read(data_left)
-        # print(received_data)
-        # print("pico data:", ord(received_data))
-        cleanstring = received_data.split(b'\x00',1)
-        if len(cleanstring):
-            pico_data = cleanstring[0].decode()
-            if len(pico_data) and len(pico_data[0]):
-                print("decode:", pico_data[0])
-                return pico_data[0]
-            else:
-                return -1 #empty string
-        else:
-            return -1 #\x00 is the only byte
-    else:
-        return -1 #no info
-    
-#* ---------------------------------- LINETRACK FUNCTIONS ----------------------------------
+#* -----------------------------------------------------==Main Linetrack==------------------------------------------------------------------
 
 def contoursCalc(frame_org, mask_black,):
     contours, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
@@ -205,19 +185,18 @@ def contoursCalc(frame_org, mask_black,):
         # cv2.imshow("contours", contour_mask)
         mask_black = cv2.bitwise_and(mask_black, contour_mask)
         return mask_black
-
-#* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
-
+    
+#* main linetrack function    
 def task0_lt():
     global rotation, rpm_lt, see_thin_line, end_line_gap, curr
     global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now
     global gsVotes
+    global frame_org
 
     #~ Basic conversion of color spaces
-    frame_org = top_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    out.write(frame_org)
+    # frame_org = top_stream.read()
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -230,7 +209,6 @@ def task0_lt():
 
     #~ Masking out green
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
-    # cv2.imshow("green square mask", mask_green)
     mask_gs = mask_green.copy()
     mask_gs[: gs_roi_h] = 0
     mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
@@ -248,11 +226,8 @@ def task0_lt():
     cv2.namedWindow('black mask', 2)
     cv2.resizeWindow('black mask', 550, 50)
     cv2.imshow("black mask", mask_black_org) #& debug green square mask
-    # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
 
-
-    print(curr.name)
-
+    
     if red_sum > 2200: #^ measured values: ~2500
         red_now = True
         curr = Task.RED
@@ -263,93 +238,7 @@ def task0_lt():
     if gs_now and gs_sum < 5:
         gs_now = False
 
-
     #* GREEN SQUARES
-    # elif gs_sum > 100: #! arbitrary number
-
-    #     #~ Find y position of green
-    #     green_row = np.amax(mask_gs, axis=1)
-    #     gs_vertical_indices = np.where(green_row==255)
-    #     gs_top = gs_vertical_indices[0][0]
-    #     gs_bot = gs_vertical_indices[0][-1]
-    #     print("GS_top: ", gs_top, " |  GS_bot: ", gs_bot)
-
-    #     #~ Debug ROI and blacksample_offset 
-    #     # green_col = np.amax(mask_gs, axis=0)
-    #     # gs_horizontal_indices = np.where(green_col==255)
-    #     # gs_left = gs_horizontal_indices[0][0]
-    #     # gs_right = gs_horizontal_indices[0][-1]
-    #     # gs_width = gs_right - gs_left 
-    #     # print("GS_width: ", gs_width)
-        
-    #     gs_blacksample_offset = 58 #! arbitrary number
-    #     gs_blacksample_h = 10 #! arbitrary number
-    #     GS_MIN_BKPCT = 0.20 #! arbitrary number
-    #     # gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #     # cv2.namedWindow('controls', 2)
-    #     # cv2.resizeWindow('controls', 550, 50)
-    #     # cv2.imshow("controls", gs_bkabove)
-    #     # gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_right-gs_width)
-    #     # print("Percentage of black above green: ", gs_bkpct)
-
-    #     #~ Wait for green to reach last 5 pixels
-    #     if gs_bot > 75: 
-    #         green_col = np.amax(mask_gs, axis=0)
-    #         gs_horizontal_indices = np.where(green_col==255)
-    #         gs_left = gs_horizontal_indices[0][0]
-    #         gs_right = gs_horizontal_indices[0][-1]
-    #         gs_width = gs_right - gs_left 
-    #         print("GS_width: ", gs_width)
-
-    #         #~ Test if below or above line (percentage of black above green)
-    #         gs_bkabove = mask_black_org[gs_blacksample_offset - gs_blacksample_h: gs_blacksample_offset, gs_left: gs_right]
-    #         gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width)
-    #         cv2.namedWindow('bk_above', 2)
-    #         cv2.resizeWindow('bk_above', 550, 50)
-    #         cv2.imshow("bk_above", gs_bkabove)
-    #         print("Percentage of black above green: ", gs_bkpct)    
-
-    #         if gs_bkpct > GS_MIN_BKPCT:
-
-    #             #~ Find centre position of green
-    #             gs_centre = (gs_left + gs_right) / 2
-
-    #             #~ Find centre position of black
-                
-    #             gs_bkbeside = mask_black_org[58: 82] #! arbitrary number (previously top: bot)
-    #             gs_bkbeside[:, :30] = 0
-    #             gs_bkbeside[:, -30:] = 0
-    #             gs_black_moments = cv2.moments(gs_bkbeside)
-    #             cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
-    #             cv2.namedWindow('bkbeside', 2)
-    #             cv2.resizeWindow('bkbeside', 550, 50)
-    #             cv2.imshow('bkbeside', gs_bkbeside)
-    #             print("Cx_Black: ", cx_black)
-    #             print("Left: ", gs_left, " | right: ", gs_right)
-                
-    #             #~ Identify type of green square
-    #             if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
-    #                 curr = Task.DOUBLE_GREEN 
-    #                 gs_now = True
-    #                 print(">" * 15, "Double green ", "<" * 15)
-    #             elif cx_black > gs_centre:
-    #                 curr = Task.LEFT_GREEN
-    #                 gs_now = True
-    #                 print("<" * 40, "left green")
-    #             elif cx_black < gs_centre:
-    #                 curr = Task.RIGHT_GREEN
-    #                 gs_now = True
-    #                 print("right green", ">" * 40)
-    #             else:
-    #                 print("ERROR: Green found but case indeterminate.")
-    #                 top_stream.stop()
-    #                 return 0
-                
-    #     else:
-    #         gs_prev_sum = np.sum(mask_gs[gs_top: gs_bot]) / 255
-    #         print("Green in a faraway land: ", gs_prev_sum)
-
-
     elif gs_sum > 100: #! arbitrary number
 
         gs_blacksample_offset = 0 #! arbitrary number
@@ -377,7 +266,6 @@ def task0_lt():
         gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
         cv2.namedWindow('bk_above', 2)
         cv2.resizeWindow('bk_above', 550, 50)
-        # if gs_bkabove:
         cv2.imshow("bk_above", gs_bkabove)
         print("Percentage of black above green: ", gs_bkpct)  
 
@@ -426,8 +314,6 @@ def task0_lt():
     
     elif gs_sum < 100:
         gsVotes = [0, 0, 0]
-
-
 
     #* LINETRACK    
 
@@ -593,69 +479,49 @@ def task0_lt():
         rotation = -90
     rotation = int(rotation) + 90
 
-    #* SEND DATA
-    # print("value:", curr)
-    # print("rpm_lt:", rpm_lt)
-    # # print("rotation:", rotation)
-
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
                 253, curr.value,
                 252, see_thin_line,
                 251, end_line_gap]
-    # print(to_pico)
-    ser.write(to_pico)
 
-#* ------------------------ RESPOND TO PICO ----------------------------------
+    print(curr.name)
+    print(to_pico)
+    print('-'*30)
+
+#* -----------------------------------------------==========END LINETRACK=========-------------------------------------------------------
+
 
 while True:
+    top_stream.set(cv2.CAP_PROP_POS_FRAMES, current_frame) # shows stepped through frame
+    ret, frame_org = top_stream.read()
 
-    if top_stream.stopped: #or bot_stream.stopped:
-        ser.write(253, curr.RED)
+    if not ret:
+        print("end of video")
+        print(current_frame)
         break
 
-    received_task = receive_pico()
-    if received_task != -1:
-        pico_task = int(received_task)
+    cv2.imshow("frame", frame_org)
+    print(current_frame)
 
-    start = time.time()
-    if pico_task == 0:
-        print("Linetrack")
-        task0_lt()
-    # elif pico_task == 1:
-    #     print("Evac looking for ball")
-    #     task_1_ball()
-    # elif pico_task == 2:
-    #     print("Evac looking for alive deposit")
-    #     task_2_depositalive()
-    # elif pico_task == 3:
-    #     print("Evac looking for dead deposit")
-    #     task_3_depositdead()
-    # elif pico_task == 4:
-    #     print("Looking for linetrack")
-    #     task4_backtolt()
-    # elif pico_task == 5:
-    #     print("Obstacle turning left, looking at right of camera for line")
-    #     task5_leftlookright()
-    # elif pico_task == 6:
-    #     print("Obstacle turning right, looking at left of camera for line")
-    #     task6_rightlookleft()
-    elif pico_task == 9:  #? pfff i know why gsVotes aren't resetting its cuz you didnt do pico send LOL
-        print("Switch off")
-        gsVotes = [0, 0, 0]
-        task0_lt()
-    else:
-        print("Pico task unknown:", pico_task)
-
-    end = time.time()
-    print("Loop time: ", end-start)
-
-    #! remove b4 comp for optimisation
-    key = cv2.waitKey(1)
-    if key == ord('q'):
+    key = cv2.waitKey(0)
+    if key == ord('q'): # quit 
         break
+    elif key == ord('a'): # analyse frame
+        task0_lt()
+    elif key == ord('s'): # skip to frame count
+        current_frame = int(input("Enter frame to jump to: "))
+        cv2.setTrackbarPos("Frame", "frame", current_frame)
+    elif key == ord('n'): # next frame
+        current_frame += 1 
+        if current_frame >= total_frames:
+            current_frame = total_frames
+        cv2.setTrackbarPos("Frame", "frame", current_frame)
+    elif key == ord('b'): # previous frame
+        current_frame -= 1
+        if current_frame < 0:
+            current_frame = 0
+        cv2.setTrackbarPos("Frame", "frame", current_frame)
 
-top_stream.stop()
-# bot_stream.stop()
-out.release()
+top_stream.release()
 cv2.destroyAllWindows()

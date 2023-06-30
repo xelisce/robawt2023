@@ -834,6 +834,34 @@ void serialEvent() //Pi to pico serial
     }
 }
 
+
+// void serialEvent() //Pi to pico serial
+// {   
+//     while (Serial1.available()) 
+//     {
+//         int serialState = (int)Serial1.read();
+
+//         switch (serialState) 
+//         {
+//             case 255:
+//                 rotation = ((double)(Serial1.read()) - 90)/90;
+//                 break;
+//             case 254:
+//                 rpm = (double)Serial1.read();
+//                 break;
+//             case 253:
+//                 task = (int)Serial1.read();
+//                 break;
+//             case 252:
+//                 lineAligned = (bool)Serial1.read();
+//                 break;
+//             case 251:
+//                 endLineGap = (bool)Serial1.read();
+//                 break;
+//         }
+//     }
+// }
+
 void send_pi(int i) //Pico to pi serial
 {
     if (millis() - lastSerialPiSendMillis > 100) { //to not spam the pi with messages
