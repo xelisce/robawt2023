@@ -60,7 +60,7 @@ void ISRRB() { MotorR.readEncB(); }
 const int servosNum = 6;
 Servo servos[servosNum];
 const int servos_pins[servosNum] = {27, 26, 22, 21, 20, 2};
-double servos_angle[servosNum] = {0, 0, 180, 0, 130, 177}; //basic states initialised
+double servos_angle[servosNum] = {0, 0, 180, 0, 130, 0}; //basic states initialised
 const double servos_max_angle[servosNum] = {180, 180, 300, 300, 300, 180};
 bool servos_change = true;
 namespace Servos {
@@ -73,8 +73,8 @@ const int defaultLidarReading = 200;
 const int L0XNum = 5;
 VL53L0X lidarsl0x[L0XNum];
 int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2};
-String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: "}; //for print debugging
+const int l0x_pins[L0XNum] = {0, 5, 6, 1, 2}; //^ {3, 5, 6, 1, 2}; the front one was port 3
+String l0x_labels[L0XNum] = {"FRONT TOP: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: "}; //^ first one was Front
 namespace L0X {
     enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT };
 }
@@ -206,9 +206,9 @@ double prev_kit_rotation,
     kitStartTurnBackDist,
     kitTurnBackDist,
     kit_distToTurn;
-unsigned long endBlueMillis = millis(),
+unsigned long prevClawMillis, endBlueMillis = millis(),
     pickupKitStateTimer;
-int pickupKitState;
+int beforeBlueState, pickupKitState;
 currType afterKitState;
 
 
@@ -221,6 +221,8 @@ bool in_evac = true;
 
 bool entered_evac = false;
 int enterEvacState = 0;
+unsigned long lastSawFrontLeftMillis, lastSawFrontRightMillis;
+
 int pickType, depositType;
 double evac_startDist, evac_setdist,
     evac_startdist,
@@ -429,13 +431,13 @@ void loop()
 
                 case 1:
                     if (curr == EMPTY_LINETRACK){
-                        moveDist(1, 4*3, 100, LEFT_GREEN);
+                        moveDist(1, 5*3, 100, LEFT_GREEN);
                     }
                     break;
 
                 case 2:
                     if (curr == EMPTY_LINETRACK) {
-                        moveDist(1, 4*3, 100, RIGHT_GREEN);
+                        moveDist(1, 5*3, 100, RIGHT_GREEN);
                     }
                     break;
 
@@ -454,14 +456,14 @@ void loop()
                 case 7:
                     if (curr == EMPTY_LINETRACK){
                         prev_kit_rotation = rotation;
-                        kitStartDist = pickMotorDist(prev_kit_rotation);
                         afterKitState = curr;
                         curr = BEFORE_BLUE_TURN;
+                        beforeBlueState = 0;
                     }
                     break;
                 
                 case 8:
-                    if (curr == BEFORE_BLUE_TURN) { 
+                    if (curr == BEFORE_BLUE_TURN && beforeBlueState == 4) { 
                         curr = BLUE; 
                     }
                     break;
@@ -507,6 +509,8 @@ void loop()
                 break;
 
             case EMPTY_LINETRACK:
+                claw_up();
+                claw_halfclose();
                 Robawt.setSteer(rpm, rotation);
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
@@ -523,21 +527,28 @@ void loop()
                 //~ Check if extrusions are detected
                 if (frontLeft_see_reallyclosewall()){
                     lt2evacSawFL = true;
-                    lastSawFrontLeft = millis();
+                    lastSawFrontLeftMillis = millis();
                 }
                 if (frontRight_see_reallyclosewall()){
                     lt2evacSawFR = true;
-                    lastSawFrontRight = millis();
+                    lastSawFrontRightMillis = millis();
                 }
-                if (millis() - lastSawFrontLeft > 5000) {
+                if(!front_see_evac_entry()) {
+                    lt2evacSawFL = false;
+                    lt2evacSawFR = false;
+
+                }
+                if (millis() - lastSawFrontLeftMillis > 2000) {
                     lt2evacSawFL = false;
                 }
-                if (millis() - lastSawFrontRight > 5000) {
-                    lt2evacSawFL = false;
+                if (millis() - lastSawFrontRightMillis > 2000) {
+                    lt2evacSawFR = false;
                 }
                 
                 if (lt2evacSawFL && lt2evacSawFR){ // If extrusions are detected
                     send_pi(7);
+                    Serial.print("lastsaw left millis,"); Serial.println(lastSawFrontLeftMillis);
+                    Serial.print("lastsaw left millis,"); Serial.println(lastSawFrontRightMillis);
                 }
                 else {
                     send_pi(Pi::LINETRACK);
@@ -570,17 +581,51 @@ void loop()
 
             //* ---------------------- RESCUE KIT ----------------------
 
+
             case BEFORE_BLUE_TURN:
                 send_pi(Pi::LINETRACK);
-                Robawt.setSteer(rpm, rotation);
-                claw_down();
-                claw_halfclose();
-                kitBeforeStraightDist = pickMotorDist(prev_kit_rotation); // chooses between L or R motor encoder vals based on previous rotation
-                if (cube_present()) {
-                    pickupKitState = 0;
-                    curr = BLUE_PICKUP; 
-                } else if (obstacle_present()) {
-                    curr = AFTER_BLUE_REVERSE;
+                switch (beforeBlueState)
+                {
+                    case 0:
+                        moveDist(-1, 10, 100, BEFORE_BLUE_TURN);
+                        beforeBlueState++;
+                        prevClawMillis = millis();
+                        break;
+
+                    case 1:
+                        claw_down();
+                        claw_open();
+                        if (millis() - prevClawMillis > 500) {
+                            beforeBlueState++;
+                        }
+                        break;
+
+                    case 2:
+                        claw_down();
+                        claw_open();
+                        moveDist(1, 10, 100, BEFORE_BLUE_TURN);
+                        beforeBlueState++;
+                        break;
+
+                    case 3:
+                        claw_down();
+                        claw_open();
+                        kitStartDist = pickMotorDist(prev_kit_rotation);
+                        beforeBlueState++;
+                        break;
+
+                    case 4:
+                        claw_down();
+                        claw_halfclose();
+                        Robawt.setSteer(rpm, rotation);
+                        kitBeforeStraightDist = pickMotorDist(prev_kit_rotation);
+                        if (cube_present()) {
+                            pickupKitState = 0;
+                            curr = BLUE_PICKUP; 
+                        } else if (obstacle_present()) {
+                            curr = AFTER_BLUE_REVERSE;
+                        }
+                        break;
                 }
                 break;
 
@@ -608,6 +653,7 @@ void loop()
 
                     case 1:
                         claw_close_cube();
+                        sort_alive();
                         if (millis() - pickupKitStateTimer > 700) {
                             pickupKitStateTimer = millis();
                             pickupKitState ++; 
@@ -695,7 +741,7 @@ void loop()
                 {
                     case 0: //^ left turn
                         endLineGap = false;
-                        turnAngle(-1, 240, 100, LINEGAP, LINEGAP);
+                        turnAngle(-1, 300, 100, LINEGAP, LINEGAP);
                         linegapSweepState++;
                         break;
                     case 1:
@@ -1423,8 +1469,8 @@ void claw_close() { //ball
 }
 
 void claw_close_cube() {
-    servos_angle[Servos::RIGHT] = 10;
-    servos_angle[Servos::LEFT] = 120;
+    servos_angle[Servos::RIGHT] = 15;
+    servos_angle[Servos::LEFT] = 115;
     servos_change = true;
 }
 
@@ -1716,4 +1762,8 @@ bool frontLeft_see_reallyclosewall() {
 
 bool frontRight_see_reallyclosewall() {
     return (l0x_readings[L0X::FRONT_RIGHT] < 200);
+}
+
+bool front_see_evac_entry() {
+    return (l0x_readings[L0X::FRONT] > 350);
 }
