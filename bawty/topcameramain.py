@@ -654,6 +654,8 @@ def task_2_depositalive():
     global rotation, curr
 
     frame_org = bot_stream.read()
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
     out.write(frame_org)
