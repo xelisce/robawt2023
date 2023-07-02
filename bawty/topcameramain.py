@@ -105,9 +105,9 @@ u_red1lt = np.array([10, 255, 255], np.uint8)
 l_red2lt = np.array([170, 50, 50], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
-l_greenlt = np.array([60, 90, 90], np.uint8) #alternate values: 50,50,90
+l_greenlt = np.array([65, 85, 85], np.uint8) #alternate values: 50,50,90
 # u_greenlt = np.array([80, 255, 255], np.uint8)
-u_greenlt = np.array([90, 255, 255], np.uint8) # my house
+u_greenlt = np.array([85, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
 u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
 

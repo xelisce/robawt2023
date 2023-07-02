@@ -70,13 +70,13 @@ namespace Servos {
 //* LIDARS SETUP
 const int defaultLidarReading = 200;
 //^ VL53L0X
-const int L0XNum = 5;
+const int L0XNum = 6;
 VL53L0X lidarsl0x[L0XNum];
 int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2};
-String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: "}; //for print debugging
+const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2, 0};
+String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: ", "FRONT TOP: "}; //for print debugging
 namespace L0X {
-    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT };
+    enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT, FRONT_TOP};
 }
 //^ VL53L1X
 const int L1XNum = 1;
@@ -1387,7 +1387,7 @@ void send_pi(int i) //Pico to pi serial
 
 void tcaselect(uint8_t i) //I2C Top Multiplexer: TCA9548A
 {
-    if (i > 0 && i < 7) {
+    if (i >= 0 && i <= 7) {
         Wire.beginTransmission(TCAADR);
         Wire.write(1 << i);
         Wire.endTransmission();
@@ -1396,7 +1396,7 @@ void tcaselect(uint8_t i) //I2C Top Multiplexer: TCA9548A
 
 void tcaselect2(uint8_t i) //I2C Bottom Multiplexer: TCA9548A
 {
-    if (i > 0 && i < 7) {
+    if (i >= 0 && i <= 7) {
         Wire1.beginTransmission(TCAADR);
         Wire1.write(1 << i);
         Wire1.endTransmission();
