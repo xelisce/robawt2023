@@ -11,13 +11,13 @@ import time
 ser = serial.Serial("/dev/serial0", 115200)
 
 #* CAMERAS START
-# bot_stream = WebcamStream(stream_id=0)
-# bot_stream.start()
-# bot_stream_frame = bot_stream.read()
-# bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
-# print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
+bot_stream = WebcamStream(stream_id=2)
+bot_stream.start()
+bot_stream_frame = bot_stream.read()
+bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
+print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
 
-top_stream = WebcamStream(stream_id=2)
+top_stream = WebcamStream(stream_id=0)
 top_stream.start()
 top_stream_frame = top_stream.read()
 top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_stream_frame.shape[0]
@@ -55,10 +55,14 @@ cv2.fillPoly(mask_trapeziums_claw_down, [left_triangle_pts_blue, right_triangle_
 mask_trapeziums_claw_down = cv2.bitwise_not(mask_trapeziums_claw_down)
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
-crop_bot_h = 15
-higher_crop_triangle_h = 23
-higher_crop_triangle_w = 26
-higher_crop_triangle_gap_w = 24
+# crop_bot_h = 15
+# higher_crop_triangle_h = 23
+# higher_crop_triangle_w = 26
+# higher_crop_triangle_gap_w = 24
+crop_bot_h = 62//2
+higher_crop_triangle_h = 72//2
+higher_crop_triangle_w = 75//2
+higher_crop_triangle_gap_w = 35//2
 left_triangle_pts = np.array([[0, height_lt - crop_bot_h], [0, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w - higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 right_triangle_pts = np.array([[width_lt, height_lt - crop_bot_h], [width_lt, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w + higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 bottom_rectangle_pts = np.array([[0, height_lt], [0, height_lt - crop_bot_h], [width_lt, height_lt - crop_bot_h], [width_lt, height_lt]])
@@ -90,7 +94,7 @@ crop_h_evac = 100
 evac_height = top_stream_height_org-crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
-# centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
+centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
 centre_x_topcam = top_stream_width_org//2 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
@@ -200,8 +204,11 @@ pico_task = 0
 
 def receive_pico() -> str:
     if ser.in_waiting > 0:
-        line = ser.readline().decode('utf-8').rstrip()
-        return line
+        line = ser.readline().decode('utf-8').strip()
+        if line:
+            return line
+        else:
+            return -1
     else:
         return -1 #no info
     
@@ -246,13 +253,13 @@ def task0_lt():
     out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
-    cv2.imshow("top camera frame", frame_org)
+    # cv2.imshow("top camera frame", frame_org)
 
     #~ Masking out red
     mask_red1 = cv2.inRange(frame_hsv, l_red1lt, u_red1lt)
     mask_red2 = cv2.inRange(frame_hsv, l_red2lt, u_red2lt)
     mask_red = mask_red1 + mask_red2
-    cv2.imshow("red mask", mask_red)
+    # cv2.imshow("red mask", mask_red)
     red_sum = np.sum(mask_red)/ 255
     print("red sum:", red_sum)
 
@@ -478,6 +485,7 @@ def task0_lt():
             #^ This happens even in green squares
             if first_line_height > 32 and first_line_bottom > 65: #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
+                curr = Task.EMPTY
                 linegap_now = False
             else:
                 end_line_gap = 0
@@ -1059,7 +1067,6 @@ while True:
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
-        task0_lt()
         # task7_lt_to_evac()
     else:
         print("Pico task unknown:", pico_task)

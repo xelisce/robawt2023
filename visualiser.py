@@ -61,6 +61,8 @@ cv2.destroyAllWindows()
 #* CROPPING
 
 top_frame = cv2.imread("hsvcalib\hsvcalibimagetop_cam_clawup.jpg")
+cv2.flip(top_frame, 0)
+cv2.flip(top_frame, 1)
 top_frame = cv2.pyrDown(top_frame, dstsize=(640//2, 480//2))
 top_frame = cv2.pyrDown(top_frame, dstsize=(width_lt, height_lt))
 
