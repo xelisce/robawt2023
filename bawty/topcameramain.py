@@ -127,7 +127,7 @@ min_radius = 65
 max_radius = 88
 
 u_blackforball = 49
-u_black_lt = 102
+u_black_lt = 72 #102
 u_black_lineforltfromevac = 55
 
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
@@ -247,6 +247,7 @@ def task0_lt():
     out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+    cv2.imshow("top camera frame", frame_org)
 
     #~ Masking out red
     mask_red1 = cv2.inRange(frame_hsv, l_red1lt, u_red1lt)
@@ -871,7 +872,6 @@ def task5_leftlookright():
             see_line = 0
     else:
         see_line = 0
-    print("See line pixels:", obstacle_line_pixels)
     # cv2.namedWindow("Line after obstacle", 2)
     # cv2.resizeWindow("Line after obstacle", 550, 100)
     # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line

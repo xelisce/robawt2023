@@ -73,7 +73,7 @@ const int defaultLidarReading = 200;
 const int L0XNum = 6;
 VL53L0X lidarsl0x[L0XNum];
 int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {3, 5, 6, 1, 2, 0};
+const int l0x_pins[L0XNum] = {0, 5, 6, 1, 2, 3};
 String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: ", "FRONT TOP: "}; //for print debugging
 namespace L0X {
     enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT, FRONT_TOP};
@@ -1291,9 +1291,10 @@ void loop()
 
         Robawt.stop();
         curr = EMPTY_LINETRACK;
+        task = 0;
         ledOn = false;
-        send_pi(Pi::SWITCH_OFF); //? yay you remembered to add this line ~DOM
-        claw_down();
+        send_pi(Pi::SWITCH_OFF);
+        claw_up();
         claw_open();
         // claw_close_cube();
     }
@@ -1663,7 +1664,7 @@ void moveDist(double dir, double distOfMove, double speedOfTurn, enum currType p
 //* LIDAR FUNCTIONS
 
 bool obstacle_present() {
-    return (l1x_readings[L1X::FRONT_BOTTOM] < 85 && l0x_readings[L0X::FRONT] < 40);
+    return (l1x_readings[L1X::FRONT_BOTTOM] < 85 && l0x_readings[L0X::FRONT_TOP] < 85);
 }
 
 bool far_obstacle_present() {
