@@ -6,7 +6,9 @@ class WebcamStream:
     def __init__(self, stream_id = 0):
         self.stream_id = stream_id
         print(self.stream_id)
-        self.vcap = cv2.VideoCapture(self.stream_id)
+        self.vcap = cv2.VideoCapture(self.stream_id, cv2.CAP_V4L2)
+        self.vcap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.vcap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         # assert self.vcap.isOpened()
         

@@ -60,11 +60,11 @@ void ISRRB() { MotorR.readEncB(); }
 const int servosNum = 6;
 Servo servos[servosNum];
 const int servos_pins[servosNum] = {27, 26, 22, 21, 20, 2};
-double servos_angle[servosNum] = {0, 0, 180, 0, 130, 0}; //basic states initialised
-const double servos_max_angle[servosNum] = {180, 180, 300, 300, 300, 180};
+double servos_angle[servosNum] = {0, 0, 0, 0, 130, 180}; //basic states initialised
+const double servos_max_angle[servosNum] = {180, 180, 180, 300, 300, 300};
 bool servos_change = true;
 namespace Servos {
-    enum Servos { DEAD, ALIVE, SORT, LEFT, RIGHT, ARM};
+    enum Servos { DEAD, ALIVE, ARM, LEFT, RIGHT, SORT};
 }
 
 //* LIDARS SETUP
@@ -73,7 +73,7 @@ const int defaultLidarReading = 200;
 const int L0XNum = 6;
 VL53L0X lidarsl0x[L0XNum];
 int l0x_readings[L0XNum] = {defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading, defaultLidarReading};
-const int l0x_pins[L0XNum] = {0, 5, 6, 1, 2, 3};
+const int l0x_pins[L0XNum] = {7, 5, 6, 1, 2, 3};
 String l0x_labels[L0XNum] = {"FRONT: ", "FRONT LEFT: ", "LEFT: ", "RIGHT: ", "FRONT RIGHT: ", "FRONT TOP: "}; //for print debugging
 namespace L0X {
     enum L0X {FRONT, FRONT_LEFT, LEFT, RIGHT, FRONT_RIGHT, FRONT_TOP};
@@ -729,6 +729,7 @@ void loop()
 
             //* ---------------------- LINE GAP ----------------------
             case LINEGAP:
+                send_pi(Pi::LINETRACK);
                 #if debugLinegapSweep
                 Serial.print("end line gap: "); Serial.print(endLineGap);
                 Serial.print("linegap state: "); Serial.println(linegapSweepState);
@@ -983,16 +984,7 @@ void loop()
 
                     case 1: // move forward
                         Robawt.setSteer(120, 0);
-                        // if (left_see_reallyclosewall()) { seeLeftForEvac = true; }
-                        // if (right_see_reallyclosewall()) { seeRightForEvac = true; }
                         if (fabs(pickMotorDist(-1) - evac_startDist) > 75) { //! arbitrary number
-                            // if (seeLeftForEvac && seeRightForEvac) {
-                            //     evac_startDist = pickMotorDist(-1);
-                            //     enterEvacState++;   
-                            // } else {
-                            //     enterEvacState = 6;
-                            //     evac_startDist = pickMotorDist(-1);
-                            // }
                             evac_startDist = pickMotorDist(-1);
                             enterEvacState++;
                         }
@@ -1069,13 +1061,15 @@ void loop()
                 //     evac_time_constant = 2;
                 //     evac_settime = (long int)((millis() - (startEvacMillis + 40000)) * evac_time_constant);
                 // } else {
-                evac_settime = millis() - (startEvacMillis+40000);
+                evac_settime = millis() - startEvacMillis;
                 // }
-                if (evac_settime < 0) {
+                if (evac_settime < 40000) { // first 40 seconds, hug the wall at initial set pt distance
                     evac_settime = 1;
                     #if debug_led
                     led_on = true;
                     #endif
+                } else {
+                    evac_settime -= 40000;
                 }
                 evac_setdist = 100 + (evac_settime/200);
                 if (evac_setdist > 600) {evac_setdist = 600;}
@@ -1426,8 +1420,8 @@ void serialEvent() //Pi to pico serial
 
 void send_pi(int i) //Pico to pi serial
 {
-    if (millis() - lastSerialPiSendMillis > 100) { //to not spam the pi with messages
-        Serial1.print(i);
+    if (millis() - lastSerialPiSendMillis > 100) { 
+        Serial1.println(i);
         lastSerialPiSendMillis = millis();
     }
 }

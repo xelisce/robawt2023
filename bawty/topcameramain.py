@@ -11,11 +11,11 @@ import time
 ser = serial.Serial("/dev/serial0", 115200)
 
 #* CAMERAS START
-bot_stream = WebcamStream(stream_id=0)
-bot_stream.start()
-bot_stream_frame = bot_stream.read()
-bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
-print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
+# bot_stream = WebcamStream(stream_id=0)
+# bot_stream.start()
+# bot_stream_frame = bot_stream.read()
+# bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
+# print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
 
 top_stream = WebcamStream(stream_id=2)
 top_stream.start()
@@ -90,8 +90,8 @@ crop_h_evac = 100
 evac_height = top_stream_height_org-crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
-centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
-centre_x_topcam = top_stream_width_org/2 #! LOL no wonder the ball detection wasnt working
+# centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
+centre_x_topcam = top_stream_width_org//2 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
 rpm_evac = 30 #not actually used
@@ -199,22 +199,9 @@ pico_task = 0
 #* FUNCTIONS
 
 def receive_pico() -> str:
-    if(ser.in_waiting > 0):
-        received_data = ser.read()
-        data_left = ser.inWaiting()
-        received_data += ser.read(data_left)
-        # print(received_data)
-        # print("pico data:", ord(received_data))
-        cleanstring = received_data.split(b'\x00',1)
-        if len(cleanstring):
-            pico_data = cleanstring[0].decode()
-            if len(pico_data) and len(pico_data[0]):
-                print("decode:", pico_data[0])
-                return pico_data[0]
-            else:
-                return -1 #empty string
-        else:
-            return -1 #\x00 is the only byte
+    if ser.in_waiting > 0:
+        line = ser.readline().decode('utf-8').rstrip()
+        return line
     else:
         return -1 #no info
     
@@ -265,6 +252,7 @@ def task0_lt():
     mask_red1 = cv2.inRange(frame_hsv, l_red1lt, u_red1lt)
     mask_red2 = cv2.inRange(frame_hsv, l_red2lt, u_red2lt)
     mask_red = mask_red1 + mask_red2
+    cv2.imshow("red mask", mask_red)
     red_sum = np.sum(mask_red)/ 255
     print("red sum:", red_sum)
 
@@ -1071,6 +1059,7 @@ while True:
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
+        task0_lt()
         # task7_lt_to_evac()
     else:
         print("Pico task unknown:", pico_task)
