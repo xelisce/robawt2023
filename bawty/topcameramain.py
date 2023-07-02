@@ -79,8 +79,8 @@ crop_h_evac = 100
 evac_height = top_stream_height_org-crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
-centre_x_botcam = top_stream_width_org/2
-centre_x_topcam = top_stream_height_org/2
+centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
+centre_x_topcam = top_stream_width_org/2 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
 rpm_evac = 30 #not actually used
@@ -561,7 +561,6 @@ def task_1_ball():
     #* IMAGE SETUP
     evac_org = top_stream.read()
     out.write(evac_org)
-    # evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV) #? not currently used
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
@@ -569,7 +568,7 @@ def task_1_ball():
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:evac_height, :]
     
-    #* CIRCLE DETECTION
+    #* CIRCLE DETECTION (using sat max)
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
     #^ (I still have no idea what dp does btw)
     #^ 1. min and max radius
@@ -584,7 +583,7 @@ def task_1_ball():
         for x, y, r in circles[0]:
             mask = np.zeros(evac_max.shape[:2], dtype=np.uint8)
             mask = cv2.circle(mask, (int(x),int(y)), int(r), 255, -1)
-            ball_mask = cv2.inRange(evac_max, 0, u_blackforball) 
+            ball_mask = cv2.inRange(evac_max, 0, u_blackforball) #! DOM: im not actually sure if the frame should be evac_max or evac_gray in this case
             ball_mask = cv2.bitwise_and(ball_mask, ball_mask, mask = mask)
             # cv2.imshow("ball_circle", mask)
             # cv2.imshow("ball", ball_mask)

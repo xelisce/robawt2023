@@ -8,7 +8,7 @@ evac_stream.start()
 evac_org = evac_stream.read()
 width, height_org = evac_org.shape[1], evac_org.shape[0]
 
-crop_h = 100 #! tune for current bot
+crop_h = 100
 
 height = height_org - crop_h
 u_black = 55
