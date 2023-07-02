@@ -42,12 +42,23 @@ black_kernel = np.ones((2, 2), np.uint8)
 rpm_setptlt = 100
 
 #~ Trapezium-ish mask 
+# to mask out robot and claw
+mask_trapeziums_claw_down = np.zeros([height_lt, width_lt], dtype="uint8")
+crop_bot_h_blue = 62//2
+higher_crop_triangle_h_blue = 72//2
+higher_crop_triangle_w_blue = 75//2
+higher_crop_triangle_gap_w_blue = 35//2
+left_triangle_pts_blue = np.array([[0, height_lt - crop_bot_h_blue], [0, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue - higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
+right_triangle_pts_blue = np.array([[width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue + higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
+bottom_rectangle_pts_blue = np.array([[0, height_lt], [0, height_lt - crop_bot_h_blue], [width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt]])
+cv2.fillPoly(mask_trapeziums_claw_down, [left_triangle_pts_blue, right_triangle_pts_blue, bottom_rectangle_pts_blue], 255)
+mask_trapeziums_claw_down = cv2.bitwise_not(mask_trapeziums_claw_down)
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
-crop_bot_h = 62//2
-higher_crop_triangle_h = 72//2
-higher_crop_triangle_w = 75//2
-higher_crop_triangle_gap_w = 35//2
+crop_bot_h = 15
+higher_crop_triangle_h = 23
+higher_crop_triangle_w = 26
+higher_crop_triangle_gap_w = 24
 left_triangle_pts = np.array([[0, height_lt - crop_bot_h], [0, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w - higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 right_triangle_pts = np.array([[width_lt, height_lt - crop_bot_h], [width_lt, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w + higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 bottom_rectangle_pts = np.array([[0, height_lt], [0, height_lt - crop_bot_h], [width_lt, height_lt - crop_bot_h], [width_lt, height_lt]])
@@ -244,6 +255,7 @@ def task0_lt():
     frame_org = top_stream.read()
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.bitwise_and(frame_org, frame_org, mask=mask_trapeziums)
     out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -384,6 +396,8 @@ def task0_lt():
     b_minarea = 250 #! arbitrary number
     #~ Rescue kit spotted:
     if blue_sum >= b_minarea:
+
+        mask_blue = cv2.bitwise_and(mask_blue, mask_blue, mask_trapeziums_claw_down)
         blue_now = True
         if (curr.name != "BLUE"):
             curr = Task.TURN_BLUE
@@ -421,7 +435,7 @@ def task0_lt():
         if not gs_now:
             curr = Task.EMPTY
         mask_black = mask_black_org.copy()
-        mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
+        # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
         mask_black = cv2.erode(mask_black, black_kernel)
         mask_black = cv2.dilate(mask_black, black_kernel)
         mask_uncropped_black = mask_black.copy()
@@ -560,6 +574,7 @@ def task_1_ball():
 
     #* IMAGE SETUP
     evac_org = top_stream.read()
+    evac_org = cv2.bitwise_and(evac_org, evac_org, mask=mask_trapeziums_claw_down)
     out.write(evac_org)
     # evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV) #? not currently used
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
@@ -1017,15 +1032,6 @@ def task7_lt_to_evac():
     ser.write(to_pico)
 
 
-
-    
-    
-
-
-
-
-
-
 #* ------------------------ RESPOND TO PICO ----------------------------------
 
 while True:
@@ -1054,19 +1060,12 @@ while True:
     # elif pico_task == 4:
     #     print("Looking for linetrack")
     #     task4_backtolt()
-    # elif pico_task == 5:
-    #     print("Obstacle turning left, looking at right of camera for line")
-    #     task5_leftlookright()
-    # elif pico_task == 6:
-    #     print("Obstacle turning right, looking at left of camera for line")
-    #     task6_rightlookleft()
     elif pico_task == 5:
         print("Obstacle turning left, looking at right of camera for line")
         task5_leftlookright()
     elif pico_task == 6:
         print("Obstacle turning right, looking at left of camera for line")
         task6_rightlookleft()
-    
     elif pico_task == 7:
         task7_lt_to_evac()
         print("'\033[43m'", "Preparing to enter evac", "'\033[0m'")
