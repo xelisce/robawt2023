@@ -11,11 +11,11 @@ import time
 ser = serial.Serial("/dev/serial0", 115200)
 
 #* CAMERAS START
-# bot_stream = WebcamStream(stream_id=0)
-# bot_stream.start()
-# bot_stream_frame = bot_stream.read()
-# bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
-# print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
+bot_stream = WebcamStream(stream_id=0)
+bot_stream.start()
+bot_stream_frame = bot_stream.read()
+bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
+print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
 
 top_stream = WebcamStream(stream_id=2)
 top_stream.start()
@@ -230,6 +230,8 @@ def contoursCalc(frame_org, mask_black):
         # cv2.imshow("contours", contour_mask)
         mask_black = cv2.bitwise_and(mask_black, contour_mask)
         return (mask_black, closest_contour["y"]) 
+    else:
+        return (mask_black, -1)
 
 #* MAIN FUNCTION ------------------------ MAIN LINETRACK ----------------------------------
 
@@ -261,30 +263,27 @@ def task0_lt():
     mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
     mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
     gs_sum = np.sum(mask_gs)/255
-    cv2.namedWindow('gs mask', 2)
-    cv2.resizeWindow('gs mask', 550, 50)
-    cv2.imshow("gs mask", mask_gs) #& debug green square mask
+    # cv2.namedWindow('gs mask', 2)
+    # cv2.resizeWindow('gs mask', 550, 50)
+    # cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
     #~ Masking out blue
     mask_blue = cv2.inRange(frame_hsv, l_blue, u_blue)
     blue_sum = np.sum(mask_blue) / 255
-    cv2.namedWindow('blue mask', 2)
-    cv2.resizeWindow('blue mask', 550, 100)
-    cv2.imshow("blue mask", mask_blue) #& debug blue mask
+    # cv2.namedWindow('blue mask', 2)
+    # cv2.resizeWindow('blue mask', 550, 100)
+    # cv2.imshow("blue mask", mask_blue) #& debug blue mask
     print("Blue sum:", blue_sum) #& debug blue pixels
 
     #~ Masking out black
     mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
     mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
-    cv2.namedWindow('black mask', 2)
-    cv2.resizeWindow('black mask', 550, 50)
-    cv2.imshow("black mask", mask_black_org) #& debug green square mask
+    # cv2.namedWindow('black mask', 2)
+    # cv2.resizeWindow('black mask', 550, 50)
+    # cv2.imshow("black mask", mask_black_org) #& debug green square mask
     # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
-
-
-    
 
     if red_sum > 2200: #^ measured values: ~2500
         red_now = True
@@ -323,10 +322,10 @@ def task0_lt():
         #~ Test if below or above line (percentage of black above green)
         gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top-gs_blacksample_offset, gs_left: gs_right]
         gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
-        cv2.namedWindow('bk_above', 2)
-        cv2.resizeWindow('bk_above', 550, 50)
+        # cv2.namedWindow('bk_above', 2)
+        # cv2.resizeWindow('bk_above', 550, 50)
         # if gs_bkabove:
-        cv2.imshow("bk_above", gs_bkabove)
+        # cv2.imshow("bk_above", gs_bkabove)
         print("Percentage of black above green: ", gs_bkpct)  
 
         #~ Test if green is left or right of black
@@ -337,9 +336,9 @@ def task0_lt():
             gs_bkbeside[:, -30:] = 0
             gs_black_moments = cv2.moments(gs_bkbeside)
             cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
-            cv2.namedWindow('bkbeside', 2)
-            cv2.resizeWindow('bkbeside', 550, 50)
-            cv2.imshow('bkbeside', gs_bkbeside)
+            # cv2.namedWindow('bkbeside', 2)
+            # cv2.resizeWindow('bkbeside', 550, 50)
+            # cv2.imshow('bkbeside', gs_bkbeside)
             print("Cx_Black: ", cx_black)
             print("Left: ", gs_left, " | right: ", gs_right)
             
@@ -391,7 +390,7 @@ def task0_lt():
         #~ Find x and y positions of rescue kit
         blueM = cv2.moments(mask_blue)
         cx_blue = int(blueM["m10"] / blueM["m00"]) if np.sum(mask_blue) else 0
-        cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
+        # cy_blue = int(blueM["m01"] / blueM["m00"]) if np.sum(mask_blue) else 0
         finalx = cx_blue - centre_x_lt
 
         #~ If the block isn't centred
@@ -463,8 +462,14 @@ def task0_lt():
 
             #~ Trigger line gap
             if (first_line_top > 80) and not gs_now:
-                curr = Task.LINEGAP
-                linegap_now = True
+                if first_line_top - second_line_bottom < 30: #~ small line gap
+                    mask_black = mask_black_org
+                    mask_black[:, :30] = 0
+                    mask_black[:, -30:] = 0
+                    mask_black[first_line_top:, :] = 0
+                else: #~ long line gap
+                    curr = Task.LINEGAP
+                    linegap_now = True
 
             #~ Trigger end line gap 
             #^ This happens even in green squares
@@ -841,20 +846,22 @@ def task5_leftlookright():
     obstacle_line_mask = cv2.bitwise_and(obstacle_line_mask, mask_trapeziums)
     obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
     obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
-    obstacle_line_mask[:40, :] = 0
+    # obstacle_line_mask[:40, :] = 0 #^ xel: no need crop cuz we r checking the height 
     
     if np.sum(obstacle_line_mask):
         obstacle_line_mask, obstacle_line_y = contoursCalc(frame_org, obstacle_line_mask)
         obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
+        print("See line pixels:", obstacle_line_pixels)
+        print(obstacle_line_y)
 
-        if obstacle_line_pixels > 600:
+        if obstacle_line_pixels > 600 and obstacle_line_y > 55:
             obs_line_cols = np.amax(obstacle_line_mask, axis=0)
             obs_line_indices_x = np.where(obs_line_cols==255)
-            # obs_line_left = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
-            obs_line_right = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0
+            obs_line_left = obs_line_indices_x[0][0] if len(obs_line_indices_x[0]) else 0
+            obs_line_right = obs_line_indices_x[0][-1] if len(obs_line_indices_x[0]) else 0 
+            obs_line_width = obs_line_right - obs_line_left
+            print("right x", obs_line_right, " ||  obstacle left", obs_line_left)
 
-            # print("eft x", obs_line_left)
-            print("end x", obs_line_right)
             if obs_line_right > 120: 
                 see_line = 1
                 print('|'* 5, "SEE LINE", '|' * 5)
@@ -865,9 +872,9 @@ def task5_leftlookright():
     else:
         see_line = 0
     print("See line pixels:", obstacle_line_pixels)
-    cv2.namedWindow("Line after obstacle", 2)
-    cv2.resizeWindow("Line after obstacle", 550, 100)
-    cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+    # cv2.namedWindow("Line after obstacle", 2)
+    # cv2.resizeWindow("Line after obstacle", 550, 100)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
@@ -900,6 +907,7 @@ def task6_rightlookleft():
     obstacle_line_mask = cv2.erode(obstacle_line_mask, black_kernel)
     obstacle_line_mask = cv2.dilate(obstacle_line_mask, black_kernel)
     # obstacle_line_mask[:40, :] = 0
+
     if np.sum(obstacle_line_mask):
         obstacle_line_mask, obstacle_line_y = contoursCalc(frame_org, obstacle_line_mask)
         obstacle_line_pixels = np.sum(obstacle_line_mask) / 255
@@ -925,9 +933,9 @@ def task6_rightlookleft():
     else:
         see_line = 0
 
-    cv2.namedWindow("Line after obstacle", 2)
-    cv2.resizeWindow("Line after obstacle", 550, 100)
-    cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
+    # cv2.namedWindow("Line after obstacle", 2)
+    # cv2.resizeWindow("Line after obstacle", 550, 100)
+    # cv2.imshow("Line after obstacle", obstacle_line_mask) #& debug obstacle line
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
@@ -982,22 +990,24 @@ def task7_lt_to_evac():
         # cv2.imshow("new frame max", frame_max)
     
         mask_black_org = mask_black_org - overall_mask
-        cv2.imshow("new mask black", mask_black_org)
+        # cv2.imshow("new mask black", mask_black_org)
         black_sum = np.sum(mask_black_org)/255
         print("new black sum", black_sum)
 
-        if black_sum < 40000: #! TUNE
+        if black_sum < 10000: #! TUNE
             entered_evac = True
             print("ENTERED EVAC!!")
         else:
             entered_evac = False
+            task0_lt()
     else:
         black_sum = np.sum(mask_black_org)/255
-        if black_sum < 40000:
+        if black_sum < 10000:
             entered_evac = True
             print("ENTERED EVAC!!")
         else:
             entered_evac = False
+            task0_lt()
     # else:
     #     task0_lt() #! consider creating special conditions for this
 
@@ -1059,6 +1069,7 @@ while True:
     
     elif pico_task == 7:
         task7_lt_to_evac()
+        print("'\033[43m'", "Preparing to enter evac", "'\033[0m'")
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
