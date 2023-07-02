@@ -8,22 +8,15 @@ evac_stream.start()
 evac_org = evac_stream.read()
 width, height_org = evac_org.shape[1], evac_org.shape[0]
 
-crop_h = 100 #! tune for current bot
+crop_h = 50 #!tune for current bot
 
-height = height_org - crop_h
+# height = height_org - crop_h
 u_black = 55
 
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
 l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 balls = []
-
-# dp = 1.2
-# min_dist = 70
-# param1 = 184
-# param2 = 28
-# min_radius = 40
-# max_radius = 170
 
 dp = 3
 min_dist = 77 #67
@@ -34,21 +27,23 @@ max_radius = 88
 
 def callback(val):
     global dp, min_dist, param1, param2, min_radius, max_radius
-    # dp = int(cv2.getTrackbarPos('dp', 'controls'))/10
+    dp = int(cv2.getTrackbarPos('dp', 'controls'))/10
     min_dist = int(cv2.getTrackbarPos('min_dist', 'controls'))
     param1 = int(cv2.getTrackbarPos('param1', 'controls'))
     param2 = int(cv2.getTrackbarPos('param2', 'controls'))
     min_radius = int(cv2.getTrackbarPos('min_radius', 'controls'))
     max_radius = int(cv2.getTrackbarPos('max_radius', 'controls'))
+    crop_h = int(cv2.getTrackbarPos('max_radius', 'controls'))
 
 cv2.namedWindow('controls', 2)
-cv2.resizeWindow('controls', 550, 10)
-# cv2.createTrackbar('dp*10', 'controls', 12, 20, callback)
+cv2.resizeWindow('controls', 550, 300)
+cv2.createTrackbar('dp*10', 'controls', 12, 30, callback)
 cv2.createTrackbar('min_dist', 'controls', min_dist, 200, callback)
 cv2.createTrackbar('param1', 'controls', param1, 500, callback)
 cv2.createTrackbar('param2', 'controls', param2, 180, callback)
 cv2.createTrackbar('min_radius', 'controls', min_radius, 255, callback)
 cv2.createTrackbar('max_radius', 'controls', max_radius, 255, callback)
+cv2.createTrackbar('crop_h', 'controls', crop_h, 255, callback)
 #old values 1.2, 70, 200, 27, 40, 100
 
 #* IN LOOP
@@ -58,12 +53,13 @@ while True:
         break
 
     evac_org = evac_stream.read()
+    evac_org = cv2.pyrDown(evac_org, dstsize=(width//2, height_org//2))
 
     #print("og shape:", evac_org.shape[1], evac_org.shape[0])
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
-    # cv2.imshow("gray frame", evac_gray)
     evac_max = np.amax(evac_org, axis=2) #to get max "intensity/saturation" of every pixel (RGB)
+    # cv2.imshow("gray frame", evac_gray)
 
     # evac_sat = evac_hsv[:, :, 1]
 
@@ -71,7 +67,8 @@ while True:
     evac_gray = cv2.bitwise_and(evac_gray, evac_gray, mask=evac_sat_mask)
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
 
-    evac_gray = evac_gray[:height, :]
+    #^ HoughCircles using grayscale mask
+    evac_gray = evac_gray[:(height_org - crop_h)//2, :]
     circles = cv2.HoughCircles(evac_gray, cv2.HOUGH_GRADIENT, dp, min_dist, param1 = param1 , param2=param2, minRadius= min_radius, maxRadius=max_radius)
     edge_gray = cv2.Canny(evac_gray, int(param1/2), param1)
     if circles is not None:
@@ -93,7 +90,8 @@ while True:
             # draw the center of the circle
             cv2.circle(evac_gray,(i [0],i[1]),2,(0,0,255),3)
 
-    evac_max = evac_max[:height, :]
+    #^ HoughCircles using max saturation mask
+    evac_max = evac_max[:(height_org - crop_h)//2, :]
 
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
     #^ (I still have no idea what dp does btw) it changes the resolution of the 3d space for the accumulator
@@ -131,10 +129,11 @@ while True:
     # cv2.imshow('detected circles',evac_gray)
 
     combined = np.hstack((evac_gray, evac_max))
-    combinedDown = cv2.pyrDown(combined)
+    # combinedDown = cv2.pyrDown(combined)
     combined_edge = np.hstack((edge_gray, edge_max))
     combinedDown_edge = cv2.pyrDown(combined_edge)
-    cv2.imshow("both", combinedDown)
+    # cv2.imshow("both", combinedDown)
+    cv2.imshow("both (decreased res)", combined)
     cv2.imshow("edges", combinedDown_edge)
 
     key = cv2.waitKey(1)

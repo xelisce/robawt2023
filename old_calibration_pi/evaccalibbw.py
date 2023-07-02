@@ -1,13 +1,11 @@
 
-#^ HOW TO USE evaccalibbw.py 
+#^ HOW TO USE bwcalib.py
 # Drag the slider to threshold the black and white value
 # Anything above the value is considered white, any below is black
 # Black and white values are inverted on the masked image --> black as white and white as black
 # This is because black is getting masked, so it has a value
 # The slider lags abit so just drag once and wait for a response from the program
 # Press 'q' to quit
-
-#^ DOM: this is for top camera right? why was the frame previously flipped lolols
 
 import cv2
 from MultiThread import WebcamStream
@@ -26,9 +24,8 @@ def update(val):
     l_sat_thresh = np.array([0, int(val), 0], np.uint8)
 
 frame_org = cam_stream.read()
-frame_width_org, frame_height_org = frame_org.shape[1], frame_org.shape[0]
-# frame_org = cv2.flip(frame_org, 0)
-# frame_org = cv2.flip(frame_org, 1)
+frame_org = cv2.flip(frame_org, 0)
+frame_org = cv2.flip(frame_org, 1)
 gray_org = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
 t, thresh = cv2.threshold(gray_org, sat_thresh, 255, cv2.THRESH_BINARY_INV)
 cv2.imshow('frame', thresh)
@@ -39,8 +36,6 @@ while True:
         break
 
     frame_org = cam_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//2, frame_height_org//2))
-    frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//4, frame_height_org//4))
     gray_org = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     # evac_max = np.amax(frame_hsv, axis=2)
@@ -50,5 +45,3 @@ while True:
     if cv2.waitKey(1) == ord('q'):
         break
 
-cam_stream.stop()
-cv2.destroyAllWindows()

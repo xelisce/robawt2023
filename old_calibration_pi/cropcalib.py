@@ -12,8 +12,7 @@ from MultiThread import WebcamStream
 cam_stream = WebcamStream(stream_id=0)
 cam_stream.start()
 frame_org = cam_stream.read()
-frame_width_org, frame_height_org = frame_org.shape[1], frame_org.shape[0]
-height = frame_org.shape[0]//4
+height = frame_org.shape[0]
 cam_type = 0
 
 crop_h = 0
@@ -23,7 +22,7 @@ def update(val):
     global crop_h
     crop_h = val
 
-frame_org = frame_org[crop_h:, :]
+frame_org = frame_org[crop_h:height, :]
 gray_org = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
 t, thresh = cv2.threshold(gray_org, bw_thresh, 255, cv2.THRESH_BINARY_INV)
 cv2.imshow('cropped_frame', thresh)
@@ -48,12 +47,8 @@ while True:
         if cam_type == 0:
             frame_org = cv2.flip(frame_org, 0)
             frame_org = cv2.flip(frame_org, 1)
-            frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//2, frame_height_org//2))
-            frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//4, frame_height_org//4))
             frame_org = frame_org[crop_h:, :]
         else:
-            frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//2, frame_height_org//2))
-            frame_org = cv2.pyrDown(frame_org, dstsize=(frame_width_org//4, frame_height_org//4))
             frame_org = frame_org[:height-crop_h, :]
         gray_org = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
         t, thresh = cv2.threshold(gray_org, bw_thresh, 255, cv2.THRESH_BINARY_INV)
