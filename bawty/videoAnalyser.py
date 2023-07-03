@@ -7,6 +7,7 @@ import math
 #* ----------------------------------------------=Initialising Video Analyser=---------------------------------------------------------
 def on_trackbar_change(x):
     global current_frame
+    global frame_org
     current_frame = x
     top_stream.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
     ret, frame_org = top_stream.read()
@@ -15,9 +16,9 @@ def on_trackbar_change(x):
 
 top_stream = cv2.VideoCapture('output.avi')
 _, top_stream_frame = top_stream.read()
-top_stream_width, top_stream_height = top_stream_frame.shape[1], top_stream_frame.shape[0]
-top_stream_width_org = top_stream_width * 4
-top_stream_height_org = top_stream_height * 4
+top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_stream_frame.shape[0]
+# top_stream_width_org = top_stream_width * 4
+# top_stream_height_org = top_stream_height * 4
 print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_height_org)
 
 current_frame = 0
@@ -224,8 +225,8 @@ def task0_lt():
 
     #~ Basic conversion of color spaces
     # frame_org = top_stream.read()
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -545,6 +546,7 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
     #* IMAGE SETUP
     # evac_org = top_stream.read()
     # out.write(evac_org)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     evac_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     evac_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
@@ -643,10 +645,10 @@ def task_2_depositalive():
     global frame_org
 
     # frame_org = bot_stream.read()
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    # frame_org = cv2.flip(frame_org, 0)
-    # frame_org = cv2.flip(frame_org, 1)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
     # out.write(frame_org)
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -704,8 +706,10 @@ def task_3_depositdead():
     global frame_org
 
     # frame_org = bot_stream.read()
-    # frame_org = cv2.flip(frame_org, 0)
-    # frame_org = cv2.flip(frame_org, 1)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.flip(frame_org, 0)
+    frame_org = cv2.flip(frame_org, 1)
     # out.write(frame_org)
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -763,8 +767,8 @@ def task4_backtolt():
     global frame_org
 
     # frame_org = top_stream.read()
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -824,8 +828,8 @@ def task5_leftlookright():
     global frame_org
 
     # frame_org = top_stream.read()
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -890,8 +894,8 @@ def task6_rightlookleft():
     global frame_org
 
     # frame_org = top_stream.read()
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
@@ -956,8 +960,8 @@ def task7_lt_to_evac():
     global frame_org
 
     # frame_org = top_stream.read()[:360] #! TUNE
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
