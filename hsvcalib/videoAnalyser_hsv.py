@@ -3,9 +3,12 @@ import numpy as np
 np.set_printoptions(threshold=1000) #^ to print entire array, use this np.inf and to truncate the array when printing, use the default 1000 or any length preferred
 import enum
 import math
+import os
 
 #* ----------------------------------------------=Initialising HSV Analyser=---------------------------------------------------------
 
+# wd = os.getcwd()
+# file = os.chdir("bawty\output.avi")
 #^init the image stream and shit
 def on_trackbar_change(x):
     global current_frame
@@ -28,6 +31,8 @@ u_red2 = np.array([180, 0, 0], np.uint8)
 
 def callback(x):
     # global l_hsv, u_hsv
+    global frame_hsv
+    cv2.imshow('masked frame', frame_hsv)
     #Mask 1
     l_red1[0] = cv2.getTrackbarPos('L1 HUE', 'controls')
     l_red1[1] = cv2.getTrackbarPos('L1 SAT', 'controls')
@@ -47,7 +52,7 @@ def callback(x):
     _mask_red2 = cv2.inRange(frame_hsv, l_red2, u_red2)
     mask_red = _mask_red1 + _mask_red2
     res = cv2.bitwise_and(frame_hsv, frame_hsv, mask=mask_red)
-    cv2.imshow('masked frame', res)
+    # cv2.imshow('masked frame', res)
 
 
 current_frame = 0
@@ -92,12 +97,14 @@ while True:
 
     top_stream.set(cv2.CAP_PROP_POS_FRAMES, current_frame) # shows stepped through frame
     ret, frame_org = top_stream.read()
+    frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     if not ret:
         print("end of video")
         print(current_frame)
         break
 
     cv2.imshow("frame", frame_org)
+    cv2.imshow("masked frame", frame_hsv)
     print(current_frame)
 
     #^ various keybinds

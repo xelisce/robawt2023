@@ -11,13 +11,13 @@ import time
 ser = serial.Serial("/dev/serial0", 115200)
 
 #* CAMERAS START
-bot_stream = WebcamStream(stream_id=2)
+bot_stream = WebcamStream(stream_id=0)
 bot_stream.start()
 bot_stream_frame = bot_stream.read()
 bot_stream_width_org, bot_stream_height_org = bot_stream_frame.shape[1], bot_stream_frame.shape[0]
 print("Bottom camera width:", bot_stream_width_org, "Camera height:", bot_stream_height_org)
 
-top_stream = WebcamStream(stream_id=0)
+top_stream = WebcamStream(stream_id=2)
 top_stream.start()
 top_stream_frame = top_stream.read()
 top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_stream_frame.shape[0]
@@ -43,16 +43,16 @@ rpm_setptlt = 100
 
 #~ Trapezium-ish mask 
 # to mask out robot and claw
-mask_trapeziums_claw_down = np.zeros([height_lt, width_lt], dtype="uint8")
-crop_bot_h_blue = 62//2
-higher_crop_triangle_h_blue = 72//2
-higher_crop_triangle_w_blue = 75//2
-higher_crop_triangle_gap_w_blue = 35//2
-left_triangle_pts_blue = np.array([[0, height_lt - crop_bot_h_blue], [0, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue - higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
-right_triangle_pts_blue = np.array([[width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue + higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
-bottom_rectangle_pts_blue = np.array([[0, height_lt], [0, height_lt - crop_bot_h_blue], [width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt]])
-cv2.fillPoly(mask_trapeziums_claw_down, [left_triangle_pts_blue, right_triangle_pts_blue, bottom_rectangle_pts_blue], 255)
-mask_trapeziums_claw_down = cv2.bitwise_not(mask_trapeziums_claw_down)
+# mask_trapeziums_claw_down = np.zeros([height_lt, width_lt], dtype="uint8")
+# crop_bot_h_blue = 62//2
+# higher_crop_triangle_h_blue = 72//2
+# higher_crop_triangle_w_blue = 75//2
+# higher_crop_triangle_gap_w_blue = 35//2
+# left_triangle_pts_blue = np.array([[0, height_lt - crop_bot_h_blue], [0, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue - higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt - higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
+# right_triangle_pts_blue = np.array([[width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue + higher_crop_triangle_w_blue, height_lt - higher_crop_triangle_h_blue], [centre_x_lt + higher_crop_triangle_gap_w_blue , height_lt - crop_bot_h_blue]])
+# bottom_rectangle_pts_blue = np.array([[0, height_lt], [0, height_lt - crop_bot_h_blue], [width_lt, height_lt - crop_bot_h_blue], [width_lt, height_lt]])
+# cv2.fillPoly(mask_trapeziums_claw_down, [left_triangle_pts_blue, right_triangle_pts_blue, bottom_rectangle_pts_blue], 255)
+# mask_trapeziums_claw_down = cv2.bitwise_not(mask_trapeziums_claw_down)
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
 # crop_bot_h = 15
@@ -120,9 +120,9 @@ u_red1lt = np.array([10, 255, 255], np.uint8)
 l_red2lt = np.array([170, 50, 50], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
-l_greenlt = np.array([65, 85, 85], np.uint8) #alternate values: 50,50,90
+l_greenlt = np.array([63, 85, 85], np.uint8) #alternate values: 50,50,90
 # u_greenlt = np.array([80, 255, 255], np.uint8)
-u_greenlt = np.array([85, 255, 255], np.uint8) # my house
+u_greenlt = np.array([90, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
 u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
 
@@ -151,7 +151,7 @@ l_sat_thresh = np.array([180, 255, 255], np.uint8)
 #* VIDEO STREAM
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (width_lt ,height_lt))
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, (top_stream_width_org ,top_stream_height_org))
 
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
@@ -205,7 +205,9 @@ pico_task = 0
 def receive_pico() -> str:
     if ser.in_waiting > 0:
         line = ser.readline().decode('utf-8').strip()
+        print("pico task:", line)
         if line:
+            line = line.replace('\x00', '')
             return line
         else:
             return -1
@@ -247,10 +249,10 @@ def task0_lt():
 
     #~ Basic conversion of color spaces
     frame_org = top_stream.read()
+    out.write(frame_org)
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    frame_org = cv2.bitwise_and(frame_org, frame_org, mask=mask_trapeziums)
-    out.write(frame_org)
+    # frame_org = cv2.bitwise_and(frame_org, frame_org, mask=mask_trapeziums)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     # cv2.imshow("top camera frame", frame_org)
@@ -273,7 +275,7 @@ def task0_lt():
     gs_sum = np.sum(mask_gs)/255
     # cv2.namedWindow('gs mask', 2)
     # cv2.resizeWindow('gs mask', 550, 50)
-    # cv2.imshow("gs mask", mask_gs) #& debug green square mask
+    cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
     #~ Masking out blue
@@ -392,7 +394,7 @@ def task0_lt():
     #~ Rescue kit spotted:
     if blue_sum >= b_minarea:
 
-        mask_blue = cv2.bitwise_and(mask_blue, mask_blue, mask_trapeziums_claw_down)
+        # mask_blue = cv2.bitwise_and(mask_blue, mask_blue, mask_trapeziums_claw_down)
         blue_now = True
         if (curr.name != "BLUE"):
             curr = Task.TURN_BLUE
@@ -430,7 +432,7 @@ def task0_lt():
         if not gs_now:
             curr = Task.EMPTY
         mask_black = mask_black_org.copy()
-        # mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
+        mask_black = cv2.bitwise_and(mask_black_org, mask_black_org, mask=mask_trapeziums)
         mask_black = cv2.erode(mask_black, black_kernel)
         mask_black = cv2.dilate(mask_black, black_kernel)
         mask_uncropped_black = mask_black.copy()
@@ -570,7 +572,7 @@ def task_1_ball():
 
     #* IMAGE SETUP
     evac_org = top_stream.read()
-    evac_org = cv2.bitwise_and(evac_org, evac_org, mask=mask_trapeziums_claw_down)
+    # evac_org = cv2.bitwise_and(evac_org, evac_org, mask=mask_trapeziums_claw_down)
     out.write(evac_org)
     evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
@@ -670,11 +672,11 @@ def task_2_depositalive():
     global rotation, curr
 
     frame_org = bot_stream.read()
+    out.write(frame_org)
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
-    out.write(frame_org)
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -729,9 +731,9 @@ def task_3_depositdead():
     global rotation, curr
 
     frame_org = bot_stream.read()
+    out.write(frame_org)
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
-    out.write(frame_org)
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -784,9 +786,9 @@ def task4_backtolt():
     global rotation, curr
 
     frame_org = top_stream.read()
+    out.write(frame_org)
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -840,9 +842,9 @@ def task5_leftlookright():
     global curr, rotation, rpm_lt, see_line
 
     frame_org = top_stream.read()
+    out.write(frame_org)
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -899,9 +901,9 @@ def task6_rightlookleft():
     global curr, rotation, rpm_lt, see_line
 
     frame_org = top_stream.read()
+    out.write(frame_org)
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
-    out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 

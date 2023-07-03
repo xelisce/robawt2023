@@ -12,6 +12,6 @@
 .vscode/tasks.json
 .vscode/arduino.json
 .gitignore
-/images/pi.img
+/images
 /hsvcalib/realvalues
 /main/testBluetooth
