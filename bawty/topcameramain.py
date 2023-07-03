@@ -694,12 +694,12 @@ def task_2_depositalive():
     mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
     # mask_gs = cv2.erode(mask_gs, green_erode_kernel, iterations=1)
     # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
-    # cv2.imshow("green", mask_green)
+    cv2.imshow("green", mask_green)
     green_sum = np.sum(mask_green)/255
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 50 < green_sum:
+    if 12 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green

@@ -261,6 +261,7 @@ int pickupState,
 currType afterDepositState;
 int depositState; 
 unsigned long depositStateTimer;
+unsigned long long lastSwitchMillis;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -407,7 +408,7 @@ void loop()
     // afterTCSLoopTimeMicros = micros();
     // #endif
 
-    if (!digitalRead(SWTPIN)) 
+    if (switch_on()) 
     {
         // tcsAnalyse();
         serialEvent();
@@ -1335,7 +1336,7 @@ void loop()
             //^ friendly note that depositTypes; 0: dead, 1: alive, 2: rescue kit
             //^ Depositing alive first
             case CENTERING_FOR_DEPOSIT: 
-                claw_down();
+                claw_up();
                 if (depositType == 1 || depositType == 2) { send_pi(Pi::DEPOSIT_ALIVE); }
                 else { send_pi(Pi::DEPOSIT_DEAD); }
                 #if debug_led
@@ -1371,9 +1372,14 @@ void loop()
                 if (depositType == 1 || depositType == 2) { send_pi(Pi::DEPOSIT_ALIVE); }
                 else { send_pi(Pi::DEPOSIT_DEAD); }
                 claw_open();
+                claw_down();
+                moveDist(1, 20, evac_deposit_rpm, HEAD_TO_DEPOSIT_MORE);
                 // if (fabs(pickMotorDist(-1) - startHeadingToDepositDist) < 1) { Robawt.setSteer(evac_deposit_rpm, 1); }
                 // else { Robawt.setSteer(evac_deposit_rpm, rotation); }
-                Robawt.setSteer(evac_deposit_rpm, rotation);
+                break;
+                
+            case HEAD_TO_DEPOSIT_MORE:
+                Robawt.setSteer(evac_deposit_rpm, 0.15);
                 sort_neutral();
                 if (ball_present()) { 
                     curr = EVAC_PICKUP;
@@ -1414,7 +1420,7 @@ void loop()
                 if (depositType == 1) {  // go deposit dead now
                     depositType = 0; 
                     curr = REVERSE_FROM_ALIVE; 
-                    send_pi(3); 
+                    send_pi(Pi::DEPOSIT_DEAD); 
                     startReverseDistAfterDepL = pickMotorDist(1); 
                 // } else if (depositType == 2) { //rescue kit
                 //     curr = ; we dont have a resuce kit case 
@@ -1445,31 +1451,31 @@ void loop()
 
             case AFTER_DEAD:
                 Robawt.stop();
-                // send_pi(Pi::EVAC_TO_LINETRACK);
-                // switch (depositToExitState) {
-                //     case 0: //initialise
-                //         depositToExitDist = pickMotorDist(-1);
-                //         depositToExitState ++;
-                //         break;
+                send_pi(Pi::EVAC_TO_LINETRACK);
+                switch (depositToExitState) {
+                    case 0: //initialise
+                        depositToExitDist = pickMotorDist(-1);
+                        depositToExitState ++;
+                        break;
 
-                //     case 1:
-                //         Robawt.setSteer(-evac_exit_rpm, 0);
-                //         if (fabs(pickMotorDist(-1) - depositToExitDist) > 10)
-                //         {
-                //             depositToExitDist = pickMotorDist(-1);
-                //             depositToExitState ++;
-                //         }
-                //         break;
+                    case 1:
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        if (fabs(pickMotorDist(-1) - depositToExitDist) > 10)
+                        {
+                            depositToExitDist = pickMotorDist(-1);
+                            depositToExitState ++;
+                        }
+                        break;
 
-                //     case 2:
-                //         Robawt.setSteer(evac_exit_rpm, 1);
-                //         if (fabs(pickMotorDist(1) - depositToExitDist) > 16.5)
-                //         {
-                //             depositToExitState = 0;
-                //             curr = EXIT_EVAC;
-                //         }
-                //         break;
-                // }
+                    case 2:
+                        Robawt.setSteer(evac_exit_rpm, 1);
+                        if (fabs(pickMotorDist(1) - depositToExitDist) > 16.5)
+                        {
+                            depositToExitState = 0;
+                            curr = EXIT_EVAC;
+                        }
+                        break;
+                }
                 break;
 
             case EXIT_EVAC:
@@ -1538,14 +1544,16 @@ void loop()
 
         Robawt.stop();
         // curr = EMPTY_LINETRACK;
+        curr = CENTERING_FOR_DEPOSIT;
+        depositType = 1;
         task = 0;
         ledOn = false;
         send_pi(Pi::SWITCH_OFF);
         claw_up();
         // claw_down();
         claw_open();
-        // dead_up();
-        alive_up();
+        dead_down();
+        alive_down();
         // claw_close_cube();
     }
 
@@ -1699,6 +1707,15 @@ void tcaselect2(uint8_t i) //I2C Bottom Multiplexer: TCA9548A
         Wire1.beginTransmission(TCAADR);
         Wire1.write(1 << i);
         Wire1.endTransmission();
+    }
+}
+
+bool switch_on() {
+    if (!digitalRead(28)) { lastSwitchMillis = millis(); }
+    if (millis() - lastSwitchMillis > 100) {
+        return true;
+    } else {
+        return false;
     }
 }
 
