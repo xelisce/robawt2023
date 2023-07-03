@@ -98,7 +98,7 @@ centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
 centre_x_topcam = top_stream_width_org//4 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
-rpm_evac = 30 #not actually used
+rpm_evac = 120 #not actually used
 
 # u_sat_thresh = np.array([0, 0, 0], np.uint8)
 # l_sat_thresh = np.array([180, 255, 255], np.uint8)
@@ -120,7 +120,7 @@ u_red1lt = np.array([10, 255, 255], np.uint8)
 l_red2lt = np.array([170, 50, 50], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
-l_greenlt = np.array([63, 85, 85], np.uint8) #alternate values: 50,50,90
+l_greenlt = np.array([60, 85, 43], np.uint8) #alternate values: 50,50,90
 # u_greenlt = np.array([80, 255, 255], np.uint8)
 u_greenlt = np.array([90, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
@@ -208,7 +208,10 @@ def receive_pico() -> str:
         print("pico task:", line)
         if line:
             line = line.replace('\x00', '')
-            return line
+            if line:
+                return line
+            else:
+                return -1
         else:
             return -1
     else:
@@ -268,6 +271,7 @@ def task0_lt():
     #~ Masking out green
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
     # cv2.imshow("green square mask", mask_green)
+    mask_green = cv2.bitwise_and(mask_green, mask_trapeziums)
     mask_gs = mask_green.copy()
     mask_gs[: gs_roi_h] = 0
     mask_gs = cv2.erode(mask_gs, gs_erode_kernel, iterations=1)
@@ -441,7 +445,7 @@ def task0_lt():
         mask_black[:crop_lt_h, :] = 0
         mask_supercrop_black[:supercrop_lt_h, :] = 0
 
-        # cv2.imshow("mask black", mask_black)
+        cv2.imshow("mask black", mask_black)
 
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
@@ -653,7 +657,7 @@ def task_1_ball(): #^ downres-ed once
         rotation = -90
     rotation += 90
 
-    curr = Task.NOBALL
+    # curr = Task.NOBALL #& debug normal walltrack
 
     print("rotation", rotation)
 
@@ -733,6 +737,8 @@ def task_3_depositdead():
 
     frame_org = bot_stream.read()
     out.write(frame_org)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
@@ -1049,12 +1055,12 @@ while True:
     elif pico_task == 1:
         print("Evac looking for ball")
         task_1_ball()
-    # elif pico_task == 2:
-    #     print("Evac looking for alive deposit")
-    #     task_2_depositalive()
-    # elif pico_task == 3:
-    #     print("Evac looking for dead deposit")
-    #     task_3_depositdead()
+    elif pico_task == 2:
+        print("Evac looking for alive deposit")
+        task_2_depositalive()
+    elif pico_task == 3:
+        print("Evac looking for dead deposit")
+        task_3_depositdead()
     # elif pico_task == 4:
     #     print("Looking for linetrack")
     #     task4_backtolt()
