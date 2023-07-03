@@ -14,7 +14,7 @@ enum currType { //what the pico needs to do
     BEFORE_OBSTACLE_TURN = 31,
     OBSTACLE = 32,
     //^ Evac stuff
-    CHECK_FOR_EVAC = 49,
+    // CHECK_FOR_EVAC = 49,
     EVAC_INIT = 50,
     EVAC_PICKUP = 51,
     WALLTRACK = 60, //^ basically no ball walltrack
@@ -26,6 +26,11 @@ enum currType { //what the pico needs to do
     HEAD_TO_DEPOSIT = 71,
     DEPOSIT = 80,
     POST_DEPOSIT = 81,
+    REVERSE_FROM_ALIVE = 74,
+    REVERSE_FROM_DEAD = 75,
+    AFTER_DEAD = 89,
+    EXIT_EVAC = 90,
+    EVAC_FRONT_LEFT_SEE_OUT = 93,
     //^ Forced stuff
     STOP = 100,
     MOVE_DIST = 101,

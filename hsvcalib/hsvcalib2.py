@@ -10,7 +10,7 @@
 import cv2
 import numpy as np
 
-raw = cv2.imread('hsvcalib/top/hsvcalibimagedoublegreen.jpg') 
+raw = cv2.imread('hsvcalib/bot/hsvcalibimagekirbsred.jpg') 
 frame_hsv = cv2.cvtColor(raw, cv2.COLOR_BGR2HSV)
 
 cv2.namedWindow("raw frame", cv2.WINDOW_NORMAL)
@@ -50,7 +50,7 @@ def callback(x):
     cv2.imshow('masked frame', res)
  
 cv2.namedWindow('controls', 2)
-cv2.resizeWindow('controls', 550, 10) #why's the height 10 pixels lol
+cv2.resizeWindow('controls', 550, 300) #why's the height 10 pixels lol
 
 cv2.createTrackbar('L1 HUE', 'controls', 0, 180, callback)
 cv2.createTrackbar('L1 SAT', 'controls', 0, 255, callback)

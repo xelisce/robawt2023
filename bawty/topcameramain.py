@@ -90,8 +90,8 @@ x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in ran
 x_com *= x_com_scale
 
 #* EVAC CONSTANTS
-crop_h_evac = 50
-evac_height = top_stream_height_org-crop_h_evac
+crop_h_evac = 75
+evac_height = top_stream_height_org//2 - crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
 centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
@@ -100,8 +100,8 @@ centre_x_topcam = top_stream_width_org//4 #! LOL no wonder the ball detection wa
 kp_ball = 1
 rpm_evac = 120 #not actually used
 
-# u_sat_thresh = np.array([0, 0, 0], np.uint8)
-# l_sat_thresh = np.array([180, 255, 255], np.uint8)
+u_sat_thresh = np.array([0, 0, 0], np.uint8)
+l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 crop_bh_evactolt = 120 #with top cam
 crop_th_evactolt = 100 #with top cam
@@ -126,27 +126,33 @@ u_greenlt = np.array([90, 255, 255], np.uint8) # my house
 l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
 u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
 
-l_red1evac = np.array([0, 60, 20], np.uint8)
+l_red1evac = np.array([0, 42, 56], np.uint8)
 u_red1evac = np.array([15, 255, 255], np.uint8)
-l_red2evac = np.array([170, 60, 20], np.uint8) 
+l_red2evac = np.array([170, 42, 56], np.uint8) 
 u_red2evac = np.array([180, 255, 255], np.uint8)
 
-l_greenevac = np.array([70, 35, 20], np.uint8)
-u_greenevac = np.array([95, 255, 255], np.uint8)
+l_greenevac = np.array([80, 73, 73], np.uint8)
+u_greenevac = np.array([100, 255, 255], np.uint8)
 
+# dp = 3
+# min_dist = 77 #67
+# param1 = 191 #128
+# param2 = 103 #62
+# min_radius = 65
+# max_radius = 88
 dp = 3
-min_dist = 77 #67
-param1 = 191 #128
-param2 = 103 #62
-min_radius = 65
-max_radius = 88
+min_dist = 34 #67
+param1 = 146 #128
+param2 = 70 #62
+min_radius = 16
+max_radius = 34
 
-u_blackforball = 49
+u_blackforball = 55
 u_black_lt = 72 #102
 u_black_lineforltfromevac = 55
 
-u_sat_thresh = np.array([0, 0, 0], np.uint8)
-l_sat_thresh = np.array([180, 255, 255], np.uint8)
+# u_sat_thresh = np.array([0, 0, 0], np.uint8)
+# l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 #* VIDEO STREAM
 
@@ -169,7 +175,7 @@ class Task(enum.Enum):
 #     TURN_RIGHT = 6
        
 #     # SILVER = 12
-#     #~ Evac
+    #~ Evac
     NOBALL = 20
     BALL = 21
     DEPOSITALIVE = 22
@@ -615,12 +621,12 @@ def task_1_ball(): #^ downres-ed once
         curr = Task.BALL
 
         #& Debug balls
-        # circles = np.uint16(np.around(circles))
-        # for i in circles[0,:]:
-        #     cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
-        #     cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
-        # cv2.imshow("ballz", cv2.pyrDown(evac_max))
-        # print(balls)
+        circles = np.uint16(np.around(circles))
+        for i in circles[0,:]:
+            cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
+            cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
+        cv2.imshow("ballz", evac_max)
+        print(balls)
 
         closest_ball = max(balls, key=lambda b: b['y'])
         print("Closest ball:", closest_ball) #& debug ball
@@ -693,7 +699,7 @@ def task_2_depositalive():
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 500 < green_sum:
+    if 50 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green
@@ -705,7 +711,7 @@ def task_2_depositalive():
         print("Evac green width", evac_green_width)
 
         #~ Green confirmed
-        if evac_green_width > 400: #! consider tuning this value (esp when bot is far)
+        if evac_green_width > 50: #! consider tuning this value (esp when bot is far)
             print("-"*30, "found", "-"*30)
             greenM = cv2.moments(mask_green)
             cx_green = int(greenM["m10"]/greenM["m00"])
@@ -752,7 +758,7 @@ def task_3_depositdead():
     print("Red sum", red_sum)
 
     #~ Moving to red
-    if 400 < red_sum:
+    if 50 < red_sum:
         print("RED")
         
         #~ Minimum red width so the robot centres on red
@@ -764,7 +770,7 @@ def task_3_depositdead():
         print("Evac red width", evac_red_width)
 
         #~ Red confirmed
-        if evac_red_width > 400:
+        if evac_red_width > 50:
             redM = cv2.moments(mask_red)
             cx_red = int(redM["m10"]/redM["m00"])
             rotation = (cx_red-centre_x_botcam) / 20 #tune constant for rotating to deposit point
@@ -1077,6 +1083,7 @@ while True:
         print("Switch off")
         gsVotes = [0, 0, 0]
         # task7_lt_to_evac()
+        task_2_depositalive()
     else:
         print("Pico task unknown:", pico_task)
 
