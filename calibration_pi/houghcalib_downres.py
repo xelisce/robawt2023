@@ -8,7 +8,7 @@ evac_stream.start()
 evac_org = evac_stream.read()
 width, height_org = evac_org.shape[1], evac_org.shape[0]
 
-crop_h = 50 #!tune for current bot
+crop_h = 75 
 
 # height = height_org - crop_h
 u_black = 55
@@ -18,22 +18,29 @@ l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 balls = []
 
+# dp = 3
+# min_dist = 77 #67
+# param1 = 198 #128
+# param2 = 73 #62
+# min_radius = 65
+# max_radius = 88
+
 dp = 3
-min_dist = 77 #67
-param1 = 198 #128
-param2 = 73 #62
-min_radius = 65
-max_radius = 88
+min_dist = 34 #67
+param1 = 146 #128
+param2 = 70 #62
+min_radius = 16
+max_radius = 34
 
 def callback(val):
-    global dp, min_dist, param1, param2, min_radius, max_radius
-    dp = int(cv2.getTrackbarPos('dp', 'controls'))/10
+    global dp, min_dist, param1, param2, min_radius, max_radius, crop_h
+    # dp = int(cv2.getTrackbarPos('dp', 'controls'))/10
     min_dist = int(cv2.getTrackbarPos('min_dist', 'controls'))
     param1 = int(cv2.getTrackbarPos('param1', 'controls'))
     param2 = int(cv2.getTrackbarPos('param2', 'controls'))
     min_radius = int(cv2.getTrackbarPos('min_radius', 'controls'))
     max_radius = int(cv2.getTrackbarPos('max_radius', 'controls'))
-    crop_h = int(cv2.getTrackbarPos('max_radius', 'controls'))
+    crop_h = int(cv2.getTrackbarPos('crop_h', 'controls'))
 
 cv2.namedWindow('controls', 2)
 cv2.resizeWindow('controls', 550, 300)
@@ -68,7 +75,7 @@ while True:
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
 
     #^ HoughCircles using grayscale mask
-    evac_gray = evac_gray[:(height_org - crop_h)//2, :]
+    evac_gray = evac_gray[:(height_org//2) - crop_h, :]
     circles = cv2.HoughCircles(evac_gray, cv2.HOUGH_GRADIENT, dp, min_dist, param1 = param1 , param2=param2, minRadius= min_radius, maxRadius=max_radius)
     edge_gray = cv2.Canny(evac_gray, int(param1/2), param1)
     if circles is not None:
@@ -91,7 +98,7 @@ while True:
             cv2.circle(evac_gray,(i [0],i[1]),2,(0,0,255),3)
 
     #^ HoughCircles using max saturation mask
-    evac_max = evac_max[:(height_org - crop_h)//2, :]
+    evac_max = evac_max[:(height_org//2) - crop_h, :]
 
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
     #^ (I still have no idea what dp does btw) it changes the resolution of the 3d space for the accumulator
