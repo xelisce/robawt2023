@@ -90,12 +90,12 @@ x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in ran
 x_com *= x_com_scale
 
 #* EVAC CONSTANTS
-crop_h_evac = 100
+crop_h_evac = 50
 evac_height = top_stream_height_org-crop_h_evac
 height_evac_t = top_stream_height_org - crop_h_evac
 
 centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
-centre_x_topcam = top_stream_width_org//2 #! LOL no wonder the ball detection wasnt working
+centre_x_topcam = top_stream_width_org//4 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
 rpm_evac = 30 #not actually used
@@ -567,16 +567,17 @@ def task0_lt():
 
 #* MAIN FUNCTION ------------------------ EVAC FIND BALL ----------------------------------
 
-def task_1_ball():
+def task_1_ball(): #^ downres-ed once
     global rotation, curr, ball_type
 
     #* IMAGE SETUP
     evac_org = top_stream.read()
     # evac_org = cv2.bitwise_and(evac_org, evac_org, mask=mask_trapeziums_claw_down)
     out.write(evac_org)
-    evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY)
+    evac_org = cv2.pyrDown(evac_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    evac_gray = cv2.cvtColor(evac_org, cv2.COLOR_BGR2GRAY) #! not used
     evac_hsv = cv2.cvtColor(evac_org, cv2.COLOR_BGR2HSV)
-    evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
+    evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh) #! why the heck is it upper then lower
     evac_max = np.amax(evac_org, axis=2)
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:evac_height, :]
