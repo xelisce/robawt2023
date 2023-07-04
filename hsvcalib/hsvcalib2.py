@@ -10,7 +10,7 @@
 import cv2
 import numpy as np
 
-raw = cv2.imread('hsvcalib/bot/hsvcalibimagekirbsred.jpg') 
+raw = cv2.imread('hsvcalib\hsvcalibimageorangedebug.jpg') 
 frame_hsv = cv2.cvtColor(raw, cv2.COLOR_BGR2HSV)
 
 cv2.namedWindow("raw frame", cv2.WINDOW_NORMAL)

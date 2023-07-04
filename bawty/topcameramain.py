@@ -134,6 +134,9 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 l_greenevac = np.array([80, 73, 73], np.uint8)
 u_greenevac = np.array([100, 255, 255], np.uint8)
 
+l_debug_orange = np.array([0, 45, 73], np.uint8)
+u_debug_orange = np.array([12, 158, 255], np.uint8)
+
 # dp = 3
 # min_dist = 77 #67
 # param1 = 191 #128
@@ -204,6 +207,8 @@ long_linegap_now = False #unused
 
 pico_task = 0
 
+debug_orange_flag = False
+
 # pi_start = True
 
 #* FUNCTIONS
@@ -253,8 +258,10 @@ def contoursCalc(frame_org, mask_black):
 
 def task0_lt():
     global rotation, rpm_lt, see_thin_line, end_line_gap, curr
+
     global gs_now, red_now, blue_now, short_linegap_now, long_linegap_now, linegap_now
     global gsVotes
+    global flag_debug_orange
 
     #~ Basic conversion of color spaces
     frame_org = top_stream.read()
@@ -265,6 +272,12 @@ def task0_lt():
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     # cv2.imshow("top camera frame", frame_org)
+
+    #~ Mask out orange for debug
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     #~ Masking out red
     mask_red1 = cv2.inRange(frame_hsv, l_red1lt, u_red1lt)
@@ -579,6 +592,7 @@ def task0_lt():
 
 def task_1_ball(): #^ downres-ed once
     global rotation, curr, ball_type
+    global flag_debug_orange
 
     #* IMAGE SETUP
     evac_org = top_stream.read()
@@ -591,6 +605,11 @@ def task_1_ball(): #^ downres-ed once
     evac_max = np.amax(evac_org, axis=2)
     evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
     evac_max = evac_max[:evac_height, :]
+
+    mask_debug_orange = cv2.inRange(evac_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
     
     #* CIRCLE DETECTION (using sat max)
     #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
@@ -797,6 +816,7 @@ def task_3_depositdead():
         
 def task4_backtolt():
     global rotation, curr
+    global flag_debug_orange
 
     frame_org = top_stream.read()
     out.write(frame_org)
@@ -804,6 +824,11 @@ def task4_backtolt():
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
 
@@ -853,6 +878,8 @@ def task4_backtolt():
 #* MAIN FUNCTION ---------------------------- LINETRACK SEE LINE ON RIGHT WHEN TURN LEFT ------------------------------------------------
 def task5_leftlookright():
     global curr, rotation, rpm_lt, see_line
+    global flag_debug_orange
+
 
     frame_org = top_stream.read()
     out.write(frame_org)
@@ -860,6 +887,11 @@ def task5_leftlookright():
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
 
@@ -912,6 +944,8 @@ def task5_leftlookright():
 
 def task6_rightlookleft():
     global curr, rotation, rpm_lt, see_line
+    global flag_debug_orange
+
 
     frame_org = top_stream.read()
     out.write(frame_org)
@@ -919,6 +953,11 @@ def task6_rightlookleft():
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
 
@@ -972,6 +1011,8 @@ def task6_rightlookleft():
 
 def task7_lt_to_evac(): 
     global rotation, rpm_lt, see_thin_line, end_line_gap, curr
+    global flag_debug_orange
+
     # global entered_evac
 
     frame_org = top_stream.read()[:360] #! TUNE
@@ -981,6 +1022,11 @@ def task7_lt_to_evac():
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     frame_sat_mask = cv2.inRange(frame_hsv, u_sat_thresh, l_sat_thresh)
+
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     #~ Mask out black
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)
@@ -1093,6 +1139,9 @@ while True:
     #! remove b4 comp for optimisation and the video stream too
     key = cv2.waitKey(1)
     if key == ord('q'):
+        break
+
+    if debug_orange_flag:
         break
 
 top_stream.stop()
