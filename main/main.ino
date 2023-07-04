@@ -60,7 +60,7 @@ void ISRRB() { MotorR.readEncB(); }
 const int servosNum = 6;
 Servo servos[servosNum];
 const int servos_pins[servosNum] = {27, 26, 22, 21, 20, 2};
-double servos_angle[servosNum] = {0, 145, 180, 180, 130, 180}; //basic states initialised
+double servos_angle[servosNum] = {0, 145, 180, 180, 130, 90}; //basic states initialised
 const double servos_max_angle[servosNum] = {180, 180, 180, 300, 300, 300};
 bool servos_change = true;
 namespace Servos {
@@ -613,7 +613,6 @@ void loop()
                     lt2evacSawFR = false;
                 }
 
-                
                 if (((lt2evacSawFL && lt2evacSawFR) || (lt2evacSawLeft && lt2evacSawRight)) && !aboutToEnterEvac){ // If extrusions are detected
                     aboutToEnterEvac = true;
                     lastSentEvacEntryToPiMillis = millis();
@@ -1450,7 +1449,6 @@ void loop()
             //     break;
 
             case AFTER_DEAD:
-                Robawt.stop();
                 send_pi(Pi::EVAC_TO_LINETRACK);
                 switch (depositToExitState) {
                     case 0: //initialise
@@ -1460,7 +1458,7 @@ void loop()
 
                     case 1:
                         Robawt.setSteer(-evac_exit_rpm, 0);
-                        if (fabs(pickMotorDist(-1) - depositToExitDist) > 10)
+                        if (fabs(pickMotorDist(-1) - depositToExitDist) > 30) //x3
                         {
                             depositToExitDist = pickMotorDist(-1);
                             depositToExitState ++;
@@ -1469,7 +1467,7 @@ void loop()
 
                     case 2:
                         Robawt.setSteer(evac_exit_rpm, 1);
-                        if (fabs(pickMotorDist(1) - depositToExitDist) > 16.5)
+                        if (fabs(pickMotorDist(1) - depositToExitDist) > 48) //x3
                         {
                             depositToExitState = 0;
                             curr = EXIT_EVAC;
@@ -1543,8 +1541,8 @@ void loop()
         //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
         Robawt.stop();
-        // curr = EMPTY_LINETRACK;
-        curr = CENTERING_FOR_DEPOSIT;
+        curr = EMPTY_LINETRACK;
+        // curr = CENTERING_FOR_DEPOSIT;
         depositType = 1;
         task = 0;
         ledOn = false;
@@ -1552,8 +1550,9 @@ void loop()
         // claw_up();
         claw_down();
         claw_close();
-        dead_up();
-        alive_up();
+        dead_down();
+        alive_down();
+        sort_dead();
         // claw_close_cube();
     }
 
@@ -1776,7 +1775,7 @@ void alive_down() {
 }
 
 void dead_up() { 
-    servos_angle[Servos::DEAD] = 45;
+    servos_angle[Servos::DEAD] = 70;
     servos_change = true;
 }
 
