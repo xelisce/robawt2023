@@ -699,7 +699,7 @@ def task_2_depositalive():
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 50 < green_sum:
+    if 12 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green
