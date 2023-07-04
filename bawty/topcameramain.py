@@ -162,7 +162,7 @@ u_black_lineforltfromevac = 55
 #* VIDEO STREAM
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (top_stream_width_org ,top_stream_height_org))
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, (top_stream_width_org//2, top_stream_height_org//2))
 
 #* VARIABLE INITIALISATIONS
 class Task(enum.Enum):
@@ -514,6 +514,7 @@ def task0_lt():
 
             #~ Trigger end line gap 
             #^ This happens even in green squares
+            #TODO: add a width check for linegap
             if first_line_height > 32 and first_line_bottom > 65: #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
                 curr = Task.EMPTY
@@ -952,7 +953,6 @@ def task6_rightlookleft():
     global curr, rotation, rpm_lt, see_line
     global flag_debug_orange
 
-
     frame_org = top_stream.read()
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     out.write(frame_org)
@@ -999,7 +999,6 @@ def task6_rightlookleft():
                 see_line = 0
         else:
             see_line = 0
-
     else:
         see_line = 0
 
@@ -1023,8 +1022,8 @@ def task7_lt_to_evac():
 
     frame_org = top_stream.read()[:360] #! TUNE
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     out.write(frame_org)
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     frame_sat_mask = cv2.inRange(frame_hsv, u_sat_thresh, l_sat_thresh)
