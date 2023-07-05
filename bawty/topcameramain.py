@@ -39,7 +39,7 @@ centre_x_lt = width_lt//2
 black_kernel = np.ones((2, 2), np.uint8)
 
 #~ PID
-rpm_setptlt = 100
+rpm_setptlt = 130
 
 #~ Trapezium-ish mask 
 # to mask out robot and claw
@@ -115,9 +115,9 @@ entered_evac = False
 l_blue = np.array([95, 100, 100], np.uint8) #! TUNE
 u_blue = np.array([115, 255, 255], np.uint8) #! TUNE
 
-l_red1lt = np.array([0, 59, 95], np.uint8)
-u_red1lt = np.array([15, 255, 255], np.uint8)
-l_red2lt = np.array([170, 59, 95], np.uint8) 
+l_red1lt = np.array([0, 48, 44], np.uint8)
+u_red1lt = np.array([8, 255, 255], np.uint8)
+l_red2lt = np.array([170, 48, 44], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
 l_greenlt = np.array([60, 43, 40], np.uint8) #alternate values: 50,50,90
@@ -133,15 +133,28 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 
 # alt values: 0, 110, 65, 10, 255, 255; 170, 110, 65, 180, 255 255
 
-l_green1evac = np.array([73, 20, 20], np.uint8)
-u_green1evac = np.array([120, 123, 45], np.uint8)
-l_green2evac = np.array([73, 55, 20], np.uint8)
-u_green2evac = np.array([120, 181, 80], np.uint8)
+# l_green1evac = np.array([73, 20, 20], np.uint8)
+# u_green1evac = np.array([120, 123, 45], np.uint8)
+# l_green2evac = np.array([73, 55, 20], np.uint8)
+# u_green2evac = np.array([120, 181, 80], np.uint8)
 
-l_debug_orange = np.array([0, 45, 73], np.uint8)
-u_debug_orange = np.array([12, 255, 255], np.uint8)
-l_debug_orange = np.array([0, 45, 73], np.uint8)
-u_debug_orange = np.array([12, 255, 255], np.uint8)
+l_green1evac = np.array([44, 125, 46], np.uint8)
+u_green1evac = np.array([116, 255, 255], np.uint8)
+l_green2evac = np.array([44, 40, 25], np.uint8)
+u_green2evac = np.array([125, 255, 255], np.uint8)
+
+debug_orange = False
+if debug_orange:
+    l_debug_orange = np.array([0, 45, 73], np.uint8)
+    u_debug_orange = np.array([12, 255, 255], np.uint8)
+    l_debug_orange = np.array([0, 45, 73], np.uint8)
+    u_debug_orange = np.array([12, 255, 255], np.uint8)
+else:
+    l_debug_orange = np.array([0, 0, 0], np.uint8)
+    u_debug_orange = np.array([0, 0, 0], np.uint8)
+    l_debug_orange = np.array([0, 0, 0], np.uint8)
+    u_debug_orange = np.array([0, 0, 0], np.uint8)
+
 
 # dp = 3
 # min_dist = 77 #67
@@ -157,8 +170,8 @@ min_radius = 16
 max_radius = 34
 
 u_blackforball = 55
-u_black_lt = 72 #102
-u_black_lineforltfromevac = 55
+u_black_lt = 70 
+u_black_lineforltfromevac = 70
 
 # u_sat_thresh = np.array([0, 0, 0], np.uint8)
 # l_sat_thresh = np.array([180, 255, 255], np.uint8)
@@ -287,7 +300,7 @@ def task0_lt():
         print(debug_orange_sum)
         print("total pixels of frame: ", width_lt*height_lt)
 
-    cv2.imshow("orange mask", mask_debug_orange)
+    # cv2.imshow("orange mask", mask_debug_orange)
 
     #~ Masking out red
     mask_red1 = cv2.inRange(frame_hsv, l_red1lt, u_red1lt)
@@ -308,7 +321,7 @@ def task0_lt():
     gs_sum = np.sum(mask_gs)/255
     # cv2.namedWindow('gs mask', 2)
     # cv2.resizeWindow('gs mask', 550, 50)
-    cv2.imshow("gs mask", mask_gs) #& debug green square mask
+    # cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
     #~ Masking out blue
@@ -474,7 +487,7 @@ def task0_lt():
         mask_black[:crop_lt_h, :] = 0
         mask_supercrop_black[:supercrop_lt_h, :] = 0
 
-        cv2.imshow("mask black", mask_black)
+        # cv2.imshow("mask black", mask_black)
 
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
@@ -519,7 +532,7 @@ def task0_lt():
             #~ Trigger end line gap 
             #^ This happens even in green squares
             #TODO: add a width check for linegap
-            if first_line_height > 32 and first_line_bottom > 65: #89 lowest possible, 89-32=57 < 65 so it is ok
+            if first_line_height > 32 and first_line_bottom > 65 and 5<black_line_width<40:  #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
                 curr = Task.EMPTY
                 linegap_now = False
@@ -655,7 +668,7 @@ def task_1_ball(): #^ downres-ed once
         for i in circles[0,:]:
             cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
             cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
-        cv2.imshow("ballz", evac_max)
+        # cv2.imshow("ballz", evac_max)
         print(balls)
 
         closest_ball = max(balls, key=lambda b: b['y'])
@@ -714,14 +727,17 @@ def task_2_depositalive():
 
     frame_org = bot_stream.read()
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    out.write(frame_org)
-    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
+    out.write(frame_org)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
-    mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+    mask_green1 = cv2.inRange(frame_hsv, l_green1evac, u_green1evac)
+    mask_green2 = cv2.inRange(frame_hsv, l_green2evac, u_green2evac)
+    mask_green = mask_green1 + mask_green2
     # mask_gs = cv2.erode(mask_gs, green_erode_kernel, iterations=1)
     # mask_gs = cv2.dilate(mask_gs, green_erode_kernel, iterations=1)
     # cv2.imshow("green", mask_green)
@@ -729,7 +745,7 @@ def task_2_depositalive():
     print("Green sum", green_sum)
 
     #~ Moving to green
-    if 12 < green_sum:
+    if 800 < green_sum:
         print("GREEN")
         
         #~ Minimum green width so the robot centres on green
@@ -788,7 +804,7 @@ def task_3_depositdead():
     print("Red sum", red_sum)
 
     #~ Moving to red
-    if 50 < red_sum:
+    if 800 < red_sum:
         print("RED")
         
         #~ Minimum red width so the robot centres on red
@@ -843,7 +859,9 @@ def task4_backtolt():
 
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lineforltfromevac)
 
-    mask_green = cv2.inRange(frame_hsv, l_greenevac, u_greenevac)
+    mask_green1 = cv2.inRange(frame_hsv, l_green1evac, u_green1evac)
+    mask_green2 = cv2.inRange(frame_hsv, l_green2evac, u_green2evac)
+    mask_green = mask_green1 + mask_green2
     mask_black = mask_black_org.copy() - mask_green
 
     mask_black[-crop_bh_evactolt:, :] = 0
@@ -1024,7 +1042,7 @@ def task7_lt_to_evac():
 
     # global entered_evac
 
-    frame_org = top_stream.read()[:360] #! TUNE
+    frame_org = top_stream.read() 
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     out.write(frame_org)
     # frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
@@ -1042,6 +1060,8 @@ def task7_lt_to_evac():
     mask_green_for_black = cv2.inRange(frame_hsv, l_greenlt_forblack, u_greenlt_forblack)
     mask_all_green = cv2.bitwise_or(mask_green, mask_green_for_black)
     mask_black_org = cv2.inRange(frame_gray, 0, u_black_lt) - mask_all_green
+    mask_black_org[180:] = 0 #! TUNE
+    # cv2.imshow("black mask", mask_black_org)
     print("original black sum", np.sum(mask_black_org)/255)
     # cv2.imshow("org black mask", mask_black_org) #& debug original black mask
 
@@ -1074,7 +1094,7 @@ def task7_lt_to_evac():
         black_sum = np.sum(mask_black_org)/255
         print("new black sum", black_sum)
 
-        if black_sum < 10000: #! TUNE
+        if black_sum < 1500: #! TUNE
             entered_evac = True
             print("ENTERED EVAC!!")
         else:
@@ -1082,7 +1102,7 @@ def task7_lt_to_evac():
             task0_lt()
     else:
         black_sum = np.sum(mask_black_org)/255
-        if black_sum < 10000:
+        if black_sum < 1500: #! TUNE
             entered_evac = True
             print("ENTERED EVAC!!")
         else:
@@ -1138,7 +1158,8 @@ while True:
         print("Switch off")
         gsVotes = [0, 0, 0]
         # task7_lt_to_evac()
-        task_2_depositalive()
+    
+        # task_2_depositalive()
     else:
         print("Pico task unknown:", pico_task)
 

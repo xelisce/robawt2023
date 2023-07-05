@@ -20,6 +20,7 @@
 #define SCLPIN 5
 #define SDA1PIN 6
 #define SCL1PIN 7
+#define TILTPIN 15
 #define TX0PIN 16
 #define RX0PIN 17
 #define PICOLEDPIN 25
@@ -259,12 +260,17 @@ int pickupState,
     OORTurnState, startReverseOORDist,
     wallTurnState, wallGapTurnState, frontLeftForDepositVal;
 currType afterDepositState;
+int depositNum = 0;
 int depositState; 
 unsigned long depositStateTimer;
 unsigned long long lastSwitchMillis;
 
 //~ Evac Exit
 bool foundLine = false;
+int exitEvacTurnState;
+double startEvacExitTurnDist, currEvacExitTurnDist, evacExitToTurnDist;
+bool isFrontEvacExit = false;
+unsigned long long lastTriggerRightSeeCloseWall;
 
 //* ------------------------------------------ START SETUP -------------------------------------------
 
@@ -274,6 +280,7 @@ void setup()
 
     //^ PIO
     pinMode(SWTPIN, INPUT);
+    pinMode(TILTPIN, INPUT);
     pinMode(PICOLEDPIN, OUTPUT);
     pinMode(LEDPIN, OUTPUT);
     digitalWrite(LEDPIN, HIGH);
@@ -433,7 +440,11 @@ void loop()
                     if (in_evac) { break; }
                     if (curr == EVAC_INIT || curr == WALLTRACK || curr == EVAC_PICKUP || curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == BALLTRACK) {break;}
                     if (curr == CENTERING_FOR_DEPOSIT || curr == HEAD_TO_DEPOSIT || curr == DEPOSIT || curr == POST_DEPOSIT) {break;}
-                    if (curr == REVERSE_FROM_ALIVE || curr == REVERSE_FROM_DEAD) {break;}
+                    if (curr == REVERSE_FROM_ALIVE || curr == AFTER_DEAD) {break;}
+                    if (curr == EXIT_EVAC_TURN) {
+                        foundLine = true;
+                        in_evac = false;
+                    }
                     if (curr == BEFORE_BLUE_TURN || curr == BLUE || curr == BLUE_PICKUP || curr == AFTER_BLUE_INIT || curr == AFTER_BLUE_REVERSE || curr == AFTER_BLUE_TURN) { break; }
                     if (curr == BEFORE_OBSTACLE_REVERSE || curr == BEFORE_OBSTACLE_TURN || curr == OBSTACLE || curr == AFTER_OBSTACLE_TURN) { break; }
                     if (curr == LINEGAP) { break; }
@@ -462,7 +473,7 @@ void loop()
                     break;
 
                 case 4:
-                    if (curr == EMPTY_LINETRACK) {
+                    if (curr == EMPTY_LINETRACK && !front_see_wall()) {
                         curr = RED;
                     }
                     break;
@@ -512,25 +523,30 @@ void loop()
                 case 22: //^ deposit alive
                     //~ if curr isnt any of the following
                     if (!(curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == CENTERING_FOR_DEPOSIT || curr == HEAD_TO_DEPOSIT)) { break; }
-                    if (curr == CENTERING_FOR_DEPOSIT) { startHeadingToDepositDist = pickMotorDist(-1); } //! not actually used
+                    if (curr == CENTERING_FOR_DEPOSIT && !front_top_see_out()) { 
+                        curr = HEAD_TO_DEPOSIT; 
+                        startHeadingToDepositDist = pickMotorDist(-1); //! not actually used
+                    } 
                     depositType = 1;
-                    curr = HEAD_TO_DEPOSIT;
                     break;
 
                 case 23: //^ deposit dead
                     if (!(curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == CENTERING_FOR_DEPOSIT || curr == HEAD_TO_DEPOSIT)) { break; }
-                    if (curr == CENTERING_FOR_DEPOSIT) { startHeadingToDepositDist = pickMotorDist(-1); } //! not actually used
+                    if (curr == CENTERING_FOR_DEPOSIT && !front_top_see_out()) { 
+                        curr = HEAD_TO_DEPOSIT;
+                        startHeadingToDepositDist = pickMotorDist(-1); //! not actually used
+                    } 
                     depositType = 0;
-                    curr = HEAD_TO_DEPOSIT;
                     break;
 
                 case 24: //^ empty evac
-                    if (!(curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == CENTERING_FOR_DEPOSIT || curr == HEAD_TO_DEPOSIT)) { break; }
-                    curr = CENTERING_FOR_DEPOSIT;
+                    // if (!(curr == WALLTRACK_OOR || curr == WALLTRACK_HITWALL || curr == WALLTRACK_WALLGAP || curr == CENTERING_FOR_DEPOSIT || curr == HEAD_TO_DEPOSIT)) { break; }
+                    // curr = CENTERING_FOR_DEPOSIT;
+                    if (curr == POST_DEPOSIT) { curr = CENTERING_FOR_DEPOSIT; } 
                     break;
 
                 case 25:
-                    foundLine = true;
+                    foundLine = false;
                     break;
             }   
         }
@@ -556,6 +572,12 @@ void loop()
             case EMPTY_LINETRACK:
                 claw_up();
                 claw_halfclose();
+                // if (digitalRead(TILTPIN)) {
+                //     rpm = 150;
+                //     claw_speedbump_down();
+                //     claw_halfclose();
+                //     ledOn = true;
+                // }
                 Robawt.setSteer(rpm, rotation);
                 Serial.println("running empty linetrack");
                 Serial.print("rpm: "); Serial.println(rpm);
@@ -631,12 +653,12 @@ void loop()
 
             case LEFT_GREEN:
                 // turnAngle(-0.8, 225, 100, STOP);
-                turnByTime(-0.8, 1000, 100, EMPTY_LINETRACK);
+                turnByTime(-0.8, 1000, 110, EMPTY_LINETRACK);
                 break;
 
             case RIGHT_GREEN:
                 // turnAngle(0.8, 225, 100, STOP);
-                turnByTime(0.8, 1000, 100, EMPTY_LINETRACK);
+                turnByTime(0.8, 1000, 110, EMPTY_LINETRACK);
                 break;
 
             case DOUBLE_GREEN:
@@ -661,9 +683,9 @@ void loop()
                 switch (beforeBlueState)
                 {
                     case 0:
-                        moveDist(-1, 10, 100, BEFORE_BLUE_TURN);
+                        // moveDist(-1, 10, 100, BEFORE_BLUE_TURN);
                         beforeBlueState++;
-                        prevClawMillis = millis();
+                        // prevClawMillis = millis();
                         break;
 
                     case 1:
@@ -677,7 +699,7 @@ void loop()
                     case 2:
                         claw_down();
                         claw_open();
-                        moveDist(1, 10, 100, BEFORE_BLUE_TURN);
+                        // moveDist(1, 10, 100, BEFORE_BLUE_TURN);
                         beforeBlueState++;
                         break;
 
@@ -803,7 +825,7 @@ void loop()
 
             //* ---------------------- LINE GAP ----------------------
             case LINEGAP:
-                send_pi(Pi::LINETRACK);
+                // send_pi(Pi::LINETRACK);
                 #if debugLinegapSweep
                 Serial.print("end line gap: "); Serial.print(endLineGap);
                 Serial.print("linegap state: "); Serial.println(linegapSweepState);
@@ -941,10 +963,37 @@ void loop()
                         #endif
                         Robawt.setSteer(forcedDirection * forcedSpeed, 0);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
+
+                        if (millis() - lastSentEvacEntryToPiMillis < 2000 && aboutToEnterEvac){
+                            send_pi(7);
+                        }
+                        else {
+                            send_pi(Pi::LINETRACK);
+                            aboutToEnterEvac = false;
+                        }
+
+                        if (right_see_reallyclosewall()){
+                            lt2evacSawRight = true;
+                            lastSawRightMillis = millis();
+                        }
+                        if (left_see_reallyclosewall()){
+                            lt2evacSawLeft = true;
+                            lastSawLeftMillis = millis();
+                        }
                         #if debugLinegapSweep
                         Serial.print(" curr dist: "); Serial.print(currForcedDist);
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif
+                        if(front_see_wall()) {
+                            lt2evacSawLeft = false;
+                            lt2evacSawRight = false;
+                        }
+                        if ((lt2evacSawLeft && lt2evacSawRight) && !aboutToEnterEvac){ // If extrusions are detected
+                            aboutToEnterEvac = true;
+                            lastSentEvacEntryToPiMillis = millis();
+                            Serial.print("lastsaw front left millis,"); Serial.println(lastSawFrontLeftMillis);
+                            Serial.print("lastsaw front right millis,"); Serial.println(lastSawFrontRightMillis);
+                        }
                         if (currForcedDist >= wantedForcedDist || endLineGap) {
                             curr = EMPTY_LINETRACK;
                             linegapSweepState = 0;
@@ -1340,40 +1389,42 @@ void loop()
             //^ friendly note that depositTypes; 0: dead, 1: alive, 2: rescue kit
             //^ Depositing alive first
             case CENTERING_FOR_DEPOSIT: 
-                claw_up();
-                if (depositType == 1 || depositType == 2) { send_pi(Pi::DEPOSIT_ALIVE); }
+                // claw_down();
+                if (depositType == 1) { send_pi(Pi::DEPOSIT_ALIVE); }
                 else { send_pi(Pi::DEPOSIT_DEAD); }
                 #if debug_led
                 led_on = true;
                 #endif
+                claw_up();
                 evac_setdist = 600;
                 if (frontLeft_see_infinity()) { frontLeftForDepositVal = 750; }
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.0095;
                 Robawt.setSteer(evac_rpm, wall_rot);
-                if (ball_present()) {
-                    curr = EVAC_PICKUP;
-                    pickupState = 0;
-                    afterPickupState = CENTERING_FOR_DEPOSIT;
-                } else if (OOR_present()) {
-                    startReverseOORDist = MotorL.getDist();
-                    curr = WALLTRACK_OOR;
-                    OORTurnState = 0; 
-                    afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
-                else if (wall_present()) {
-                    startReverseOORDist = MotorL.getDist();
-                    curr = WALLTRACK_HITWALL;
-                    wallTurnState = 0; 
-                    afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
-                else if (wallgap_present()) { 
-                    curr = WALLTRACK_WALLGAP;
-                    wallGapTurnState = 0;
-                    startWallGapDistL = MotorL.getDist();
-                    startWallGapDistR = MotorR.getDist(); 
-                    afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
+                // if (ball_present()) {
+                //     curr = EVAC_PICKUP;
+                //     pickupState = 0;
+                //     afterPickupState = CENTERING_FOR_DEPOSIT;
+                // } else if (OOR_exit_present()) {
+                //     startReverseOORDist = MotorL.getDist();
+                //     curr = WALLTRACK_OOR;
+                //     OORTurnState = 0; 
+                //     afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
+                // else if (wall_exit_present()) {
+                //     startReverseOORDist = MotorL.getDist();
+                //     curr = WALLTRACK_HITWALL;
+                //     wallTurnState = 0; 
+                //     afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
+                // else if (wallgap_present()) { 
+                //     curr = WALLTRACK_WALLGAP;
+                //     wallGapTurnState = 0;
+                //     startWallGapDistL = MotorL.getDist();
+                //     startWallGapDistR = MotorR.getDist(); 
+                //     afterTurnEvacState = CENTERING_FOR_DEPOSIT; }
                 break;
                 
             case HEAD_TO_DEPOSIT:
-                if (depositType == 1 || depositType == 2) { send_pi(Pi::DEPOSIT_ALIVE); }
+                Robawt.setSteer(evac_rpm, rotation);
+                if (depositType == 1) { send_pi(Pi::DEPOSIT_ALIVE); }
                 else { send_pi(Pi::DEPOSIT_DEAD); }
                 claw_open();
                 claw_down();
@@ -1390,6 +1441,7 @@ void loop()
                     afterPickupState = CENTERING_FOR_DEPOSIT; }
                 if ((l1x_readings[L1X::FRONT_BOTTOM] < 60 || l0x_readings[L0X::FRONT] < 25) && !ball_present()) { 
                     curr = DEPOSIT;
+                    depositNum = 1;
                     afterDepositState = POST_DEPOSIT;
                     depositStateTimer = millis();
                     depositState = 0; }
@@ -1412,10 +1464,14 @@ void loop()
                     case 1:
                         if (depositType == 0) { dead_down(); }
                         else { alive_down(); }
-                        if (millis() - depositStateTimer > 1000) { 
+                        if (millis() - depositStateTimer > 500 && depositNum > 3) { 
                             depositStateTimer = millis();
                             depositState = 0; 
-                            curr = afterDepositState; }
+                            curr = afterDepositState; 
+                        } else if (millis() - depositStateTimer > 500) {
+                            depositNum ++;
+                            depositState = 0;
+                        }
                         break;
                 }
                 break;
@@ -1435,12 +1491,12 @@ void loop()
                 break; 
 
             case REVERSE_FROM_ALIVE:
-                send_pi(3);
+                send_pi(Pi::DEPOSIT_DEAD);
                 Robawt.setSteer(-evac_deposit_rpm, 0);
                 depositedAlready = true;
-                if (fabs(pickMotorDist(1) - startReverseDistAfterDepL) > 60) {
+                if (fabs(pickMotorDist(1) - startReverseDistAfterDepL) > 200) {
                     curr = CENTERING_FOR_DEPOSIT;
-                    depositType = 0;
+                    task = 24;
                 }
                 break;
             
@@ -1472,7 +1528,7 @@ void loop()
 
                     case 2:
                         Robawt.setSteer(evac_exit_rpm, 1);
-                        if (fabs(pickMotorDist(1) - depositToExitDist) > 48) //x3
+                        if (fabs(pickMotorDist(1) - depositToExitDist) > 50) //x3
                         {
                             depositToExitState = 0;
                             curr = EXIT_EVAC;
@@ -1482,19 +1538,87 @@ void loop()
                 break;
 
             case EXIT_EVAC:
-                // if (frontLeft_see_out() && front_see_out()) {
-                //     curr = 91;
-                //     evacExitState = 0;
-                //     startTurnEvacToLtDist = pickMotorDist(-1);
+                send_pi(Pi::EVAC_TO_LINETRACK);
+                claw_open();
+                evac_setdist = 200;
+                wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.005;
+                Robawt.setSteer(evac_exit_rpm, wall_rot);
+                if (right_see_closewall()) {
+                    isFrontEvacExit = true;
+                    lastTriggerRightSeeCloseWall = millis();
+                }
+                if (millis() - lastTriggerRightSeeCloseWall > 2000 && isFrontEvacExit) {
+                    isFrontEvacExit = false;
+                }
+                if (frontLeft_see_out()) {
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                    curr = EXIT_EVAC_TURN;
+                    exitEvacTurnState = 0;
+                } else if (left_see_out()) {
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                    curr = EXIT_EVAC_TURN;
+                    exitEvacTurnState = 0;
+                }
                 if (ball_present()) {
                     curr = EVAC_PICKUP;
                     pickupState = 0;
                     afterPickupState = EXIT_EVAC;
+                } else if (wall_present()) {
+                    startReverseOORDist = MotorL.getDist();
+                    curr = WALLTRACK_HITWALL;
+                    wallTurnState = 0; 
+                    afterTurnEvacState = EXIT_EVAC; }
+                break;
+
+            case EXIT_EVAC_TURN:
+                send_pi(Pi::EVAC_TO_LINETRACK);
+                Robawt.setSteer(evac_exit_rpm, -0.5);
+                switch (exitEvacTurnState) 
+                {
+                    case 0: //init
+                        startEvacExitTurnDist = pickMotorDist(-1);
+                        exitEvacTurnState ++;
+                        break;
+
+                    case 1: //turn until right lidar sees extrusion / turned too much
+                        Robawt.setSteer(evac_exit_rpm, 0.5);
+                        currEvacExitTurnDist = pickMotorDist(-1);
+                        if (right_see_closewall() || isFrontEvacExit) {
+                            exitEvacTurnState ++;
+                            startEvacExitTurnDist = pickMotorDist(-1);
+                        } else if (fabs(currEvacExitTurnDist - startEvacExitTurnDist) > 115) {
+                            exitEvacTurnState ++;
+                            startEvacExitTurnDist = pickMotorDist(-1);
+                        }
+
+                    case 2: //move back until see line
+                        Robawt.setSteer(-evac_exit_rpm, 0);
+                        currEvacExitTurnDist = pickMotorDist(-1);
+                        if (foundLine) {
+                            curr = EMPTY_LINETRACK;
+                        } else if (fabs(currEvacExitTurnDist - startEvacExitTurnDist) > 70) {
+                            exitEvacTurnState ++;
+                        }
+                        break;
+
+                    case 3: //turn back if no see line
+                        Robawt.setSteer(-evac_exit_rpm, -0.5);
+                        currEvacExitTurnDist = pickMotorDist(-1);
+                        if (fabs(currEvacExitTurnDist - startEvacExitTurnDist) > evacExitToTurnDist) {
+                            exitEvacTurnState ++;
+                        }
+                        break;
+
+                    case 4: //move forward 30cm
+                        Robawt.setSteer(evac_exit_rpm, 0);
+                        currEvacExitTurnDist = pickMotorDist(-1);
+                        if (fabs(currEvacExitTurnDist - startEvacExitTurnDist) > 90) {
+                            curr = EXIT_EVAC;
+                            exitEvacTurnState = 0;
+                        }
+                        break;
                 }
-                else {
-                    Robawt.stop();
-                }
-                break;   
+                break;
 
 
             //* ------------------------------------------- FORCED MOVEMENTS -------------------------------------------
@@ -1546,8 +1670,8 @@ void loop()
         //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
         Robawt.stop();
-        // curr = EMPTY_LINETRACK;
-        curr = CENTERING_FOR_DEPOSIT;
+        // curr = CENTERING_FOR_DEPOSIT;
+        curr = EMPTY_LINETRACK;
         depositType = 1;
         task = 0;
         ledOn = false;
@@ -1557,7 +1681,7 @@ void loop()
         claw_close();
         dead_down();
         alive_down();
-        sort_dead();
+        sort_neutral();
         // claw_close_cube();
     }
 
@@ -1769,6 +1893,11 @@ void claw_down() {
     servos_change = true;
 }
 
+void claw_speedbump_down(){
+    servos_angle[Servos::ARM] = 140;
+    servos_change = true;
+}
+
 void alive_up() {
     servos_angle[Servos::ALIVE] = 55;
     servos_change = true;
@@ -1975,6 +2104,10 @@ bool front_see_infinity() {
     return (l0x_readings[L0X::FRONT] > 1680);
 }
 
+bool front_top_see_infinity() {
+    return (l0x_readings[L0X::FRONT_TOP] > 1680);
+}
+
 bool left_see_infinity() {
     return  (l0x_readings[L0X::LEFT] > 1680);
 }
@@ -1995,6 +2128,10 @@ bool left_see_out() {
 
 bool front_see_out() {
     return (l0x_readings[L0X::FRONT] > 400);
+}
+
+bool front_top_see_out(){
+    return (l0x_readings[L0X::FRONT] > 700);
 }
 
 bool right_see_out() {
@@ -2040,4 +2177,9 @@ bool frontRight_see_reallyclosewall() {
 
 bool front_see_wall() {
     return (l0x_readings[L0X::FRONT_TOP] < 350);
+}
+
+bool OOR_exit_present() {
+    return ((front_top_see_infinity() && right_see_wall()) //if front sees out, and right either sees wall or OOR
+    || (front_top_see_infinity() && (left_see_infinity() || (frontLeft_see_infinity() && left_see_out()))));
 }

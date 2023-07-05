@@ -26,7 +26,7 @@ def on_trackbar_change(x):
         # cv2.imshow("masked frame", frame_hsv)
 
 
-top_stream = cv2.VideoCapture('output.avi')
+top_stream = cv2.VideoCapture('rednorange.avi')
 _, top_stream_frame = top_stream.read()
 # top_stream_width, top_stream_height = top_stream_frame.shape[1], top_stream_frame.shape[0]
 # print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_height_org)
@@ -75,7 +75,7 @@ frame_hsv = cv2.cvtColor(top_stream_frame, cv2.COLOR_BGR2HSV)
 #~ Original Frame w frame slider
 cv2.namedWindow("frame", 2)
 cv2.resizeWindow("frame", 550, 500)
-cv2.createTrackbar("Frame", "frame", 0, total_frames, on_trackbar_change)
+cv2.createTrackbar("Frame", "frame", 0, 5000, on_trackbar_change)
 
 #~ Masked Frame
 cv2.namedWindow("masked frame", 2)

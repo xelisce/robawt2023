@@ -30,6 +30,7 @@ enum currType { //what the pico needs to do
     REVERSE_FROM_DEAD = 75,
     AFTER_DEAD = 89,
     EXIT_EVAC = 90,
+    EXIT_EVAC_TURN = 91,
     EVAC_FRONT_LEFT_SEE_OUT = 93,
     //^ Forced stuff
     STOP = 100,
