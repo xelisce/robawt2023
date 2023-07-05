@@ -263,6 +263,9 @@ int depositState;
 unsigned long depositStateTimer;
 unsigned long long lastSwitchMillis;
 
+//~ Evac Exit
+bool foundLine = false;
+
 //* ------------------------------------------ START SETUP -------------------------------------------
 
 void setup() 
@@ -436,6 +439,7 @@ void loop()
                     if (curr == LINEGAP) { break; }
                     if (curr == MOVE_DIST || curr == TURN_ANGLE || curr == TURN_TIME) { break; }
                     if (curr == LEFT_GREEN || curr == RIGHT_GREEN || curr == DOUBLE_GREEN) { break; }
+                    // if (curr == )
                     curr = EMPTY_LINETRACK;
                     break;
 
@@ -526,6 +530,7 @@ void loop()
                     break;
 
                 case 25:
+                    foundLine = true;
                     break;
             }   
         }
