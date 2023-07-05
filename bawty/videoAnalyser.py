@@ -131,6 +131,9 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 l_greenevac = np.array([70, 35, 20], np.uint8)
 u_greenevac = np.array([95, 255, 255], np.uint8)
 
+l_debug_orange = np.array([0, 45, 73], np.uint8)
+u_debug_orange = np.array([12, 255, 255], np.uint8)
+
 dp = 3
 min_dist = 77 #67
 param1 = 191 #128
@@ -225,7 +228,7 @@ def task0_lt():
 
     #~ Basic conversion of color spaces
     # frame_org = top_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
@@ -546,7 +549,7 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
     #* IMAGE SETUP
     # evac_org = top_stream.read()
     # out.write(evac_org)
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     evac_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     evac_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
@@ -645,7 +648,7 @@ def task_2_depositalive():
     global frame_org
 
     # frame_org = bot_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
@@ -706,7 +709,7 @@ def task_3_depositdead():
     global frame_org
 
     # frame_org = bot_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
@@ -767,7 +770,7 @@ def task4_backtolt():
     global frame_org
 
     # frame_org = top_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
@@ -828,7 +831,7 @@ def task5_leftlookright():
     global frame_org
 
     # frame_org = top_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
@@ -894,7 +897,7 @@ def task6_rightlookleft():
     global frame_org
 
     # frame_org = top_stream.read()
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
@@ -960,12 +963,16 @@ def task7_lt_to_evac():
     global frame_org
 
     # frame_org = top_stream.read()[:360] #! TUNE
-    frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
+    # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
     # out.write(frame_org)
     frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
     frame_sat_mask = cv2.inRange(frame_hsv, u_sat_thresh, l_sat_thresh)
+
+    mask_debug_orange = cv2.inRange(frame_hsv, l_debug_orange, u_debug_orange)
+    debug_orange_sum = np.sum(mask_debug_orange) / 255
+    if debug_orange_sum > 0.75*width_lt*height_lt:
+        flag_debug_orange = True
 
     #~ Mask out black
     mask_green = cv2.inRange(frame_hsv, l_greenlt, u_greenlt)

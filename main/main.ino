@@ -60,7 +60,7 @@ void ISRRB() { MotorR.readEncB(); }
 const int servosNum = 6;
 Servo servos[servosNum];
 const int servos_pins[servosNum] = {27, 26, 22, 21, 20, 2};
-double servos_angle[servosNum] = {0, 0, 0, 180, 130, 180}; //basic states initialised
+double servos_angle[servosNum] = {0, 145, 180, 180, 130, 90}; //basic states initialised
 const double servos_max_angle[servosNum] = {180, 180, 180, 300, 300, 300};
 bool servos_change = true;
 namespace Servos {
@@ -618,7 +618,6 @@ void loop()
                     lt2evacSawFR = false;
                 }
 
-                
                 if (((lt2evacSawFL && lt2evacSawFR) || (lt2evacSawLeft && lt2evacSawRight)) && !aboutToEnterEvac){ // If extrusions are detected
                     aboutToEnterEvac = true;
                     lastSentEvacEntryToPiMillis = millis();
@@ -1378,13 +1377,13 @@ void loop()
                 else { send_pi(Pi::DEPOSIT_DEAD); }
                 claw_open();
                 claw_down();
-                moveDist(1, 20, evac_deposit_rpm, HEAD_TO_DEPOSIT_MORE);
+                // moveDist(1, 20, evac_deposit_rpm, HEAD_TO_DEPOSIT_MORE);
                 // if (fabs(pickMotorDist(-1) - startHeadingToDepositDist) < 1) { Robawt.setSteer(evac_deposit_rpm, 1); }
                 // else { Robawt.setSteer(evac_deposit_rpm, rotation); }
-                break;
+                // break;
                 
-            case HEAD_TO_DEPOSIT_MORE:
-                Robawt.setSteer(evac_deposit_rpm, 0.15);
+            // case HEAD_TO_DEPOSIT_MORE:
+                // Robawt.setSteer(evac_deposit_rpm, 0.15);
                 sort_neutral();
                 if (ball_present()) { 
                     curr = EVAC_PICKUP;
@@ -1455,7 +1454,6 @@ void loop()
             //     break;
 
             case AFTER_DEAD:
-                Robawt.stop();
                 send_pi(Pi::EVAC_TO_LINETRACK);
                 switch (depositToExitState) {
                     case 0: //initialise
@@ -1465,7 +1463,7 @@ void loop()
 
                     case 1:
                         Robawt.setSteer(-evac_exit_rpm, 0);
-                        if (fabs(pickMotorDist(-1) - depositToExitDist) > 10)
+                        if (fabs(pickMotorDist(-1) - depositToExitDist) > 30) //x3
                         {
                             depositToExitDist = pickMotorDist(-1);
                             depositToExitState ++;
@@ -1474,7 +1472,7 @@ void loop()
 
                     case 2:
                         Robawt.setSteer(evac_exit_rpm, 1);
-                        if (fabs(pickMotorDist(1) - depositToExitDist) > 16.5)
+                        if (fabs(pickMotorDist(1) - depositToExitDist) > 48) //x3
                         {
                             depositToExitState = 0;
                             curr = EXIT_EVAC;
@@ -1548,17 +1546,18 @@ void loop()
         //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
         Robawt.stop();
-        // curr = EMPTY_LINETRACK;
-        curr = CENTERING_FOR_DEPOSIT;
+        curr = EMPTY_LINETRACK;
+        // curr = CENTERING_FOR_DEPOSIT;
         depositType = 1;
         task = 0;
         ledOn = false;
         send_pi(Pi::SWITCH_OFF);
-        claw_up();
-        // claw_down();
-        claw_open();
+        // claw_up();
+        claw_down();
+        claw_close();
         dead_down();
         alive_down();
+        sort_dead();
         // claw_close_cube();
     }
 
@@ -1766,22 +1765,22 @@ void claw_service_up() {
 }
 
 void claw_down() {
-    servos_angle[Servos::ARM] = 177;
+    servos_angle[Servos::ARM] = 170;
     servos_change = true;
 }
 
 void alive_up() {
-    servos_angle[Servos::ALIVE] = 110;
+    servos_angle[Servos::ALIVE] = 55;
     servos_change = true;
 }
 
 void alive_down() {
-    servos_angle[Servos::ALIVE] = 150;
+    servos_angle[Servos::ALIVE] = 145;
     servos_change = true;
 }
 
 void dead_up() { 
-    servos_angle[Servos::DEAD] = 65;
+    servos_angle[Servos::DEAD] = 70;
     servos_change = true;
 }
 

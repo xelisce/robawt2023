@@ -24,7 +24,6 @@ enum currType { //what the pico needs to do
     BALLTRACK = 65,
     CENTERING_FOR_DEPOSIT = 70,
     HEAD_TO_DEPOSIT = 71,
-    HEAD_TO_DEPOSIT_MORE = 72,
     DEPOSIT = 80,
     POST_DEPOSIT = 81,
     REVERSE_FROM_ALIVE = 74,
