@@ -137,7 +137,7 @@ int greenState;
 unsigned long lastSerialPiSendMillis = millis();
 
 //^ ESSENTIALS
-currType curr = EMPTY_LINETRACK;
+currType curr = CENTERING_FOR_DEPOSIT; //change to EMPTY LINETRACK
 double steer = 0, rotation = 0;
 double rpm = 100, lt_rpm = 100;
 int serialState = 0, task = 0;
@@ -901,7 +901,7 @@ void loop()
                         #endif
                         endLineGap = false;
                         linegapSweepState++; //TODO change this to = 11 directly
-                        Robawt.stop(); //^ prev not here
+                        // Robawt.stop(); //^ prev not here
                         // switch ((int)linegapSweepRotation)
                         // {
                         //     case 0:
@@ -917,17 +917,17 @@ void loop()
                         break;
 
                     case 9: //^ wait for a while to debug
-                        Robawt.stop();
+                        // Robawt.stop();
                         linegapDebugWaitMillis = millis();
                         linegapSweepState++;
                         break;
                     case 10:
-                        if (millis() - linegapDebugWaitMillis > 2000) {
-                            if (linegapSweepRotation == 0) { linegapSweepState++; }
-                            else { curr = EMPTY_LINETRACK; }
-                        } else {
-                            Robawt.stop();
-                        }
+                        // if (millis() - linegapDebugWaitMillis > 2000) {
+                        if (linegapSweepRotation == 0) { linegapSweepState++; }
+                        else { curr = EMPTY_LINETRACK; }
+                        // } else {
+                        //     Robawt.stop();
+                        // }
                         break;
 
                     case 11: //^ move forward 25 cm or till see line
@@ -1546,8 +1546,8 @@ void loop()
         //* ------------------------------------------- SWITCH OFF -------------------------------------------
 
         Robawt.stop();
-        curr = EMPTY_LINETRACK;
-        // curr = CENTERING_FOR_DEPOSIT;
+        // curr = EMPTY_LINETRACK;
+        curr = CENTERING_FOR_DEPOSIT;
         depositType = 1;
         task = 0;
         ledOn = false;

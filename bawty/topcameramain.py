@@ -112,27 +112,31 @@ entered_evac = False
 #* IMAGE THRESHOLDS
 
 #~ Xel's house values
-l_blue = np.array([95, 100, 100], np.uint8) #? idk what your prev values were sorryz
-u_blue = np.array([115, 255, 255], np.uint8)
+l_blue = np.array([95, 100, 100], np.uint8) #! TUNE
+u_blue = np.array([115, 255, 255], np.uint8) #! TUNE
 
-l_red1lt = np.array([0, 50, 50], np.uint8)
-u_red1lt = np.array([10, 255, 255], np.uint8)
-l_red2lt = np.array([170, 50, 50], np.uint8) 
+l_red1lt = np.array([0, 59, 95], np.uint8)
+u_red1lt = np.array([15, 255, 255], np.uint8)
+l_red2lt = np.array([170, 59, 95], np.uint8) 
 u_red2lt = np.array([180, 255, 255], np.uint8)
 
-l_greenlt = np.array([60, 85, 43], np.uint8) #alternate values: 50,50,90
+l_greenlt = np.array([60, 43, 40], np.uint8) #alternate values: 50,50,90
 # u_greenlt = np.array([80, 255, 255], np.uint8)
 u_greenlt = np.array([90, 255, 255], np.uint8) # my house
-l_greenlt_forblack = np.array([60, 70, 90], np.uint8)
-u_greenlt_forblack = np.array([80, 220, 255], np.uint8)
+l_greenlt_forblack = np.array([60, 43, 40], np.uint8)
+u_greenlt_forblack = np.array([90, 255, 255], np.uint8)
 
-l_red1evac = np.array([0, 42, 56], np.uint8)
-u_red1evac = np.array([15, 255, 255], np.uint8)
-l_red2evac = np.array([170, 42, 56], np.uint8) 
+l_red1evac = np.array([0, 55, 70], np.uint8) 
+u_red1evac = np.array([10, 255, 255], np.uint8)
+l_red2evac = np.array([170, 55, 70], np.uint8) 
 u_red2evac = np.array([180, 255, 255], np.uint8)
 
-l_greenevac = np.array([80, 73, 73], np.uint8)
-u_greenevac = np.array([100, 255, 255], np.uint8)
+# alt values: 0, 110, 65, 10, 255, 255; 170, 110, 65, 180, 255 255
+
+l_green1evac = np.array([73, 20, 20], np.uint8)
+u_green1evac = np.array([120, 123, 45], np.uint8)
+l_green2evac = np.array([73, 55, 20], np.uint8)
+u_green2evac = np.array([120, 181, 80], np.uint8)
 
 l_debug_orange = np.array([0, 45, 73], np.uint8)
 u_debug_orange = np.array([12, 255, 255], np.uint8)
@@ -615,7 +619,7 @@ def task_1_ball(): #^ downres-ed once
 
     mask_debug_orange = cv2.inRange(evac_hsv, l_debug_orange, u_debug_orange)
     debug_orange_sum = np.sum(mask_debug_orange) / 255
-    if debug_orange_sum > 0.75*width_lt*height_lt:
+    if debug_orange_sum > 0.75*(top_stream_width_org//2)*(top_stream_height_org//2):
         flag_debug_orange = True
     
     #* CIRCLE DETECTION (using sat max)
