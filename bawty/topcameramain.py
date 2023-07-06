@@ -55,14 +55,14 @@ rpm_setptlt = 130
 # mask_trapeziums_claw_down = cv2.bitwise_not(mask_trapeziums_claw_down)
 # to mask out robot
 mask_trapeziums = np.zeros([height_lt, width_lt], dtype="uint8")
-# crop_bot_h = 15
-# higher_crop_triangle_h = 23
-# higher_crop_triangle_w = 26
-# higher_crop_triangle_gap_w = 24
-crop_bot_h = 62//2
-higher_crop_triangle_h = 72//2
-higher_crop_triangle_w = 75//2
-higher_crop_triangle_gap_w = 35//2
+crop_bot_h = 15
+higher_crop_triangle_h = 23
+higher_crop_triangle_w = 26
+higher_crop_triangle_gap_w = 24
+# crop_bot_h = 62//2
+# higher_crop_triangle_h = 72//2
+# higher_crop_triangle_w = 75//2
+# higher_crop_triangle_gap_w = 35//2
 left_triangle_pts = np.array([[0, height_lt - crop_bot_h], [0, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w - higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt - higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 right_triangle_pts = np.array([[width_lt, height_lt - crop_bot_h], [width_lt, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w + higher_crop_triangle_w, height_lt - higher_crop_triangle_h], [centre_x_lt + higher_crop_triangle_gap_w , height_lt - crop_bot_h]])
 bottom_rectangle_pts = np.array([[0, height_lt], [0, height_lt - crop_bot_h], [width_lt, height_lt - crop_bot_h], [width_lt, height_lt]])
@@ -168,8 +168,6 @@ param1 = 143 #128
 param2 = 75 #62
 min_radius = 41
 max_radius = 53
-
-
 
 u_blackforball = 55
 u_black_lt = 70 
@@ -387,7 +385,8 @@ def task0_lt():
         print("Percentage of black above green: ", gs_bkpct)  
 
         #~ Test if green is left or right of black
-        #TODO might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
+        #TODO: mask out green above black line 
+        #TODO: might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
         if gs_bkpct > GS_MIN_BKPCT:
             gs_bkbeside = mask_black_org[gs_top: gs_bot]
             gs_bkbeside[:, :30] = 0
@@ -401,7 +400,7 @@ def task0_lt():
             print("Left: ", gs_left, " | right: ", gs_right)
             
             #~ Confidence votes
-            if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
+            if cx_black > gs_left and cx_black < gs_right and gs_sum > 220 and gs_width > 35: #! arbitrary numbers
                 gsVotes[2] += 1            
             elif cx_black > gs_centre: #left
                 gsVotes[0] += 1
@@ -413,7 +412,6 @@ def task0_lt():
             #~ Wait for green to reach near the bottom of frame
             if gs_bot > 65: 
                 dir = gsVotes.index(max(gsVotes))
-
                 if dir == 2:
                     curr = Task.DOUBLE_GREEN
                     gs_now = True
@@ -486,11 +484,11 @@ def task0_lt():
         mask_uncropped_black = mask_black.copy()
         mask_supercrop_black = mask_black.copy()
 
+        # cv2.imshow("mask black", mask_black)    
+
         mask_black[:crop_lt_h, :] = 0
         mask_supercrop_black[:supercrop_lt_h, :] = 0
-
-        # cv2.imshow("mask black", mask_black)
-
+        
         if np.sum(mask_black) > 0:
             #~ Finding the closest line segment
             black_rows = np.amax(mask_uncropped_black, axis=1); 
@@ -533,8 +531,8 @@ def task0_lt():
 
             #~ Trigger end line gap 
             #^ This happens even in green squares
-            #TODO: add a width check for linegap
-            if first_line_height > 32 and first_line_bottom > 65 and 5<black_line_width<40:  #89 lowest possible, 89-32=57 < 65 so it is ok
+            #! note: max width check removed
+            if first_line_height > 30 and first_line_bottom > 65 and 5<black_line_width and not gs_now:  #89 lowest possible, 89-32=57 < 65 so it is ok
                 end_line_gap = 1 # to end the linegap move forward
                 curr = Task.EMPTY
                 linegap_now = False
@@ -551,10 +549,12 @@ def task0_lt():
                 # cv2.imshow("black mask", mask_black)
 
                 #~ Powers and components
-                # powered_y = (height_lt-crop_lt_h-crop_bot_h)/first_line_height if first_line_height != 0 else 1
-                # powered_y = powered_y ** 0.01 #? prev value: 0.5
-                # powered_y = min(3.5, powered_y) #? prev value: 4
-                powered_y = 0.5
+                # powered_y = first_line_height/(height_lt-crop_lt_h-crop_bot_h) if first_line_height != 0 else 1
+                # print("height of frame:", height_lt-crop_lt_h-crop_bot_h, "height of line:", first_line_height)
+                # powered_y = powered_y ** 2 
+                # # powered_y /= 2.5
+                # powered_y = min(0.9, powered_y) #? prev value: 4
+                powered_y = 0.25 #? prev value: 0.5
                 x_black_com = x_com
 
                 #~ Vectorizing the black components
@@ -601,10 +601,10 @@ def task0_lt():
         rotation = -90
     rotation = int(rotation) + 90
 
-    #* SEND DATA
-    # print("value:", curr)
-    # print("rpm_lt:", rpm_lt)
-    # # print("rotation:", rotation)
+    # * SEND DATA
+    print("value:", curr)
+    print("rpm_lt:", rpm_lt)
+    print("rotation:", rotation)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_lt,
@@ -874,7 +874,7 @@ def task4_backtolt():
     black_sum = np.sum(mask_black) / 255
     print("black sum", black_sum)
 
-    if black_sum > 20000: #! tune this value
+    if black_sum > 2000: #! tune this value
         black_col = np.amax(mask_black, axis=0)
         black_indices_x = np.where(black_col == 255)
         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
@@ -882,11 +882,11 @@ def task4_backtolt():
         black_width = black_end_x - black_start_x
         print("black width", black_width)
 
-        if (black_width) > 100: 
+        if (black_width) > 80: 
             curr = Task.EMPTY
             blackM = cv2.moments(mask_black)
             cx_black = int(blackM["m10"]/blackM["m00"])
-            rotation = (cx_black-centre_x_botcam) / 20 #! tune this value
+            rotation = (cx_black-centre_x_botcam) / 4 #! tune this value
 
         else:
             curr = Task.FINDINGLINE
@@ -1158,8 +1158,8 @@ while True:
     elif pico_task == 9:
         print("Switch off")
         gsVotes = [0, 0, 0]
+        # task0_lt()
         # task7_lt_to_evac()
-    
         # task_2_depositalive()
     else:
         print("Pico task unknown:", pico_task)
