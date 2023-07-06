@@ -92,7 +92,7 @@ x_com *= x_com_scale
 #* EVAC CONSTANTS
 crop_h_evac = 75
 evac_height = top_stream_height_org//2 - crop_h_evac
-height_evac_t = top_stream_height_org - crop_h_evac
+height_evac_t = top_stream_height_org//2 - crop_h_evac
 
 centre_x_botcam = bot_stream_width_org//8 #! cuz we r pyr down bot camz
 centre_x_topcam = top_stream_width_org//4 #! LOL no wonder the ball detection wasnt working
@@ -103,8 +103,8 @@ rpm_evac = 120 #not actually used
 u_sat_thresh = np.array([0, 0, 0], np.uint8)
 l_sat_thresh = np.array([180, 255, 255], np.uint8)
 
-crop_bh_evactolt = 120 #with top cam
-crop_th_evactolt = 100 #with top cam
+crop_bh_evactolt = 30 #!tune
+crop_th_evactolt = 25 #!tune
 
 entered_evac = False
 
@@ -112,8 +112,8 @@ entered_evac = False
 #* IMAGE THRESHOLDS
 
 #~ Xel's house values
-l_blue = np.array([95, 100, 100], np.uint8) #! TUNE
-u_blue = np.array([115, 255, 255], np.uint8) #! TUNE
+l_blue = np.array([95, 100, 100], np.uint8) 
+u_blue = np.array([115, 255, 255], np.uint8) 
 
 l_red1lt = np.array([0, 48, 44], np.uint8)
 u_red1lt = np.array([8, 255, 255], np.uint8)
@@ -155,19 +155,21 @@ else:
     l_debug_orange = np.array([0, 0, 0], np.uint8)
     u_debug_orange = np.array([0, 0, 0], np.uint8)
 
-
 # dp = 3
-# min_dist = 77 #67
-# param1 = 191 #128
-# param2 = 103 #62
-# min_radius = 65
-# max_radius = 88
+# min_dist = 34 #67
+# param1 = 146 #128
+# param2 = 70 #62
+# min_radius = 16
+# max_radius = 34
+
 dp = 3
 min_dist = 34 #67
-param1 = 146 #128
-param2 = 70 #62
-min_radius = 16
-max_radius = 34
+param1 = 143 #128
+param2 = 75 #62
+min_radius = 41
+max_radius = 53
+
+
 
 u_blackforball = 55
 u_black_lt = 70 
@@ -679,7 +681,7 @@ def task_1_ball(): #^ downres-ed once
         rotation = math.atan2(x_ball, y_ball) * 180/math.pi if y != 0 else 0
 
         #~ Type of ball
-        if closest_ball["black"] > 0.3: #! was previously 0.1
+        if closest_ball["black"] > 0.35: #! was previously 0.1
             ball_type = 1                                                                                                                                                           
         else:
             ball_type = 0
@@ -761,7 +763,7 @@ def task_2_depositalive():
             print("-"*30, "found", "-"*30)
             greenM = cv2.moments(mask_green)
             cx_green = int(greenM["m10"]/greenM["m00"])
-            rotation = (cx_green-centre_x_botcam) / 20 #tune constant for rotating to deposit point
+            rotation = (cx_green-centre_x_botcam) / 4 #tune constant for rotating to deposit point
             curr = Task.DEPOSITALIVE
 
     #~ Still finding green
@@ -789,10 +791,10 @@ def task_3_depositdead():
 
     frame_org = bot_stream.read()
     frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    out.write(frame_org)
-    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     frame_org = cv2.flip(frame_org, 0)
     frame_org = cv2.flip(frame_org, 1)
+    out.write(frame_org)
+    frame_org = cv2.pyrDown(frame_org, dstsize=(width_lt, height_lt))
     # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
     frame_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
 
@@ -819,7 +821,7 @@ def task_3_depositdead():
         if evac_red_width > 50:
             redM = cv2.moments(mask_red)
             cx_red = int(redM["m10"]/redM["m00"])
-            rotation = (cx_red-centre_x_botcam) / 20 #tune constant for rotating to deposit point
+            rotation = (cx_red-centre_x_botcam) / 4 #tune constant for rotating to deposit point
             curr = Task.DEPOSITDEAD
 
     #~ Still finding red
@@ -872,7 +874,7 @@ def task4_backtolt():
     black_sum = np.sum(mask_black) / 255
     print("black sum", black_sum)
 
-    if black_sum > 23000: #! tune this value
+    if black_sum > 20000: #! tune this value
         black_col = np.amax(mask_black, axis=0)
         black_indices_x = np.where(black_col == 255)
         black_start_x = black_indices_x[0][0] if len(black_indices_x[0]) else 0
@@ -880,9 +882,8 @@ def task4_backtolt():
         black_width = black_end_x - black_start_x
         print("black width", black_width)
 
-        if (black_width) > 520: 
+        if (black_width) > 100: 
             curr = Task.EMPTY
-
             blackM = cv2.moments(mask_black)
             cx_black = int(blackM["m10"]/blackM["m00"])
             rotation = (cx_black-centre_x_botcam) / 20 #! tune this value

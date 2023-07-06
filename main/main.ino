@@ -422,6 +422,8 @@ void loop()
     {
         // tcsAnalyse();
         serialEvent();
+        // alive_down();
+        // dead_down();
         // ledOn = true;
         // if (entered_evac) exit(0);
 
@@ -923,7 +925,6 @@ void loop()
                         #endif
                         endLineGap = false;
                         linegapSweepState++; //TODO change this to = 11 directly
-                        // Robawt.stop(); //^ prev not here
                         // switch ((int)linegapSweepRotation)
                         // {
                         //     case 0:
@@ -953,7 +954,7 @@ void loop()
                         break;
 
                     case 11: //^ move forward 25 cm or till see line
-                        moveDist(1, 75, 100, LINEGAP, LINEGAP);
+                        moveDist(1, 120, 100, LINEGAP, LINEGAP);
                         linegapSweepState++;
                         endLineGap = false;
                         break;
@@ -964,8 +965,8 @@ void loop()
                         Robawt.setSteer(forcedDirection * forcedSpeed, 0);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
 
-                        if (millis() - lastSentEvacEntryToPiMillis < 2000 && aboutToEnterEvac){
-                            send_pi(7);
+                        if (aboutToEnterEvac){
+                            send_pi(Pi::EVAC_TO_LINETRACK);
                         }
                         else {
                             send_pi(Pi::LINETRACK);
@@ -984,7 +985,7 @@ void loop()
                         Serial.print(" curr dist: "); Serial.print(currForcedDist);
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif
-                        if(front_see_wall()) {
+                        if(front_see_wall() && !aboutToEnterEvac) {
                             lt2evacSawLeft = false;
                             lt2evacSawRight = false;
                         }
@@ -994,10 +995,28 @@ void loop()
                             Serial.print("lastsaw front left millis,"); Serial.println(lastSawFrontLeftMillis);
                             Serial.print("lastsaw front right millis,"); Serial.println(lastSawFrontRightMillis);
                         }
-                        if (currForcedDist >= wantedForcedDist || endLineGap) {
+                        if (endLineGap) {
                             curr = EMPTY_LINETRACK;
                             linegapSweepState = 0;
+                        } 
+
+                        //! does this really work? shouldn't this be under the condition of if extrusions are detected instead?
+                        //! also there's still the problem of diagonal lidars triggering evac when going down the seesaw... 
+                        if (aboutToEnterEvac && entered_evac && currForcedDist >= wantedForcedDist) { 
+                            linegapSweepState ++;
                         }
+                        break;
+                    
+                    case 13:
+                        moveDist(-1, 100, 100, LINEGAP, LINEGAP);
+                        linegapSweepState++;
+                        break;
+                    case 14:
+                        Robawt.stop();
+                        curr = EVAC_INIT;
+                        enterEvacState = 0;
+                        entered_evac = false;
+                        linegapSweepState = 0;
                         break;
                 }
                 break;
@@ -1097,9 +1116,9 @@ void loop()
                         in_evac = true;
                         pickType = 1;
                         depositType = 1;
-                        enterEvacState++;
                         evac_startDist = pickMotorDist(-1);
                         startEvacMillis = millis();
+                        enterEvacState++;
                         break;
 
                     case 1: // move forward
@@ -1112,7 +1131,7 @@ void loop()
 
                     case 2: // turn left 90
                         Robawt.setSteer(120, -1);
-                        if (fabs(pickMotorDist(-1) - evac_startDist > 16.5)) {
+                        if (fabs(pickMotorDist(-1) - evac_startDist > 50)) {
                             evac_startDist = pickMotorDist(-1);
                             enterEvacState++;
                         }
@@ -1143,7 +1162,7 @@ void loop()
 
                     case 5: //turning 90 right from wall in front of it
                         Robawt.setSteer(evac_rpm, 1);
-                        if (fabs(pickMotorDist(-1) - evac_startDist) > 18) {
+                        if (fabs(pickMotorDist(-1) - evac_startDist) > 49) {
                             // if (depositedAlready) { curr = 90; }
                             // else { curr = 60; }
                             curr = WALLTRACK;
@@ -1432,7 +1451,6 @@ void loop()
                 // if (fabs(pickMotorDist(-1) - startHeadingToDepositDist) < 1) { Robawt.setSteer(evac_deposit_rpm, 1); }
                 // else { Robawt.setSteer(evac_deposit_rpm, rotation); }
                 // break;
-                
             // case HEAD_TO_DEPOSIT_MORE:
                 // Robawt.setSteer(evac_deposit_rpm, 0.15);
                 sort_neutral();
@@ -1454,8 +1472,19 @@ void loop()
                 {
                     case 0:
                         sort_neutral();
-                        if (depositType == 0) { dead_up(); }
-                        else { alive_up(); }
+                        if (depositType == 0) { 
+                            if (depositNum > 1) { 
+                                dead_high_up(); 
+                            } else {
+                                dead_up();
+                            }
+                        } else { 
+                            if (depositNum > 1) { 
+                                alive_high_up(); 
+                            } else {
+                                alive_up();
+                            }
+                        }
                         if (millis() - depositStateTimer > 1500) { 
                             depositStateTimer = millis();
                             depositState ++; }
@@ -1543,22 +1572,6 @@ void loop()
                 evac_setdist = 200;
                 wall_rot = (evac_setdist - l0x_readings[L0X::FRONT_LEFT]) * 0.005;
                 Robawt.setSteer(evac_exit_rpm, wall_rot);
-                if (right_see_closewall()) {
-                    isFrontEvacExit = true;
-                    lastTriggerRightSeeCloseWall = millis();
-                }
-                if (millis() - lastTriggerRightSeeCloseWall > 2000 && isFrontEvacExit) {
-                    isFrontEvacExit = false;
-                }
-                if (frontLeft_see_out()) {
-                    startTurnEvacToLtDist = pickMotorDist(-1);
-                    curr = EXIT_EVAC_TURN;
-                    exitEvacTurnState = 0;
-                } else if (left_see_out()) {
-                    startTurnEvacToLtDist = pickMotorDist(-1);
-                    curr = EXIT_EVAC_TURN;
-                    exitEvacTurnState = 0;
-                }
                 if (ball_present()) {
                     curr = EVAC_PICKUP;
                     pickupState = 0;
@@ -1568,6 +1581,24 @@ void loop()
                     curr = WALLTRACK_HITWALL;
                     wallTurnState = 0; 
                     afterTurnEvacState = EXIT_EVAC; }
+
+                if (right_see_closewall()) {
+                    isFrontEvacExit = true;
+                    lastTriggerRightSeeCloseWall = millis();
+                }
+                if (millis() - lastTriggerRightSeeCloseWall > 2000 && isFrontEvacExit) {
+                    isFrontEvacExit = false;
+                }
+                if (frontLeft_see_out()) { 
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                    curr = EXIT_EVAC_TURN;
+                    exitEvacTurnState = 0;
+                } else if (left_see_out()) {
+                    startTurnEvacToLtDist = pickMotorDist(-1);
+                    curr = EXIT_EVAC_TURN;
+                    exitEvacTurnState = 0;
+                }
+                
                 break;
 
             case EXIT_EVAC_TURN:
@@ -1591,7 +1622,7 @@ void loop()
                             startEvacExitTurnDist = pickMotorDist(-1);
                         }
 
-                    case 2: //move back until see line
+                    case 2: //move back by a certain amount until see line
                         Robawt.setSteer(-evac_exit_rpm, 0);
                         currEvacExitTurnDist = pickMotorDist(-1);
                         if (foundLine) {
@@ -1602,7 +1633,7 @@ void loop()
                         break;
 
                     case 3: //turn back if no see line
-                        Robawt.setSteer(-evac_exit_rpm, -0.5);
+                        Robawt.setSteer(-evac_exit_rpm, -1);
                         currEvacExitTurnDist = pickMotorDist(-1);
                         if (fabs(currEvacExitTurnDist - startEvacExitTurnDist) > evacExitToTurnDist) {
                             exitEvacTurnState ++;
@@ -1679,8 +1710,8 @@ void loop()
         // claw_up();
         claw_down();
         claw_close();
-        dead_down();
-        alive_down();
+        // dead_high_up();
+        // alive_high_up();
         sort_neutral();
         // claw_close_cube();
     }
@@ -1765,7 +1796,9 @@ void serialEvent() //Pi to pico serial
                     entered_evac = (bool)serialData;
                     break;
                 case 249:
-                    ballType = (int)serialData;
+                    if (curr == EVAC_PICKUP && pickupState <2) {
+                        ballType = (int)serialData;
+                    }
                     break;
                     
             }
@@ -1861,8 +1894,8 @@ void claw_open() {
 }
 
 void claw_close() { //ball
-    servos_angle[Servos::RIGHT] = 25;
-    servos_angle[Servos::LEFT] = 105;
+    servos_angle[Servos::RIGHT] = 23;
+    servos_angle[Servos::LEFT] = 107;
     servos_change = true;
 }
 
@@ -1898,6 +1931,11 @@ void claw_speedbump_down(){
     servos_change = true;
 }
 
+void alive_high_up() { //for rescue kit deposit because not enough angle
+    servos_angle[Servos::ALIVE] = 45;
+    servos_change = true;
+}
+
 void alive_up() {
     servos_angle[Servos::ALIVE] = 55;
     servos_change = true;
@@ -1905,6 +1943,11 @@ void alive_up() {
 
 void alive_down() {
     servos_angle[Servos::ALIVE] = 145;
+    servos_change = true;
+}
+
+void dead_high_up() {
+    servos_angle[Servos::DEAD] = 80;
     servos_change = true;
 }
 
