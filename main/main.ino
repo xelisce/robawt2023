@@ -954,7 +954,7 @@ void loop()
                         break;
 
                     case 11: //^ move forward 25 cm or till see line
-                        moveDist(1, 120, 100, LINEGAP, LINEGAP);
+                        moveDist(1, 75, 100, LINEGAP, LINEGAP);
                         linegapSweepState++;
                         endLineGap = false;
                         break;
@@ -965,8 +965,8 @@ void loop()
                         Robawt.setSteer(forcedDirection * forcedSpeed, 0);
                         currForcedDist = getRotated(startForcedDistL, startForcedDistR);
 
-                        if (aboutToEnterEvac){
-                            send_pi(Pi::EVAC_TO_LINETRACK);
+                        if (millis() - lastSentEvacEntryToPiMillis < 2000 && aboutToEnterEvac){
+                            send_pi(7);
                         }
                         else {
                             send_pi(Pi::LINETRACK);
@@ -985,7 +985,7 @@ void loop()
                         Serial.print(" curr dist: "); Serial.print(currForcedDist);
                         Serial.print(" wanted dist: "); Serial.println(wantedForcedDist);
                         #endif
-                        if(front_see_wall() && !aboutToEnterEvac) {
+                        if(front_see_wall()) {
                             lt2evacSawLeft = false;
                             lt2evacSawRight = false;
                         }
@@ -995,28 +995,10 @@ void loop()
                             Serial.print("lastsaw front left millis,"); Serial.println(lastSawFrontLeftMillis);
                             Serial.print("lastsaw front right millis,"); Serial.println(lastSawFrontRightMillis);
                         }
-                        if (endLineGap) {
+                        if (currForcedDist >= wantedForcedDist || endLineGap) {
                             curr = EMPTY_LINETRACK;
                             linegapSweepState = 0;
-                        } 
-
-                        //! does this really work? shouldn't this be under the condition of if extrusions are detected instead?
-                        //! also there's still the problem of diagonal lidars triggering evac when going down the seesaw... 
-                        if (aboutToEnterEvac && entered_evac && currForcedDist >= wantedForcedDist) { 
-                            linegapSweepState ++;
                         }
-                        break;
-                    
-                    case 13:
-                        moveDist(-1, 100, 100, LINEGAP, LINEGAP);
-                        linegapSweepState++;
-                        break;
-                    case 14:
-                        Robawt.stop();
-                        curr = EVAC_INIT;
-                        enterEvacState = 0;
-                        entered_evac = false;
-                        linegapSweepState = 0;
                         break;
                 }
                 break;
