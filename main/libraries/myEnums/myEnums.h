@@ -17,6 +17,7 @@ enum currType { //what the pico needs to do
     // CHECK_FOR_EVAC = 49,
     EVAC_INIT = 50,
     EVAC_PICKUP = 51,
+    DEPOSIT_CHECKPOINT = 52,
     WALLTRACK = 60, //^ basically no ball walltrack
     WALLTRACK_OOR = 61,
     WALLTRACK_HITWALL = 62,

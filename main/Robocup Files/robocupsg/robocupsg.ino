@@ -1139,7 +1139,7 @@ void loop()
                 {
                     case 0:
                         Robawt.setSteer(rpm, turn_dir);
-                        if (*sideObstDist > 300) { obstState ++; }
+                        if (*sideObstDist > 300) { obstState ++; } //^ DOM: LOL
                         break;
 
                     case 1:

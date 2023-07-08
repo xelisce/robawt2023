@@ -14,7 +14,7 @@ def on_trackbar_change(x):
     if ret:
         cv2.imshow("frame", frame_org)
 
-top_stream = cv2.VideoCapture('3rd_run.avi')
+top_stream = cv2.VideoCapture('7th_run.avi')
 _, top_stream_frame = top_stream.read()
 top_stream_width_org, top_stream_height_org = top_stream_frame.shape[1], top_stream_frame.shape[0]
 # top_stream_width_org = top_stream_width * 4
@@ -101,19 +101,18 @@ x_com_scale = x_com_scale ** 3
 x_com_scale = np.concatenate((x_com_scale, np.array([[1] * width_lt for i in range(higher_crop_triangle_h)])))
 x_com *= x_com_scale
 
-#* EVAC CONSTANTS
 crop_h_evac = 75
 evac_height = top_stream_height_org//2 - crop_h_evac
 height_evac_t = top_stream_height_org//2 - crop_h_evac
 
-centre_x_botcam = 640//8 #! cuz we r pyr down bot camz
-centre_x_topcam = top_stream_width_org//4 #! LOL no wonder the ball detection wasnt working
+centre_x_botcam = 80 #! cuz we r pyr down bot camz
+centre_x_topcam = 160 #! LOL no wonder the ball detection wasnt working
 
 kp_ball = 1
 rpm_evac = 120 #not actually used
 
-u_sat_thresh = np.array([0, 0, 0], np.uint8)
-l_sat_thresh = np.array([180, 255, 255], np.uint8)
+l_sat_thresh = np.array([0, 0, 0], np.uint8)
+u_sat_thresh = np.array([180, 255, 255], np.uint8)
 
 crop_bh_evactolt = 30 #!tune
 crop_th_evactolt = 25 #!tune
@@ -150,10 +149,21 @@ u_red2evac = np.array([180, 255, 255], np.uint8)
 # l_green2evac = np.array([73, 55, 20], np.uint8)
 # u_green2evac = np.array([120, 181, 80], np.uint8)
 
-l_green1evac = np.array([44, 125, 46], np.uint8)
-u_green1evac = np.array([116, 255, 255], np.uint8)
-l_green2evac = np.array([44, 40, 25], np.uint8)
-u_green2evac = np.array([125, 255, 255], np.uint8)
+l_green1evac = np.array([70, 90, 32], np.uint8)
+u_green1evac = np.array([90, 255, 255], np.uint8)
+l_green2evac = np.array([255, 255, 255], np.uint8)
+u_green2evac = np.array([255, 255, 255], np.uint8)
+
+l_evac_top_green  = np.array([78, 100, 75], np.uint8)
+u_evac_top_green = np.array([90, 255, 255], np.uint8)
+l_evac_top_red1 = np.array([125, 255, 255], np.uint8)
+u_evac_top_red1 = np.array([125, 255, 255], np.uint8)
+l_evac_top_red2 = np.array([125, 255, 255], np.uint8)
+u_evac_top_red2 = np.array([125, 255, 255], np.uint8)
+
+
+l_orange = np.array([0, 95, 40], np.uint8)
+u_orange = np.array([15, 199, 255], np.uint8)
 
 debug_orange = False
 if debug_orange:
@@ -167,12 +177,28 @@ else:
     l_debug_orange = np.array([0, 0, 0], np.uint8)
     u_debug_orange = np.array([0, 0, 0], np.uint8)
 
+# dp = 3
+# min_dist = 34 #67
+# param1 = 146 #128
+# param2 = 70 #62
+# min_radius = 16
+# max_radius = 34
+
+#~ Hough circles settings for top camera
+dp_7 = 3
+min_dist_7 = 34 #67
+param1_7 = 143 #128
+param2_7 = 75 #62
+min_radius_7 = 41
+max_radius_7 = 53
+
+#~ Hough circles settings for bottom camera
 dp = 3
-min_dist = 34 #67
-param1 = 143 #128
-param2 = 75 #62
-min_radius = 41
-max_radius = 53
+min_dist = 36 #67
+param1 = 192 #128
+param2 = 90 #62
+min_radius= 28
+max_radius = 140
 
 u_blackforball = 55
 u_black_lt = 70 
@@ -215,6 +241,7 @@ see_thin_line = 0 #unused
 end_line_gap = 0
 # seesaw = 1
 # new_endlinegap = 1
+deposit_color = 0
 
 red_now = False
 gs_now = False
@@ -300,7 +327,7 @@ def task0_lt():
     mask_gs = cv2.dilate(mask_gs, gs_erode_kernel, iterations=1)
     gs_sum = np.sum(mask_gs)/255
     cv2.namedWindow('gs mask', 2)
-    cv2.resizeWindow('gs mask', 550, 50)
+    cv2.resizeWindow('gs mask', 550, 500)
     cv2.imshow("gs mask", mask_gs) #& debug green square mask
     print("Green sum:", gs_sum) #& debug green min pixels
 
@@ -339,80 +366,132 @@ def task0_lt():
         gs_blacksample_h = 10 #! arbitrary number
         GS_MIN_BKPCT = 0.20 #! arbitrary number
 
-        #~ Find y position of green
-        green_row = np.amax(mask_gs, axis=1)
-        gs_vertical_indices = np.where(green_row==255)
-        gs_top = gs_vertical_indices[0][0]
-        gs_bot = gs_vertical_indices[0][-1]
-        print("GS_top: ", gs_top, " |  GS_bot: ", gs_bot)
+        #~ Contours for green
+        green_contours, _ = cv2.findContours(mask_gs, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
+        cv2.drawContours(frame_org, green_contours, -1, (0, 255, 0), 3)
+        cv2.imshow("with contours", frame_org)
+        # print(green_contours)
+        i = 0
+        green_cnts = []
+        for cnt in green_contours:
+            x,y,w,h = cv2.boundingRect(cnt)
+            print("green contour", i, "sum: ", w*h)
+            i += 1
+            if h*w > 320: #!tune
+                gs_bot = y + h
+                gs_top = y
+                gs_left = x
+                gs_right = x + w
+                gs_width = gs_right - gs_left
+                gs_centre = (gs_left + gs_right) // 2
 
-        #~ Find left & right of green
-        green_col = np.amax(mask_gs, axis=0)
-        gs_horizontal_indices = np.where(green_col==255)
-        gs_left = gs_horizontal_indices[0][0]
-        gs_right = gs_horizontal_indices[0][-1]
-        gs_width = gs_right - gs_left 
-        gs_centre = (gs_left + gs_right) / 2
-        print("GS_width: ", gs_width)
+                gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top-gs_blacksample_offset, gs_left: gs_right]
+                cv2.namedWindow('gsbkabove', 2)
+                cv2.resizeWindow('gsbkabove', 550, 500)
+                cv2.imshow("gsbkabove", gs_bkabove) #& debug green square mask
+                gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
 
-        #~ Test if below or above line (percentage of black above green)
-        gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top-gs_blacksample_offset, gs_left: gs_right]
-        gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
-        # cv2.namedWindow('bk_above', 2)
-        # cv2.resizeWindow('bk_above', 550, 50)
-        # if gs_bkabove:
-        # cv2.imshow("bk_above", gs_bkabove)
-        print("Percentage of black above green: ", gs_bkpct)  
+                if gs_bkpct > GS_MIN_BKPCT:
+                    gs_bkbeside = mask_black_org[gs_top: gs_bot]
+                    gs_bkbeside[:, :30] = 0
+                    gs_bkbeside[:, -30:] = 0
+                    gs_black_moments = cv2.moments(gs_bkbeside)
+                    cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
+   
+                    if cx_black > gs_centre: #left
+                        gs_type = 0
+                    elif cx_black < gs_centre:
+                        gs_type = 1
+                    green_cnts.append({
+                        "x": x,
+                        "y": y,
+                        "w": w,
+                        "h": h,
+                        "type": gs_type,
+                        "black_percent": gs_bkpct
+                    })
 
-        #~ Test if green is left or right of black
-        #TODO might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
-        if gs_bkpct > GS_MIN_BKPCT:
-            gs_bkbeside = mask_black_org[gs_top: gs_bot]
-            gs_bkbeside[:, :30] = 0
-            gs_bkbeside[:, -30:] = 0
-            gs_black_moments = cv2.moments(gs_bkbeside)
-            cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
-            # cv2.namedWindow('bkbeside', 2)
-            # cv2.resizeWindow('bkbeside', 550, 50)
-            # cv2.imshow('bkbeside', gs_bkbeside)
-            print("Cx_Black: ", cx_black)
-            print("Left: ", gs_left, " | right: ", gs_right)
+                    print(green_cnts)
+                    #~ Confidence votes
+                    if gs_bot > 65: 
+                        dir = gsVotes.index(max(gsVotes))
+                        if dir == 2:
+                            curr = Task.DOUBLE_GREEN
+                            gs_now = True
+                            print(">" * 15, "Double green ", "<" * 15)
+                        elif dir == 0:
+                            curr = Task.LEFT_GREEN
+                            gs_now = True
+                            print("'\033[41m'" + "<" * 40, "left green" + "'\033[0m'")
+                        elif dir == 1:
+                            curr = Task.RIGHT_GREEN
+                            gs_now = True
+                            print("'\033[94m'" + "right green", ">" * 40 + "'\033[0m'")
+
+        if len(green_cnts) == 2:
+            gsVotes[2] += 1 
+        elif len(green_cnts) == 1:
+            gs_type_number = green_cnts[0]["type"]
+            gsVotes[gs_type_number] += 1
+
+        # #~ Find y position of green
+        # green_row = np.amax(mask_gs, axis=1)
+        # gs_vertical_indices = np.where(green_row==255)
+        # gs_top = gs_vertical_indices[0][0]
+        # gs_bot = gs_vertical_indices[0][-1]
+        # print("GS_top: ", gs_top, " |  GS_bot: ", gs_bot)
+
+        # #~ Find left & right of green
+        # green_col = np.amax(mask_gs, axis=0)
+        # gs_horizontal_indices = np.where(green_col==255)
+        # gs_left = gs_horizontal_indices[0][0]
+        # gs_right = gs_horizontal_indices[0][-1]
+        # gs_width = gs_right - gs_left 
+        # gs_centre = (gs_left + gs_right) / 2
+        # print("GS_width: ", gs_width)
+
+        # #~ Test if below or above line (percentage of black above green)
+        # gs_bkabove = mask_black_org[gs_top - (gs_blacksample_offset + gs_blacksample_h): gs_top-gs_blacksample_offset, gs_left: gs_right]
+        # gs_bkpct = np.sum(gs_bkabove) / 255 / gs_blacksample_h / (gs_width) 
+        # # cv2.namedWindow('bk_above', 2)
+        # # cv2.resizeWindow('bk_above', 550, 50)
+        # # if gs_bkabove:
+        # # cv2.imshow("bk_above", gs_bkabove)
+        # print("Percentage of black above green: ", gs_bkpct)  
+
+        # #~ Test if green is left or right of black
+        # #TODO: mask out green above black line 
+        # #TODO: might want to consider moving confidence votes out of the black percent check so that the circle triggers more easily 
+        # if gs_bkpct > GS_MIN_BKPCT:
+        #     gs_bkbeside = mask_black_org[gs_top: gs_bot]
+        #     gs_bkbeside[:, :30] = 0
+        #     gs_bkbeside[:, -30:] = 0
+        #     gs_black_moments = cv2.moments(gs_bkbeside)
+        #     cx_black = int(gs_black_moments["m10"]/gs_black_moments["m00"]) if np.sum(gs_bkbeside) else 0
+        #     # cv2.namedWindow('bkbeside', 2)
+        #     # cv2.resizeWindow('bkbeside', 550, 50)
+        #     # cv2.imshow('bkbeside', gs_bkbeside)
+        #     print("Cx_Black: ", cx_black)
+        #     print("Left: ", gs_left, " | right: ", gs_right)
             
-            #~ Confidence votes
-            if cx_black > gs_left and cx_black < gs_right and gs_sum > 200 and gs_width > 35: #! arbitrary numbers
-                gsVotes[2] += 1            
-            elif cx_black > gs_centre: #left
-                gsVotes[0] += 1
-            elif cx_black < gs_centre:
-                gsVotes[1] += 1 
-
-            print("Left Votes: ", gsVotes[0], " ||  Right Votes: ", gsVotes[1], " ||  Double Votes: ", gsVotes[2])
-
-            #~ Wait for green to reach near the bottom of frame
-            if gs_bot > 65: 
-                dir = gsVotes.index(max(gsVotes))
-
-                if dir == 2:
-                    curr = Task.DOUBLE_GREEN
-                    gs_now = True
-                    print(">" * 15, "Double green ", "<" * 15)
-                elif dir == 0:
-                    curr = Task.LEFT_GREEN
-                    gs_now = True
-                    print("'\033[41m'" + "<" * 40, "left green" + "'\033[0m'")
-                elif dir == 1:
-                    curr = Task.RIGHT_GREEN
-                    gs_now = True
-                    print("'\033[94m'" + "right green", ">" * 40 + "'\033[0m'")
+        #     
+        #     if cx_black > gs_left and cx_black < gs_right and gs_sum > 220 and gs_width > 35: #! arbitrary numbers
+        #         gsVotes[2] += 1            
+        #     elif cx_black > gs_centre: #left
+        #         gsVotes[0] += 1
+        #     anelif cx_black < gs_centre:
+        #         gsVotes[1] += 1 
 
         else:
             gsVotes[0] -= 1
             gsVotes[1] -= 1
             gsVotes[2] -= 1
-    
+            
+        print("Left Votes: ", gsVotes[0], " ||  Right Votes: ", gsVotes[1], " ||  Double Votes: ", gsVotes[2])
     #~ Reset green votes
     elif gs_sum < 100:
         gsVotes = [0, 0, 0]
+
 
     #* RESCUE KIT
 
@@ -605,22 +684,15 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
     # evac_org = top_stream.read()
     # out.write(evac_org)
     # frame_org = cv2.pyrDown(frame_org, dstsize=(top_stream_width_org//2, top_stream_height_org//2))
-    evac_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
-    evac_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
-    evac_sat_mask = cv2.inRange(evac_hsv, u_sat_thresh, l_sat_thresh)
-    evac_max = np.amax(frame_org, axis=2)
-    evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
-    evac_max = evac_max[:evac_height, :]
     
-    #* CIRCLE DETECTION (using sat max)
-    #^ DOM: To finetune the detection of circles(reduce false positives), can consider changing the following params:
-    #^ (I still have no idea what dp does btw)
-    #^ 1. min and max radius
-    #^ 2. param1, which controls the sensitivity of the edge detection (gradient value); a higher value will reduce no. of circles detected
-    #^ 3. param2, which controls the threshold for circle detection; a larger value will reduce no. of circles detected
-    #^ Prev values were param1 = 200, param2 = 27
-
+    # frame_gray = cv2.cvtColor(frame_org, cv2.COLOR_BGR2GRAY)
+    evac_max = np.amax(frame_org, axis=2)
+    evac_hsv = cv2.cvtColor(frame_org, cv2.COLOR_BGR2HSV)
+    evac_sat_mask = cv2.inRange(evac_hsv, l_sat_thresh, u_sat_thresh)
+    evac_max = cv2.bitwise_and(evac_max, evac_max, mask=evac_sat_mask)
+    
     circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1 = param1 , param2=param2, minRadius= min_radius, maxRadius=max_radius)   
+
     balls = []
     # cv2.imshow("frame of ball", evac_max)
     if circles is not None: 
@@ -641,12 +713,12 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
         curr = Task.BALL
 
         #& Debug balls
-        # circles = np.uint16(np.around(circles))
-        # for i in circles[0,:]:
-        #     cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
-        #     cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
-        # cv2.imshow("ballz", cv2.pyrDown(evac_max))
-        # print(balls)
+        circles = np.uint16(np.around(circles))
+        for i in circles[0,:]:
+            cv2.circle(evac_max,(i[0],i[1]),i[2],(0,255,0),2)
+            cv2.circle(evac_max,(i[0],i[1]),2,(0,0,255),3)
+        # cv2.imshow("ballz", evac_max)
+        print(balls)
 
         closest_ball = max(balls, key=lambda b: b['y'])
         print("Closest ball:", closest_ball) #& debug ball
@@ -656,7 +728,7 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
         rotation = math.atan2(x_ball, y_ball) * 180/math.pi if y != 0 else 0
 
         #~ Type of ball
-        if closest_ball["black"] > 0.3: #! was previously 0.1
+        if closest_ball["black"] > 0.35: #! was previously 0.1
             ball_type = 1                                                                                                                                                           
         else:
             ball_type = 0
@@ -668,7 +740,9 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
             rotation = ((rotation/90) ** 0.5) * 90
         # print("rotation:", rotation)
         # print("task:", curr.value)
-    
+
+        circles = cv2.HoughCircles(evac_max, cv2.HOUGH_GRADIENT, dp, min_dist, param1 = param1 , param2=param2, minRadius= min_radius, maxRadius=max_radius)   
+
     #* NO BALL
     else:
         curr = Task.NOBALL
@@ -683,14 +757,14 @@ def task_1_ball(): #^ change all "evac_org" to "frame_org"
         rotation = -90
     rotation += 90
 
-    curr = Task.NOBALL
+    # curr = Task.NOBALL #& debug normal walltrack
 
     print("rotation", rotation)
 
     to_pico = [255, rotation, # 0 to 180, with 0 actually being -90 and 180 being 90
                 254, rpm_evac, # 0 to 200 MAX, but 100 really damn fast alr
                 253, curr.value,
-                249, ball_type] # 1: black, 0: silver
+                249, ball_type]
     
     print(curr.name)
     print(to_pico)
@@ -1108,8 +1182,10 @@ while True:
     key = cv2.waitKey(0)
     if key == ord('q'): # quit 
         break
+    elif key == ord('k'):
+        cv2.imwrite('hsvcalibimglol.jpg', frame_org)
     elif key == ord('a'): # analyse frame
-        task0_lt() #^ replace with the task you want to analyse im a bit lazy to write conditions (actually it wont be that hard but eh)
+        task_1_ball() #^ replace with the task you want to analyse im a bit lazy to write conditions (actually it wont be that hard but eh)
         print('-'*30)
     elif key == ord('s'): # skip to frame count
         current_frame = int(input("Enter frame to jump to: "))

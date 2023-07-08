@@ -26,7 +26,7 @@ def on_trackbar_change(x):
         # cv2.imshow("masked frame", frame_hsv)
 
 
-top_stream = cv2.VideoCapture('3rd_run.avi')
+top_stream = cv2.VideoCapture('testevac.avi')
 _, top_stream_frame = top_stream.read()
 # top_stream_width, top_stream_height = top_stream_frame.shape[1], top_stream_frame.shape[0]
 # print("Top camera width:", top_stream_width_org, "Camera height:", top_stream_height_org)
